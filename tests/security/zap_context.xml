@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<configuration>
+    <context>
+        <name>EpiSense-Production</name>
+        <desc>Authenticated context for OWASP ZAP scan of the EpiSense API</desc>
+        <inscope>true</inscope>
+        <incregexes>http://localhost:8000/.*</incregexes>
+        <tech>
+            <include>Db.PostgreSQL</include>
+            <include>Language.Python</include>
+            <include>WS.FastAPI</include>
+        </tech>
+        <authentication>
+            <type>5</type>
+            <strategy>EACH_RESP</strategy>
+            <pollurl/>
+            <polldata/>
+            <pollheaders/>
+            <pollfreq>60</pollfreq>
+            <pollunits>REQUESTS</pollunits>
+            <loggedout>\QHTTP/1.1 401 Unauthorized\E</loggedout>
+            <loggedin>\Q"email":\E</loggedin>
+            <form>
+                <loginurl>http://localhost:8000/api/v1/auth/login</loginurl>
+                <loginbody>email={%username%}&amp;password={%password%}</loginbody>
+                <loginpageurl>http://localhost:8000/api/v1/auth/login</loginpageurl>
+            </form>
+        </authentication>
+        <users>
+            <user>1;true;YWRtaW5AZXBpc2Vuc2UuY29t;admin;YWRtaW5AZXBpc2Vuc2UuY29t~cGFzc3dvcmQxMjM=</user>
+        </users>
+        <authorization>
+            <type>0</type>
+            <basic>
+                <header/>
+                <body/>
+                <logic>AND</logic>
+                <code>401</code>
+            </basic>
+        </authorization>
+    </context>
+</configuration>

@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.env
+backend/.env
+frontend/.env.local
+
+# ML Artifacts
+models/*.joblib
+!models/latest.json
+
+# Frontend
+node_modules/
+dist/
+.next/
+
+# OS
+.DS_Store
+*.swp
+
+# Security
+zap_report.html
+tests/security/zap_report/

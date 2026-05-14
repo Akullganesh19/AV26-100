@@ -1,0 +1,31 @@
+{
+  "name": "letant-legends",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@tanstack/react-query": "^5.40.0",
+    "axios": "^1.7.2",
+    "date-fns": "^3.6.0",
+    "lucide-react": "^0.390.0",
+    "react-hook-form": "^7.52.0",
+    "react-router-dom": "^6.23.1",
+    "react-simple-maps": "^3.0.0",
+    "recharts": "^2.12.7",
+    "sonner": "^1.5.0",
+    "zod": "^3.23.8",
+    "zustand": "^4.5.2"
+  },
+  "devDependencies": {
+    "autoprefixer": "^10.4.19",
+    "postcss": "^8.4.38",
+    "tailwindcss": "^3.4.1"
+  }
+}
