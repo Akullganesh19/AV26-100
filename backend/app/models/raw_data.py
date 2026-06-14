@@ -1,11 +1,17 @@
+from __future__ import annotations
+
 import uuid
 import enum
+from typing import TYPE_CHECKING
 from sqlalchemy import String, Integer, Date, ForeignKey, UniqueConstraint, Index, Enum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 from datetime import datetime, date
 
 from app.core.database import Base
+
+if TYPE_CHECKING:
+    from app.models.district import District
 
 
 class DataSource(str, enum.Enum):

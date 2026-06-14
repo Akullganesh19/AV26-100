@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from sqlalchemy import Table, Column, ForeignKey, UniqueConstraint
 from app.core.database import Base
 

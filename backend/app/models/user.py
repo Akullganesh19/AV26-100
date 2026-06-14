@@ -1,12 +1,20 @@
+from __future__ import annotations
+
 import uuid
 import enum
-from typing import List, Optional
+from typing import List, Optional, TYPE_CHECKING
 from sqlalchemy import String, Boolean, Integer, Enum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 from datetime import datetime
 
 from app.core.database import Base
+
+if TYPE_CHECKING:
+    from app.models.district import District
+    from app.models.scenario import Scenario
+    from app.models.alert import Alert
+    from app.models.password_reset_token import PasswordResetToken
 
 
 class UserRole(str, enum.Enum):

@@ -1,9 +1,15 @@
+from __future__ import annotations
+
 import uuid
+from typing import TYPE_CHECKING
 from sqlalchemy import String, Numeric, Date, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from datetime import date
 
 from app.core.database import Base
+
+if TYPE_CHECKING:
+    from app.models.district import District
 
 
 class VaccinationCoverage(Base):
