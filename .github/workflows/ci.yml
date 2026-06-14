@@ -55,6 +55,7 @@ jobs:
       env:
         DATABASE_URL: postgresql+asyncpg://episense:episense@localhost:5432/episense_test
         REDIS_HOST: localhost
+        SECRET_KEY: ci-test-secret-key-at-least-32-chars-long
       run: |
         export PYTHONPATH=$PYTHONPATH:$(pwd)/backend
         pytest backend/tests/ml/test_features.py
