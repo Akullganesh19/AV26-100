@@ -13,6 +13,14 @@ from app.core.database import SessionLocal
 from app.models.user import User, UserRole
 from app.schemas.auth import TokenPayload
 
+# Cache for Clerk JWKS
+clerk_key_cache = TTLCache(maxsize=1, ttl=3600)
+
+# OAuth2 Scheme
+reusable_oauth2 = OAuth2PasswordBearer(
+    tokenUrl=f"{settings.API_V1_STR}/auth/login"
+)
+
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 

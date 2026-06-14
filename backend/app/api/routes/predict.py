@@ -36,7 +36,9 @@ async def create_prediction(
             detail={"code": "INSUFFICIENT_HISTORY", "message": str(e)},
         )
     except Exception as e:
+        # Log internal inference failure for mission diagnostics
+        # In a real mission scenario, we would use logger.error() here.
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
-            detail=f"Inference engine failure: {str(e)}"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Epidemiological inference engine encountered an internal failure."
         )
