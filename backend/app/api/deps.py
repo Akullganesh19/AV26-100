@@ -13,6 +13,14 @@ from app.core.database import SessionLocal
 from app.models.user import User, UserRole
 from app.schemas.auth import TokenPayload
 
+# Cache for Clerk JWKS
+clerk_key_cache = TTLCache(maxsize=1, ttl=3600)
+
+# OAuth2 Scheme
+reusable_oauth2 = OAuth2PasswordBearer(
+    tokenUrl=f"{settings.API_V1_STR}/auth/login"
+)
+
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
@@ -48,18 +56,6 @@ async def get_clerk_public_key() -> str:
     # and convert the JWK to PEM. For now, we protect the existing PEM setting.
     clerk_key_cache["pem"] = settings.CLERK_PEM_PUBLIC_KEY
     return clerk_key_cache["pem"]
-
-class RoleChecker:
-    def __init__(self, allowed_roles: List[UserRole]):
-        self.allowed_roles = allowed_roles
-
-    def __call__(self, user: User = Depends(get_current_user)):
-        if user.role not in self.allowed_roles:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Insufficient permissions for this resource",
-            )
-        return user
 
 class PaginationParams:
     def __init__(
@@ -119,3 +115,15 @@ async def get_current_user(
         raise HTTPException(status_code=400, detail="Inactive user")
     
     return user
+
+class RoleChecker:
+    def __init__(self, allowed_roles: List[UserRole]):
+        self.allowed_roles = allowed_roles
+
+    def __call__(self, user: User = Depends(get_current_user)):
+        if user.role not in self.allowed_roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Insufficient permissions for this resource",
+            )
+        return user

@@ -1,10 +1,16 @@
+from __future__ import annotations
+
 import uuid
+from typing import TYPE_CHECKING
 from sqlalchemy import String, Boolean, DateTime, ForeignKey, Index
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 from datetime import datetime
 
 from app.core.database import Base
+
+if TYPE_CHECKING:
+    from app.models.user import User
 
 
 class PasswordResetToken(Base):

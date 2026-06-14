@@ -1,3 +1,4 @@
+import logging
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -8,6 +9,7 @@ from app.services.prediction_service import PredictionService
 from app.models.user import User
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 @router.post("/", response_model=PredictionResponse, status_code=status.HTTP_201_CREATED)
 @limiter.limit("5/minute") # Strict limit for compute-intensive SHAP inference
@@ -36,7 +38,9 @@ async def create_prediction(
             detail={"code": "INSUFFICIENT_HISTORY", "message": str(e)},
         )
     except Exception as e:
+        # Log internal inference failure for mission diagnostics
+        logger.error(f"Prediction inference failed: {str(e)}", exc_info=True)
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
-            detail=f"Inference engine failure: {str(e)}"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Epidemiological inference engine encountered an internal failure."
         )

@@ -1,10 +1,16 @@
+from __future__ import annotations
+
 import uuid
+from typing import TYPE_CHECKING
 from sqlalchemy import Numeric, Date, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 from datetime import datetime, date as datetime_date
 
 from app.core.database import Base
+
+if TYPE_CHECKING:
+    from app.models.district import District
 
 
 class EnvironmentalData(Base):

@@ -1,9 +1,20 @@
+from __future__ import annotations
+
 import uuid
-from typing import Optional, List
+from typing import Optional, List, TYPE_CHECKING
 from sqlalchemy import String, Numeric, Integer, Computed, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
+
+if TYPE_CHECKING:
+    from app.models.user import User
+    from app.models.raw_data import RawData
+    from app.models.environmental_data import EnvironmentalData
+    from app.models.vaccination_coverage import VaccinationCoverage
+    from app.models.prediction import Prediction
+    from app.models.alert import Alert
+    from app.models.scenario import Scenario
 
 
 class District(Base):

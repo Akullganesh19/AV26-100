@@ -1,12 +1,19 @@
+from __future__ import annotations
+
 import uuid
 import enum
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 from sqlalchemy import String, Numeric, Date, ForeignKey, JSON, UniqueConstraint, Enum, Index, Boolean
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 from datetime import datetime, date
 
 from app.core.database import Base
+
+if TYPE_CHECKING:
+    from app.models.district import District
+    from app.models.pipeline_run import PipelineRun
+    from app.models.alert import Alert
 
 
 class RiskTier(str, enum.Enum):
