@@ -1,3 +1,6 @@
+from __future__ import annotations
+from typing import TYPE_CHECKING
+from typing import List, Optional
 import uuid
 import enum
 from sqlalchemy import String, Numeric, Integer, ForeignKey, DateTime, Index, Enum
@@ -52,3 +55,8 @@ class Alert(Base):
         # Partial index for acknowledged_by to avoid indexing NULLs
         Index("ix_alert_acknowledged_by", acknowledged_by, postgres_where=(acknowledged_by != None)),
     )
+
+if TYPE_CHECKING:
+    from app.models.district import District
+    from app.models.prediction import Prediction
+    from app.models.user import User

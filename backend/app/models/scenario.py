@@ -1,3 +1,5 @@
+from __future__ import annotations
+from typing import TYPE_CHECKING
 import uuid
 from sqlalchemy import String, Numeric, ForeignKey, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -53,3 +55,6 @@ class SimulationState(Base):
     user: Mapped["User"] = relationship(back_populates="simulations")
 
 from typing import List
+
+if TYPE_CHECKING:
+    from app.models.user import User

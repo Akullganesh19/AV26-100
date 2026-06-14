@@ -1,3 +1,6 @@
+from __future__ import annotations
+from typing import TYPE_CHECKING
+from typing import List, Optional
 import uuid
 from sqlalchemy import String, Numeric, JSON
 from sqlalchemy.orm import Mapped, mapped_column

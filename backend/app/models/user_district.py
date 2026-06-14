@@ -1,3 +1,6 @@
+from __future__ import annotations
+from typing import TYPE_CHECKING
+from typing import List, Optional
 from sqlalchemy import Table, Column, ForeignKey, UniqueConstraint
 from app.core.database import Base
 

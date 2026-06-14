@@ -1,3 +1,5 @@
+from __future__ import annotations
+from typing import TYPE_CHECKING
 import uuid
 from typing import Optional, List
 from sqlalchemy import String, Integer, DateTime, Text
@@ -23,3 +25,6 @@ class PipelineRun(Base):
 
     # Relationships
     predictions: Mapped[List["Prediction"]] = relationship(back_populates="pipeline_run")
+
+if TYPE_CHECKING:
+    from app.models.prediction import Prediction
