@@ -1,4 +1,5 @@
 import uuid
+from typing import List
 from sqlalchemy import String, Numeric, ForeignKey, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
@@ -51,5 +52,3 @@ class SimulationState(Base):
     # Relationships
     scenario: Mapped["Scenario"] = relationship(back_populates="active_simulations")
     user: Mapped["User"] = relationship(back_populates="simulations")
-
-from typing import List
