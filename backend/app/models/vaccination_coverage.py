@@ -1,3 +1,5 @@
+from __future__ import annotations
+from typing import TYPE_CHECKING
 import uuid
 from sqlalchemy import String, Numeric, Date, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -21,3 +23,15 @@ class VaccinationCoverage(Base):
     __table_args__ = (
         UniqueConstraint("district_id", "disease", "as_of_date", name="uix_vacc_district_disease_date"),
     )
+
+if TYPE_CHECKING:
+    from .user import User
+    from .district import District
+    from .prediction import Prediction
+    from .alert import Alert
+    from .raw_data import RawData
+    from .environmental_data import EnvironmentalData
+    from .vaccination_coverage import VaccinationCoverage
+    from .pipeline_run import PipelineRun
+    from .scenario import Scenario, SimulationState, ScenarioEvent
+    from .password_reset_token import PasswordResetToken

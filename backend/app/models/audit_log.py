@@ -1,3 +1,5 @@
+from __future__ import annotations
+from typing import TYPE_CHECKING
 import uuid
 from sqlalchemy import String, Float, DateTime, ForeignKey, Text
 from sqlalchemy.orm import Mapped, mapped_column
@@ -22,3 +24,15 @@ class PredictionAuditLog(Base):
     
     # Optional: store metadata like deployment_id or hardware_tag
     metadata_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+if TYPE_CHECKING:
+    from .user import User
+    from .district import District
+    from .prediction import Prediction
+    from .alert import Alert
+    from .raw_data import RawData
+    from .environmental_data import EnvironmentalData
+    from .vaccination_coverage import VaccinationCoverage
+    from .pipeline_run import PipelineRun
+    from .scenario import Scenario, SimulationState, ScenarioEvent
+    from .password_reset_token import PasswordResetToken

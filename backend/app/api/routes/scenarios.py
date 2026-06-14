@@ -1,4 +1,4 @@
-from typing import Any, List
+from typing import Any, List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -67,5 +67,4 @@ async def advance_mission_clock(
     updated = await SimulationService.advance_day(db, str(sim.id))
     return updated
 
-from typing import Optional
 from sqlalchemy import and_

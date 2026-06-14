@@ -1,3 +1,5 @@
+from __future__ import annotations
+from typing import TYPE_CHECKING
 import uuid
 import enum
 from sqlalchemy import String, Numeric, Integer, ForeignKey, DateTime, Index, Enum
@@ -52,3 +54,15 @@ class Alert(Base):
         # Partial index for acknowledged_by to avoid indexing NULLs
         Index("ix_alert_acknowledged_by", acknowledged_by, postgres_where=(acknowledged_by != None)),
     )
+
+if TYPE_CHECKING:
+    from .user import User
+    from .district import District
+    from .prediction import Prediction
+    from .alert import Alert
+    from .raw_data import RawData
+    from .environmental_data import EnvironmentalData
+    from .vaccination_coverage import VaccinationCoverage
+    from .pipeline_run import PipelineRun
+    from .scenario import Scenario, SimulationState, ScenarioEvent
+    from .password_reset_token import PasswordResetToken
