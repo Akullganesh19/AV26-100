@@ -96,6 +96,7 @@ class PredictionService:
         self.explainer = ml_state["explainer"]
         self.manifest = ml_state["manifest"]
         self.feature_builder = FeatureBuilder(db)
+        self._db_lock = asyncio.Lock() # Protect non-concurrent-safe AsyncSession
 
     async def predict_single(
         self,
@@ -107,7 +108,8 @@ class PredictionService:
         overrides = overrides or {}
 
         # Step 1: extract real feature vector from DB
-        feature_df = await self.feature_builder.build(district_id, disease, as_of_date)
+        async with self._db_lock:
+            feature_df = await self.feature_builder.build(district_id, disease, as_of_date)
 
         if feature_df is None or feature_df.empty:
             raise ValueError(
@@ -158,16 +160,17 @@ class PredictionService:
             delta = round(raw_score - baseline_score, 2)
 
         # Step 6: persist to DB (idempotent)
-        prediction_id = await self._persist(
-            district_id=district_id,
-            disease=disease,
-            prediction_date=as_of_date,
-            risk_score=raw_score,
-            risk_tier=risk_tier,
-            feature_snapshot=X_sim.iloc[0].to_dict(),
-            shap_values=shap_dict,
-            extrapolation_warning=extrapolation_warning,
-        )
+        async with self._db_lock:
+            prediction_id = await self._persist(
+                district_id=district_id,
+                disease=disease,
+                prediction_date=as_of_date,
+                risk_score=raw_score,
+                risk_tier=risk_tier,
+                feature_snapshot=X_sim.iloc[0].to_dict(),
+                shap_values=shap_dict,
+                extrapolation_warning=extrapolation_warning,
+            )
 
         if extrapolation_warning:
             logger.warning(
