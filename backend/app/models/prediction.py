@@ -1,3 +1,5 @@
+from __future__ import annotations
+from typing import TYPE_CHECKING
 import uuid
 import enum
 from typing import Optional
@@ -41,3 +43,8 @@ class Prediction(Base):
         UniqueConstraint("district_id", "disease", "prediction_date", name="uix_pred_district_disease_date"),
         Index("ix_prediction_district_disease_date", "district_id", "disease", "prediction_date"),
     )
+
+if TYPE_CHECKING:
+    from app.models.district import District
+    from app.models.pipeline_run import PipelineRun
+    from app.models.alert import Alert

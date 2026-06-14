@@ -1,3 +1,6 @@
+from __future__ import annotations
+from typing import TYPE_CHECKING
+from typing import List, Optional
 import uuid
 from sqlalchemy import Numeric, Date, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -24,3 +27,6 @@ class EnvironmentalData(Base):
     __table_args__ = (
         UniqueConstraint("district_id", "date", name="uix_env_district_date"),
     )
+
+if TYPE_CHECKING:
+    from app.models.district import District

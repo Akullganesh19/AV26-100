@@ -1,3 +1,5 @@
+from __future__ import annotations
+from typing import TYPE_CHECKING
 import uuid
 from typing import Optional, List
 from sqlalchemy import String, Numeric, Integer, Computed, UniqueConstraint
@@ -49,3 +51,12 @@ class District(Base):
             "state": self.state,
             "state_code": self.state_code
         }
+
+if TYPE_CHECKING:
+    from app.models.user import User
+    from app.models.raw_data import RawData
+    from app.models.environmental_data import EnvironmentalData
+    from app.models.vaccination_coverage import VaccinationCoverage
+    from app.models.prediction import Prediction
+    from app.models.alert import Alert
+    from app.models.scenario import Scenario

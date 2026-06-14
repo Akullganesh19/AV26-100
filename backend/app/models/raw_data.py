@@ -1,3 +1,6 @@
+from __future__ import annotations
+from typing import TYPE_CHECKING
+from typing import List, Optional
 import uuid
 import enum
 from sqlalchemy import String, Integer, Date, ForeignKey, UniqueConstraint, Index, Enum
@@ -35,3 +38,6 @@ class RawData(Base):
         UniqueConstraint("district_id", "disease", "week_start_date", name="uix_raw_data_district_disease_date"),
         Index("ix_raw_data_district_disease_week", "district_id", "disease", week_start_date.desc()),
     )
+
+if TYPE_CHECKING:
+    from app.models.district import District

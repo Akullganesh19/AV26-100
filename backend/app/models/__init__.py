@@ -1,3 +1,5 @@
+from __future__ import annotations
+from typing import TYPE_CHECKING
 from app.core.database import Base
 from app.models.user import User
 from app.models.district import District

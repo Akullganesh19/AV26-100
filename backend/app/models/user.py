@@ -1,3 +1,5 @@
+from __future__ import annotations
+from typing import TYPE_CHECKING
 import uuid
 import enum
 from typing import List, Optional
@@ -40,3 +42,9 @@ class User(Base):
     scenarios: Mapped[List["Scenario"]] = relationship(back_populates="user")
     acknowledged_alerts: Mapped[List["Alert"]] = relationship(back_populates="acknowledged_by_user")
     password_reset_tokens: Mapped[List["PasswordResetToken"]] = relationship(back_populates="user")
+
+if TYPE_CHECKING:
+    from app.models.district import District
+    from app.models.scenario import Scenario
+    from app.models.alert import Alert
+    from app.models.password_reset_token import PasswordResetToken

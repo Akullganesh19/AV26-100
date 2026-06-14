@@ -1,3 +1,6 @@
+from __future__ import annotations
+from typing import TYPE_CHECKING
+from typing import List, Optional
 import uuid
 from sqlalchemy import String, Boolean, DateTime, ForeignKey, Index
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -23,3 +26,6 @@ class PasswordResetToken(Base):
     __table_args__ = (
         Index("ix_password_reset_token_hash", "token_hash"),
     )
+
+if TYPE_CHECKING:
+    from app.models.user import User

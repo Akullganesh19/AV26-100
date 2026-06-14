@@ -1,5 +1,5 @@
 # Palette's Journal
 
 ## 2025-05-14 - [Improve calculator accessibility and keyboard navigation]
-**Learning:** Many custom UI components (like sliders, checkboxes, and radio button groups) are often implemented using non-semantic elements or by hiding native inputs, which makes them inaccessible to screen readers and keyboard users. Using `sr-only` instead of `hidden` and adding ARIA roles/states is crucial for accessibility.
-**Action:** Always check custom form elements for keyboard focusability and ARIA roles. Use `sr-only` for native inputs that need to stay accessible.
+**Learning:** Custom UI components must use semantic ARIA roles and states (e.g., `radiogroup`, `radio`, `aria-checked`) to be accessible. Replaying `hidden` with `sr-only` is essential for keeping interactive elements in the tab order and accessibility tree while maintaining custom visuals. Focus rings are critical for keyboard navigation.
+**Action:** Always verify custom form elements for keyboard accessibility. Use `sr-only` for native inputs and ensure focus visibility.
