@@ -4,7 +4,7 @@ import httpx
 from cachetools import TTLCache
 from fastapi import Depends, HTTPException, status, Query, Request
 from fastapi.security import OAuth2PasswordBearer
-from jose import jwt
+import jwt
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -16,6 +16,9 @@ from app.schemas.auth import TokenPayload
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
+reusable_oauth2 = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/login/access-token")
+clerk_key_cache = TTLCache(maxsize=1, ttl=3600)
+
 def get_user_id(request: Request) -> str:
     """Extracts user ID from JWT or falls back to IP for unauthenticated requests."""
     try:
@@ -24,10 +27,10 @@ def get_user_id(request: Request) -> str:
             return f"ip:{get_remote_address(request)}"
         
         token = auth_header.split(" ")[1]
-        payload = jwt.get_unverified_claims(token)
+        payload = jwt.decode(token, options={"verify_signature": False, "verify_aud": False, "verify_iss": False, "verify_exp": False, "verify_nbf": False})
         user_id = payload.get("sub")
         return f"user:{user_id}" if user_id else f"ip:{get_remote_address(request)}"
-    except Exception:
+    except jwt.InvalidTokenError:
         return f"ip:{get_remote_address(request)}"
 
 limiter = Limiter(key_func=get_user_id)
@@ -49,6 +52,56 @@ async def get_clerk_public_key() -> str:
     clerk_key_cache["pem"] = settings.CLERK_PEM_PUBLIC_KEY
     return clerk_key_cache["pem"]
 
+async def get_current_user(
+    db: AsyncSession = Depends(get_db),
+    token: str = Depends(reusable_oauth2),
+    public_key: str = Depends(get_clerk_public_key)
+) -> User:
+    # 1. Check Redis Revocation List
+    import redis.asyncio as redis
+    from app.core.config import settings
+    r = redis.from_url(settings.CELERY_BROKER_URL) # Reuse Redis host
+    
+    try:
+        # Extract JTI (Unique Token ID)
+        payload_unverified = jwt.decode(token, options={"verify_signature": False, "verify_aud": False, "verify_iss": False, "verify_exp": False, "verify_nbf": False})
+        jti = payload_unverified.get("jti")
+        if jti and await r.get(f"revoked_token:{jti}"):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token has been revoked",
+            )
+    except jwt.InvalidTokenError:
+        pass # Fall through to standard verification
+    finally:
+        await r.aclose()
+
+    try:
+        payload = jwt.decode(
+            token, 
+            public_key, 
+            algorithms=["RS256"],
+            issuer=settings.CLERK_ISSUER,
+            audience=settings.CLERK_AUDIENCE,
+            options={"verify_aud": True, "verify_iss": True}
+        )
+        clerk_id = payload.get("sub")
+    except jwt.InvalidTokenError:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Could not validate credentials",
+        )
+    
+    result = await db.execute(select(User).where(User.clerk_id == clerk_id))
+    user = result.scalar_one_or_none()
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    if not user.is_active:
+        raise HTTPException(status_code=400, detail="Inactive user")
+    
+    return user
+
 class RoleChecker:
     def __init__(self, allowed_roles: List[UserRole]):
         self.allowed_roles = allowed_roles
@@ -69,53 +122,3 @@ class PaginationParams:
     ):
         self.cursor = cursor
         self.limit = limit
-
-async def get_current_user(
-    db: AsyncSession = Depends(get_db),
-    token: str = Depends(reusable_oauth2),
-    public_key: str = Depends(get_clerk_public_key)
-) -> User:
-    # 1. Check Redis Revocation List
-    import redis.asyncio as redis
-    from app.core.config import settings
-    r = redis.from_url(settings.CELERY_BROKER_URL) # Reuse Redis host
-    
-    try:
-        # Extract JTI (Unique Token ID)
-        payload_unverified = jwt.get_unverified_claims(token)
-        jti = payload_unverified.get("jti")
-        if jti and await r.get(f"revoked_token:{jti}"):
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Token has been revoked",
-            )
-    except Exception:
-        pass # Fall through to standard verification
-    finally:
-        await r.aclose()
-
-    try:
-        payload = jwt.decode(
-            token, 
-            public_key, 
-            algorithms=["RS256"],
-            issuer=settings.CLERK_ISSUER,
-            audience=settings.CLERK_AUDIENCE,
-            options={"verify_aud": True, "verify_iss": True}
-        )
-        clerk_id = payload.get("sub")
-    except Exception:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Could not validate credentials",
-        )
-    
-    result = await db.execute(select(User).where(User.clerk_id == clerk_id))
-    user = result.scalar_one_or_none()
-    
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    if not user.is_active:
-        raise HTTPException(status_code=400, detail="Inactive user")
-    
-    return user

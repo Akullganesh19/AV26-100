@@ -1,3 +1,4 @@
+from typing import List
 import uuid
 from sqlalchemy import String, Numeric, ForeignKey, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
