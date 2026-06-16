@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { 
   TrendingUp, 
   Users, 
@@ -34,28 +34,28 @@ const Dashboard: React.FC = () => {
     }
   });
 
-  const stats = [
+  const stats = useMemo(() => [
     { label: 'System Risk Index', value: dashboardStats?.avg_risk || '42.8', delta: '+2.4%', trend: 'up', icon: Activity },
     { label: 'Active Alerts', value: dashboardStats?.active_alerts || '12', delta: '-1', trend: 'down', icon: Bell },
     { label: 'Population Covered', value: dashboardStats?.population_covered || '4.2M', delta: 'stable', trend: 'neutral', icon: Users },
     { label: 'Monitored Districts', value: dashboardStats?.total_districts || '50', delta: 'all active', trend: 'neutral', icon: MapIcon },
-  ];
+  ], [dashboardStats]);
 
-  const chartData = [
+  const chartData = useMemo(() => [
     { name: 'Low', count: 28, color: 'var(--color-risk-low)' },
     { name: 'Medium', count: 14, color: 'var(--color-risk-medium)' },
     { name: 'High', count: 6, color: 'var(--color-risk-high)' },
     { name: 'Critical', count: 2, color: 'var(--color-risk-critical)' },
-  ];
+  ], []);
 
-  const trendData = [
+  const trendData = useMemo(() => [
     { week: 'W1', risk: 35 },
     { week: 'W2', risk: 38 },
     { week: 'W3', risk: 42 },
     { week: 'W4', risk: 40 },
     { week: 'W5', risk: 45 },
     { week: 'W6', risk: 42.8 },
-  ];
+  ], []);
 
   return (
     <div className="space-y-8 animate-in fade-in duration-700">

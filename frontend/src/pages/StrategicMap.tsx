@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useCallback } from 'react';
 import { MapContainer, TileLayer, GeoJSON, Tooltip, ZoomControl } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useQuery } from '@tanstack/react-query';
@@ -44,7 +44,7 @@ const StrategicMap: React.FC = () => {
     }, { HIGH: 0, MEDIUM: 0, LOW: 0 });
   }, [districtData]);
 
-  const styleFeature = (feature: any) => {
+  const styleFeature = useCallback((feature: any) => {
     const districtId = feature.properties.district_id;
     const district = riskMap[districtId];
     return {
@@ -53,9 +53,9 @@ const StrategicMap: React.FC = () => {
       color: "#1f2937",
       weight: 0.8,
     };
-  };
+  }, [riskMap]);
 
-  const onEachFeature = (feature: any, layer: any) => {
+  const onEachFeature = useCallback((feature: any, layer: any) => {
     const districtId = feature.properties.district_id;
     const d = riskMap[districtId];
     if (d) {
@@ -76,7 +76,7 @@ const StrategicMap: React.FC = () => {
         </div>
       `, { sticky: true, className: 'glass-panel border-white/10 rounded-xl overflow-hidden shadow-2xl' });
     }
-  };
+  }, [riskMap]);
 
   if (isLoading) {
     return (
