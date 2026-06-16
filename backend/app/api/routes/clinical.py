@@ -151,3 +151,36 @@ async def generate_screening_report(
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"PDF generation failed: {str(e)}")
+
+
+@router.get("/history", response_model=List[Dict[str, Any]])
+async def get_screening_history(
+    db: AsyncSession = Depends(get_db),
+    current_user: Any = Depends(deps.get_current_user),
+    limit: int = 50
+) -> Any:
+    """
+    Retrieve the tactical screening history for the authenticated officer.
+    """
+    from sqlalchemy import select
+    from app.models.audit_log import PredictionAuditLog
+
+    query = select(PredictionAuditLog).where(
+        PredictionAuditLog.user_id == current_user.id
+    ).order_by(PredictionAuditLog.timestamp.desc()).limit(limit)
+
+    result = await db.execute(query)
+    logs = result.scalars().all()
+
+    return [
+        {
+            "id": str(log.id),
+            "endpoint": log.endpoint,
+            "risk_score": log.risk_score,
+            "model_version": log.model_version,
+            "status": log.status,
+            "timestamp": log.timestamp.isoformat(),
+            "district_id": str(log.district_id) if log.district_id else None
+        }
+        for log in logs
+    ]

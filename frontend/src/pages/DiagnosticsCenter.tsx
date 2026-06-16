@@ -8,14 +8,16 @@ import {
   AlertTriangle, 
   CheckCircle2,
   Stethoscope,
+  History,
   Info,
   Download
 } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
 import { useSearchParams } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 
-type DiseaseType = 'heart' | 'diabetes' | 'parkinsons';
+type DiseaseType = 'heart' | 'diabetes' | 'parkinsons' | 'history';
 
 const DiagnosticsCenter: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -122,6 +124,21 @@ const DiagnosticsCenter: React.FC = () => {
             <Brain className={activeTab === 'parkinsons' ? 'text-emerald-500' : ''} />
             <span className="font-medium">Parkinson's</span>
           </button>
+          <button
+            onClick={() => setActiveTab('history')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all border ${
+              activeTab === 'history'
+              ? 'bg-slate-800/80 border-slate-700 text-white shadow-lg'
+              : 'bg-slate-900/50 border-slate-800 text-slate-400 hover:bg-slate-800/50 hover:text-white'
+            }`}
+          >
+            <History className={activeTab === 'history' ? 'text-slate-300' : ''} />
+            <div className="text-left">
+              <p className="font-bold text-sm">Screening Log</p>
+              <p className="text-[10px] uppercase tracking-widest opacity-60">Mission History</p>
+            </div>
+          </button>
+
 
           <div className="mt-8 p-4 rounded-xl bg-slate-900/50 border border-slate-800/50">
             <h3 className="text-sm font-semibold text-slate-300 flex items-center gap-2 mb-2">
@@ -143,14 +160,16 @@ const DiagnosticsCenter: React.FC = () => {
               {activeTab === 'heart' && <><Activity className="text-emerald-500" /> Heart Risk Assessment</>}
               {activeTab === 'diabetes' && <><Droplet className="text-emerald-500" /> Metabolic Screening</>}
               {activeTab === 'parkinsons' && <><Brain className="text-emerald-500" /> Neuro-vocal Analysis</>}
+              {activeTab === 'history' && <><History className="text-slate-400" /> Tactical Screening Log</>}
             </h2>
 
             {activeTab === 'heart' && <HeartForm onSubmit={handleDiagnose} loading={loading} />}
             {activeTab === 'diabetes' && <DiabetesForm onSubmit={handleDiagnose} loading={loading} />}
             {activeTab === 'parkinsons' && <ParkinsonsForm onSubmit={handleDiagnose} loading={loading} />}
+            {activeTab === 'history' && <ScreeningHistory />}
           </div>
 
-          {prediction && (
+          {prediction && activeTab !== 'history' && (
             <div className={`p-6 rounded-2xl border animate-in zoom-in-95 duration-300 ${
               prediction.risk 
               ? 'bg-red-500/10 border-red-500/30' 
@@ -337,3 +356,64 @@ const Select = ({ label, value, options, onChange }: any) => (
 );
 
 export default DiagnosticsCenter;
+
+
+const ScreeningHistory = () => {
+  const { data: logs, isLoading } = useQuery({
+    queryKey: ['clinical-history'],
+    queryFn: async () => {
+      const response = await axios.get(`${import.meta.env.VITE_API_URL}/clinical/history`);
+      return response.data;
+    }
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 gap-4">
+        <Activity className="animate-spin text-emerald-500" />
+        <p className="text-slate-500 font-mono text-xs uppercase tracking-widest">Retrieving Mission Logs...</p>
+      </div>
+    );
+  }
+
+  if (!logs || logs.length === 0) {
+    return (
+      <div className="p-12 rounded-3xl border border-dashed border-slate-800 flex flex-col items-center gap-4 text-center">
+        <History className="h-12 w-12 text-slate-700" />
+        <p className="text-slate-400">No tactical screenings recorded yet.</p>
+        <p className="text-slate-600 text-sm">Initiate a screening to begin tracking mission history.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4 animate-in fade-in zoom-in-95 duration-300">
+      <h3 className="text-sm font-bold uppercase tracking-widest text-slate-500 mb-6">Recent Screenings</h3>
+      {logs.map((log: any) => (
+        <div key={log.id} className="glass-panel p-4 rounded-xl border border-white/5 hover:bg-white/5 transition-all flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className={`p-2 rounded-lg ${log.risk_score > 0.7 ? 'bg-red-500/10' : 'bg-emerald-500/10'}`}>
+               {log.endpoint.includes('heart') ? <Activity className={log.risk_score > 0.7 ? 'text-red-500' : 'text-emerald-500'} size={20} /> :
+                log.endpoint.includes('diabetes') ? <Droplet className={log.risk_score > 0.7 ? 'text-red-500' : 'text-emerald-500'} size={20} /> :
+                <Brain className={log.risk_score > 0.7 ? 'text-red-500' : 'text-emerald-500'} size={20} />}
+            </div>
+            <div>
+              <p className="text-white font-bold uppercase tracking-wide text-sm">
+                {log.endpoint.replace('clinical/', '')} Screening
+              </p>
+              <p className="text-xs text-slate-500 font-mono">
+                {new Date(log.timestamp).toLocaleString()}
+              </p>
+            </div>
+          </div>
+          <div className="text-right">
+            <p className="text-[10px] uppercase tracking-widest text-slate-500">Risk Score</p>
+            <p className={`font-bold ${log.risk_score > 0.7 ? 'text-red-400' : 'text-emerald-400'}`}>
+              {(log.risk_score * 100).toFixed(1)}%
+            </p>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
