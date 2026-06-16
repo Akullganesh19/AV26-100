@@ -18,7 +18,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from app.core.config import settings
 from app.ml.features import FeatureBuilder, FEATURE_NAMES
 from app.models.prediction import Prediction, RiskTier
-from app.schemas.prediction import PredictionResponse
+from app.schemas.prediction import PredictionResponse, PredictionResult
 from app.tasks.alerts import send_alert_notification
 
 logger = logging.getLogger(__name__)
@@ -161,7 +161,7 @@ class PredictionService:
 
         # Step 6: persist to DB (idempotent)
         async with self._db_lock:
-            prediction_id = await self._persist(
+            prediction_result = PredictionResult(
                 district_id=district_id,
                 disease=disease,
                 prediction_date=as_of_date,
@@ -171,6 +171,7 @@ class PredictionService:
                 shap_values=shap_dict,
                 extrapolation_warning=extrapolation_warning,
             )
+            prediction_id = await self._persist(prediction_result)
 
         if extrapolation_warning:
             logger.warning(
@@ -274,30 +275,19 @@ class PredictionService:
                 ood.append(feat)
         return (len(ood) > 0, ood)
 
-    async def _persist(
-        self,
-        district_id: UUID,
-        disease: str,
-        prediction_date: date,
-        risk_score: float,
-        risk_tier: RiskTier,
-        feature_snapshot: dict,
-        shap_values: dict,
-        extrapolation_warning: bool,
-    ) -> UUID:
-
+    async def _persist(self, result: PredictionResult) -> UUID:
         stmt = (
             pg_insert(Prediction)
             .values(
-                district_id=district_id,
-                disease=disease,
-                prediction_date=prediction_date,
-                risk_score=risk_score,
-                risk_tier=risk_tier,
+                district_id=result.district_id,
+                disease=result.disease,
+                prediction_date=result.prediction_date,
+                risk_score=result.risk_score,
+                risk_tier=result.risk_tier,
                 model_version=self.manifest["version"],
-                feature_snapshot=feature_snapshot,
-                shap_values=shap_values,
-                extrapolation_warning=extrapolation_warning,
+                feature_snapshot=result.feature_snapshot,
+                shap_values=result.shap_values,
+                extrapolation_warning=result.extrapolation_warning,
                 pipeline_run_id=None,  # set by scheduled pipeline, None for on-demand
             )
             .on_conflict_do_nothing(
@@ -305,16 +295,16 @@ class PredictionService:
             )
             .returning(Prediction.id)
         )
-        result = await self.db.execute(stmt)
+        res = await self.db.execute(stmt)
         await self.db.commit()
-        row = result.fetchone()
+        row = res.fetchone()
         if row is None:
             # Row already existed — fetch the existing id
             existing = await self.db.execute(
                 Prediction.__table__.select().where(
-                    Prediction.district_id == district_id,
-                    Prediction.disease == disease,
-                    Prediction.prediction_date == prediction_date,
+                    Prediction.district_id == result.district_id,
+                    Prediction.disease == result.disease,
+                    Prediction.prediction_date == result.prediction_date,
                     Prediction.model_version == self.manifest["version"],
                 )
             )
