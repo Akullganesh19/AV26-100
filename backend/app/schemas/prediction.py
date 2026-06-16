@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from datetime import date
 from typing import Dict, Any, Optional
 from uuid import UUID
@@ -34,4 +35,16 @@ class PredictionResponse(BaseModel):
     delta: Optional[float] = None
     shap_values: Dict[str, float]
     model_version: str
+    extrapolation_warning: bool
+
+
+@dataclass
+class PredictionResult:
+    district_id: UUID
+    disease: str
+    prediction_date: date
+    risk_score: float
+    risk_tier: RiskTier
+    feature_snapshot: Dict[str, Any]
+    shap_values: Dict[str, float]
     extrapolation_warning: bool
