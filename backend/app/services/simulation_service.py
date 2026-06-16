@@ -57,6 +57,8 @@ class SimulationService:
         events_res = await db.execute(event_query)
         events = events_res.scalars().all()
 
+        evaluations_needed = set()
+
         for event in events:
             if event.event_type == "CLINICAL_SURGE":
                 # Inject 6 HIGH risk screenings to trigger a cluster alert immediately
@@ -73,8 +75,8 @@ class SimulationService:
                     )
                     db.add(audit)
                 
-                # Immediate Evaluation (Push logic)
-                await AlertService.evaluate_clinical_cluster(db, event.district_id, event.disease)
+                # De-duplicate evaluations to prevent N+1 queries
+                evaluations_needed.add((event.district_id, event.disease))
 
             elif event.event_type == "FORECAST_SPIKE":
                 # Create a pseudo-alert directly from the simulation engine
@@ -87,6 +89,10 @@ class SimulationService:
                     metadata_json=json.dumps({"source": "simulation", "day": sim.current_day})
                 )
                 db.add(new_alert)
+
+        # Run evaluations sequentially after the loop
+        for district_id, disease in evaluations_needed:
+            await AlertService.evaluate_clinical_cluster(db, district_id, disease)
 
         await db.commit()
         await db.refresh(sim)
