@@ -1,7 +1,7 @@
 {
   "name": "letant-legends",
   "version": "1.0.0",
-  "description": "",
+  "description": "EpiSense is a dual-track epidemiological intelligence platform designed for regional health mission coordination. It provides a vertical slice from clinical triage to autonomous threat detection.",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -27,5 +27,16 @@
     "autoprefixer": "^10.4.19",
     "postcss": "^8.4.38",
     "tailwindcss": "^3.4.1"
-  }
+  },
+  "directories": {
+    "test": "tests"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Akullganesh19/AV26-100.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Akullganesh19/AV26-100/issues"
+  },
+  "homepage": "https://github.com/Akullganesh19/AV26-100#readme"
 }
