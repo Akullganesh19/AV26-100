@@ -62,5 +62,5 @@ jobs:
         REDIS_HOST: localhost
       run: |
         export PYTHONPATH=$PYTHONPATH:$(pwd)/backend
-        PGPASSWORD=episense psql -h localhost -U episense -c "CREATE DATABASE episense_test_test;"
+        PGPASSWORD=episense psql -h localhost -U episense -d episense_test -c "CREATE DATABASE episense_test_test;"
         pytest backend/tests/ml/test_features.py
