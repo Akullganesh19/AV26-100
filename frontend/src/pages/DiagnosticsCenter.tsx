@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useId } from 'react';
 import { 
   Activity, 
   Droplet, 
@@ -277,8 +277,9 @@ const ParkinsonsForm = ({ onSubmit, loading }: { onSubmit: (data: any) => void, 
         <div className="flex flex-wrap gap-2">
           {vocalMetrics.map((v, i) => (
             <div key={i} className="flex flex-col gap-1 w-20">
-              <span className="text-[10px] text-slate-500 font-mono">#{i+1}</span>
+              <label htmlFor={`vocal-metric-${i}`} className="text-[10px] text-slate-500 font-mono">#{i+1}</label>
               <input 
+                id={`vocal-metric-${i}`}
                 type="number" 
                 step="0.0001"
                 className="bg-slate-900 border border-slate-700 rounded px-1 py-0.5 text-xs text-white"
@@ -306,34 +307,42 @@ const ParkinsonsForm = ({ onSubmit, loading }: { onSubmit: (data: any) => void, 
 };
 
 // UI Helpers
-const Input = ({ label, type, value, onChange, step }: any) => (
-  <div className="flex flex-col gap-1.5">
-    <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{label}</label>
-    <input 
-      type={type} 
-      step={step}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="bg-slate-900/80 border border-slate-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all"
-    />
-  </div>
-);
+const Input = ({ label, type, value, onChange, step }: any) => {
+  const id = useId();
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label htmlFor={id} className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{label}</label>
+      <input
+        id={id}
+        type={type}
+        step={step}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="bg-slate-900/80 border border-slate-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all"
+      />
+    </div>
+  );
+};
 
-const Select = ({ label, value, options, onChange }: any) => (
-  <div className="flex flex-col gap-1.5">
-    <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{label}</label>
-    <select 
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="bg-slate-900/80 border border-slate-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all"
-    >
-      {options.map((o: any) => (
-        <option key={typeof o === 'object' ? o.v : o} value={typeof o === 'object' ? o.v : o}>
-          {typeof o === 'object' ? o.l : o}
-        </option>
-      ))}
-    </select>
-  </div>
-);
+const Select = ({ label, value, options, onChange }: any) => {
+  const id = useId();
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label htmlFor={id} className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{label}</label>
+      <select
+        id={id}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="bg-slate-900/80 border border-slate-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all"
+      >
+        {options.map((o: any) => (
+          <option key={typeof o === 'object' ? o.v : o} value={typeof o === 'object' ? o.v : o}>
+            {typeof o === 'object' ? o.l : o}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+};
 
 export default DiagnosticsCenter;
