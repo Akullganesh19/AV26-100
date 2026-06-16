@@ -51,6 +51,12 @@ jobs:
         pip install flake8
         flake8 backend/app --count --select=E9,F63,F7,F82 --show-source --statistics
 
+    - name: Setup Test Databases
+      env:
+        PGPASSWORD: episense
+      run: |
+        psql -h localhost -U episense -d postgres -c "CREATE DATABASE episense_test_test;"
+
     - name: Run Tests
       env:
         DATABASE_URL: postgresql+asyncpg://episense:episense@localhost:5432/episense_test
