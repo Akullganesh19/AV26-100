@@ -30,6 +30,7 @@ apiClient.interceptors.response.use(
 
 // Invisible Infrastructure: Request Coalescing
 // Prevents identical simultaneous GET requests by returning the same promise.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const inFlight = new Map<string, Promise<any>>();
 const originalGet = apiClient.get;
 
@@ -40,7 +41,7 @@ apiClient.get = async function <T = any, R = import('axios').AxiosResponse<T>, D
 
   if (inFlight.has(key)) {
     // Return the existing promise instead of making a new request
-    return inFlight.get(key);
+    return inFlight.get(key)!;
   }
 
   // Make the actual request and store the promise

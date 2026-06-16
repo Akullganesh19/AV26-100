@@ -1,4 +1,3 @@
-/* eslint-disable */
 import { useState, useMemo } from 'react';
 import { Check } from 'lucide-react';
 import { toast } from 'sonner';
