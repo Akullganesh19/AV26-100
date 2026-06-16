@@ -26,11 +26,15 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+      env:
+        FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
       with:
         fetch-depth: 0
     
     - name: Set up Python
       uses: actions/setup-python@v5
+      env:
+        FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
       with:
         python-version: '3.9'
         cache: 'pip'
@@ -58,4 +62,5 @@ jobs:
         REDIS_HOST: localhost
       run: |
         export PYTHONPATH=$PYTHONPATH:$(pwd)/backend
+        PGPASSWORD=episense psql -h localhost -U episense -c "CREATE DATABASE episense_test_test;"
         pytest backend/tests/ml/test_features.py
