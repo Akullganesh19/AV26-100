@@ -1,0 +1,6 @@
+## 2026-06-16 — Hover-Intent Route Prefetching
+**Product understood as:** EpiSense is a disease outbreak prediction and epidemiological monitoring platform. It provides dashboards, geospatial risk matrix (Strategic Map), tactical alerts, and simulation labs. Users are primarily health officers or analysts monitoring these risks and conducting clinical triages.
+**Prediction invented:** Hover-Intent Route Prefetching. We predict the user's navigation intent by detecting when their cursor hovers over a navigation link in the sidebar, fetching the heavy data payload in the background before they even click.
+**Data used:** User mouse movement (hover events) over sidebar navigation items (`/alerts`, `/map`, `/simulations`, `/`).
+**Impact:** Users experience instantaneous page loads when navigating between major sections of the app (like Tactical Alerts or Strategic Map), as the network request is initiated ~200-400ms before the actual click event resolves and the component mounts. Perceived latency drops to near zero.
+**Next opportunity:** We could prefetch individual district detail information or generate tactical PDF reports proactively when a user hovers over a high-risk district marker on the Strategic Map.
