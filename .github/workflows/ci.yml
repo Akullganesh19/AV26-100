@@ -35,6 +35,10 @@ jobs:
         python-version: '3.9'
         cache: 'pip'
 
+    - name: Create Test DB
+      run: |
+        PGPASSWORD=episense psql -h localhost -U episense -d episense_test -c "CREATE DATABASE episense_test_test OWNER episense;"
+
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
