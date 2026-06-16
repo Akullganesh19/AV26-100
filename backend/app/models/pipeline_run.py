@@ -1,3 +1,5 @@
+from __future__ import annotations
+from typing import TYPE_CHECKING
 import uuid
 from typing import Optional, List
 from sqlalchemy import String, Integer, DateTime, Text
@@ -23,3 +25,15 @@ class PipelineRun(Base):
 
     # Relationships
     predictions: Mapped[List["Prediction"]] = relationship(back_populates="pipeline_run")
+
+if TYPE_CHECKING:
+    from .user import User
+    from .district import District
+    from .prediction import Prediction
+    from .alert import Alert
+    from .raw_data import RawData
+    from .environmental_data import EnvironmentalData
+    from .vaccination_coverage import VaccinationCoverage
+    from .pipeline_run import PipelineRun
+    from .scenario import Scenario, SimulationState, ScenarioEvent
+    from .password_reset_token import PasswordResetToken

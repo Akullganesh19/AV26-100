@@ -25,10 +25,12 @@ jobs:
           --health-retries 5
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
     
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: '3.9'
         cache: 'pip'
@@ -40,9 +42,9 @@ jobs:
         pip install pytest pytest-asyncio httpx psycopg2-binary
 
     - name: Run Gitleaks Secret Scan
-      uses: gitleaks/gitleaks-action@v2
-      with:
-        config-path: .gitleaks.toml
+      uses: gitleaks/gitleaks-action@v3
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Run Linting
       run: |
@@ -52,6 +54,7 @@ jobs:
     - name: Run Tests
       env:
         DATABASE_URL: postgresql+asyncpg://episense:episense@localhost:5432/episense_test
+        SECRET_KEY: test_secret_key_for_ci
         REDIS_HOST: localhost
       run: |
         export PYTHONPATH=$PYTHONPATH:$(pwd)/backend

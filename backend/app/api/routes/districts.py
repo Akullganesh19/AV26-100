@@ -31,12 +31,18 @@ async def list_districts(
         result = await db.execute(query)
         districts = result.scalars().all()
         
+        # Batch predict all districts concurrently for significant performance boost
+        # Reduced from N sequential calls to concurrent execution with controlled semaphore
+        district_ids = [d.id for d in districts]
+        predictions = await service.predict_batch(district_ids, disease, date.today())
+
+        # Map predictions by district_id for easy lookup
+        pred_map = {p.district_id: p for p in predictions}
+
         output = []
         for d in districts:
-            try:
-                # predict_single is idempotent
-                pred = await service.predict_single(d.id, disease, date.today())
-                
+            pred = pred_map.get(d.id)
+            if pred:
                 output.append({
                     "id": str(d.id),
                     "name": d.name,
@@ -47,7 +53,7 @@ async def list_districts(
                     "last_updated": pred.prediction_date.isoformat(),
                     "extrapolation_warning": pred.extrapolation_warning
                 })
-            except Exception as e:
+            else:
                 output.append({
                     "id": str(d.id),
                     "name": d.name,

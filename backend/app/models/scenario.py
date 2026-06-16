@@ -1,4 +1,7 @@
+from __future__ import annotations
+from typing import TYPE_CHECKING
 import uuid
+from typing import List
 from sqlalchemy import String, Numeric, ForeignKey, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
@@ -52,4 +55,14 @@ class SimulationState(Base):
     scenario: Mapped["Scenario"] = relationship(back_populates="active_simulations")
     user: Mapped["User"] = relationship(back_populates="simulations")
 
-from typing import List
+if TYPE_CHECKING:
+    from .user import User
+    from .district import District
+    from .prediction import Prediction
+    from .alert import Alert
+    from .raw_data import RawData
+    from .environmental_data import EnvironmentalData
+    from .vaccination_coverage import VaccinationCoverage
+    from .pipeline_run import PipelineRun
+    from .scenario import Scenario, SimulationState, ScenarioEvent
+    from .password_reset_token import PasswordResetToken

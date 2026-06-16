@@ -96,6 +96,7 @@ class PredictionService:
         self.explainer = ml_state["explainer"]
         self.manifest = ml_state["manifest"]
         self.feature_builder = FeatureBuilder(db)
+        self._db_lock = asyncio.Lock() # Protect non-concurrent-safe AsyncSession
 
     async def predict_single(
         self,
@@ -107,7 +108,8 @@ class PredictionService:
         overrides = overrides or {}
 
         # Step 1: extract real feature vector from DB
-        feature_df = await self.feature_builder.build(district_id, disease, as_of_date)
+        async with self._db_lock:
+            feature_df = await self.feature_builder.build(district_id, disease, as_of_date)
 
         if feature_df is None or feature_df.empty:
             raise ValueError(
@@ -158,16 +160,17 @@ class PredictionService:
             delta = round(raw_score - baseline_score, 2)
 
         # Step 6: persist to DB (idempotent)
-        prediction_id = await self._persist(
-            district_id=district_id,
-            disease=disease,
-            prediction_date=as_of_date,
-            risk_score=raw_score,
-            risk_tier=risk_tier,
-            feature_snapshot=X_sim.iloc[0].to_dict(),
-            shap_values=shap_dict,
-            extrapolation_warning=extrapolation_warning,
-        )
+        async with self._db_lock:
+            prediction_id = await self._persist(
+                district_id=district_id,
+                disease=disease,
+                prediction_date=as_of_date,
+                risk_score=raw_score,
+                risk_tier=risk_tier,
+                feature_snapshot=X_sim.iloc[0].to_dict(),
+                shap_values=shap_dict,
+                extrapolation_warning=extrapolation_warning,
+            )
 
         if extrapolation_warning:
             logger.warning(
@@ -208,26 +211,33 @@ class PredictionService:
         district_ids: list[UUID],
         disease: str,
         as_of_date: date,
+        concurrency: int = 5
     ) -> list[PredictionResponse]:
         """
-        Used by the scheduled pipeline. Calls predict_single in sequence
-        (not concurrently) to avoid overwhelming the DB connection pool.
-        Failed districts are logged and skipped, not raised — a single bad
-        district must never abort the full batch.
+        Optimized batch inference using asyncio.gather for concurrency.
+        Uses a semaphore to prevent overwhelming the database connection pool or CPU.
         """
-        results = []
-        for district_id in district_ids:
-            try:
-                result = await self.predict_single(district_id, disease, as_of_date)
-                results.append(result)
-            except ValueError as exc:
-                logger.warning(f"Skipping district {district_id}: {exc}")
-            except Exception as exc:
-                logger.error(
-                    f"Unexpected error for district {district_id}: {exc}",
-                    exc_info=True,
-                )
-        return results
+        semaphore = asyncio.Semaphore(concurrency)
+
+        async def _predict_with_sem(d_id: UUID):
+            async with semaphore:
+                try:
+                    return await self.predict_single(d_id, disease, as_of_date)
+                except ValueError as exc:
+                    logger.warning(f"Skipping district {d_id}: {exc}")
+                    return None
+                except Exception as exc:
+                    logger.error(
+                        f"Unexpected error for district {d_id}: {exc}",
+                        exc_info=True,
+                    )
+                    return None
+
+        tasks = [_predict_with_sem(d_id) for d_id in district_ids]
+        results = await asyncio.gather(*tasks)
+
+        # Filter out skipped districts (None)
+        return [r for r in results if r is not None]
 
     # ── private methods ──────────────────────────────────────────────────────
 
