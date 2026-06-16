@@ -58,4 +58,6 @@ jobs:
         REDIS_HOST: localhost
       run: |
         export PYTHONPATH=$PYTHONPATH:$(pwd)/backend
+        # conftest.py dynamically appends _test to the connection URL
+        PGPASSWORD=episense psql -h localhost -U episense -d episense_test -c "CREATE DATABASE episense_test_test;"
         pytest backend/tests/ml/test_features.py
