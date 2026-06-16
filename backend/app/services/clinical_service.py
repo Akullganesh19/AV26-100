@@ -31,12 +31,13 @@ class ClinicalService:
         with open(MANIFEST_PATH, "r") as f:
             return json.load(f)
 
-    def _verify_and_load(self, name: str, path: Path):
+    def _verify_and_load(self, name: str, path: Path, expected_hash: Optional[str] = None):
         if not path.exists():
             raise FileNotFoundError(f"Model {name} not found at {path}")
         
-        expected = self._manifest["active"].get(name, {})
-        expected_hash = expected.get("sha256")
+        if expected_hash is None:
+            expected = self._manifest["active"].get(name, {})
+            expected_hash = expected.get("sha256")
         
         if not expected_hash:
             raise SecurityError(f"No hash defined for {name} in manifest!")
@@ -59,7 +60,10 @@ class ClinicalService:
             
             scaler_path = MODELS_DIR / f"scaler_{disease}.sav"
             if scaler_path.exists():
-                self._scalers[disease] = joblib.load(scaler_path)
+                scaler_hash = metadata.get("scaler_sha256")
+                # 🛡️ Sentinel: Deserialization fix
+                # Verify scaler hash before insecure deserialization (joblib/pickle)
+                self._scalers[disease] = self._verify_and_load(f"scaler_{disease}", scaler_path, expected_hash=scaler_hash)
             else:
                 self._scalers[disease] = None
 

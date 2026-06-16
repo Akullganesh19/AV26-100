@@ -16,6 +16,9 @@ from app.schemas.auth import TokenPayload
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
+clerk_key_cache = TTLCache(maxsize=1, ttl=3600)
+reusable_oauth2 = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/auth/login")
+
 def get_user_id(request: Request) -> str:
     """Extracts user ID from JWT or falls back to IP for unauthenticated requests."""
     try:
@@ -49,18 +52,6 @@ async def get_clerk_public_key() -> str:
     clerk_key_cache["pem"] = settings.CLERK_PEM_PUBLIC_KEY
     return clerk_key_cache["pem"]
 
-class RoleChecker:
-    def __init__(self, allowed_roles: List[UserRole]):
-        self.allowed_roles = allowed_roles
-
-    def __call__(self, user: User = Depends(get_current_user)):
-        if user.role not in self.allowed_roles:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Insufficient permissions for this resource",
-            )
-        return user
-
 class PaginationParams:
     def __init__(
         self,
@@ -89,8 +80,16 @@ async def get_current_user(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Token has been revoked",
             )
-    except Exception:
-        pass # Fall through to standard verification
+    except HTTPException:
+        raise
+    except jwt.JWTError:
+        pass # Fall through to standard verification (it will fail there)
+    except Exception as e:
+        # 🛡️ Sentinel: Do not fail open on Redis connection errors
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error during token validation",
+        )
     finally:
         await r.aclose()
 
@@ -119,3 +118,15 @@ async def get_current_user(
         raise HTTPException(status_code=400, detail="Inactive user")
     
     return user
+
+class RoleChecker:
+    def __init__(self, allowed_roles: List[UserRole]):
+        self.allowed_roles = allowed_roles
+
+    def __call__(self, user: User = Depends(get_current_user)):
+        if user.role not in self.allowed_roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Insufficient permissions for this resource",
+            )
+        return user
