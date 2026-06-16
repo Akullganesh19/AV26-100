@@ -1,0 +1,6 @@
+## 2026-06-16 — [Self-Healing External Call Resilience]
+**Failure point found:** External calls in `IntegrationService` (SendGrid, Algolia, Cloudinary) and `send_alert_notification` background task were unprotected. Transient errors or exceptions would cause silent failures, and blocking calls would stall the async event loop.
+**Why it existed:** The code prioritized happy-path functionality over fault tolerance and resilience. External dependencies were assumed to be always available and fast.
+**Recovery built:** Created `backend/app/core/resilience.py` with `@with_retry`, `@with_circuit_breaker`, and `@with_dead_letter_queue` decorators. Wrapped vulnerable network/third-party calls in `IntegrationService` and `send_alert_notification` with these decorators to gracefully degrade, retry, and catch unrecoverable background task failures in a Dead Letter Queue (DLQ). Also offloaded blocking `cloudinary.uploader.upload` to a separate thread via `asyncio.to_thread`.
+**Blast radius before:** Transient API errors caused alerts to be silently dropped and reports to fail generation. A single hanging third-party call could stall the FastAPI event loop for all users.
+**Watch for:** Other integrations or background tasks missing these decorators. Any future `asyncio.create_task` or network I/O should be wrapped with `@with_retry` and ideally a circuit breaker.
