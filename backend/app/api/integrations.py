@@ -37,7 +37,8 @@ class IntegrationService:
 
     async def upload_report_to_cloudinary(self, file_bytes: bytes, district_id: str):
         """Uploads generated PDF reports to Cloudinary CDN."""
-        upload_result = cloudinary.uploader.upload(
+        upload_result = await asyncio.to_thread(
+            cloudinary.uploader.upload,
             file_bytes,
             resource_type="raw",
             public_id=f"reports/district_{district_id}",
