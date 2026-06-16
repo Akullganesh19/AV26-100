@@ -17,6 +17,49 @@ import { useSearchParams } from 'react-router-dom';
 
 type DiseaseType = 'heart' | 'diabetes' | 'parkinsons';
 
+export interface PredictionResult {
+  risk: boolean;
+  advice: string;
+}
+
+export interface HeartData {
+  age: number;
+  sex: number;
+  cp: number;
+  trestbps: number;
+  chol: number;
+  fbs: number;
+  restecg: number;
+  thalach: number;
+  exang: number;
+  oldpeak: number;
+  slope: number;
+  ca: number;
+  thal: number;
+}
+
+export interface DiabetesData {
+  pregnancies: number;
+  glucose: number;
+  blood_pressure: number;
+  skin_thickness: number;
+  insulin: number;
+  bmi: number;
+  dpf: number;
+  age: number;
+}
+
+export interface ParkinsonsData {
+  vocal_metrics: number[];
+}
+
+export type DiagnosisFormData = HeartData | DiabetesData | ParkinsonsData;
+
+export interface FormProps<T> {
+  onSubmit: (data: T) => void;
+  loading: boolean;
+}
+
 const DiagnosticsCenter: React.FC = () => {
   const [searchParams] = useSearchParams();
   const districtIdFromUrl = searchParams.get('district_id');
@@ -24,9 +67,9 @@ const DiagnosticsCenter: React.FC = () => {
   const [activeTab, setActiveTab] = useState<DiseaseType>('heart');
   const [selectedDistrict, setSelectedDistrict] = useState<string>(districtIdFromUrl || '');
   const [loading, setLoading] = useState(false);
-  const [prediction, setPrediction] = useState<any>(null);
+  const [prediction, setPrediction] = useState<PredictionResult | null>(null);
 
-  const handleDiagnose = async (formData: any) => {
+  const handleDiagnose = async (formData: DiagnosisFormData) => {
     setLoading(true);
     setPrediction(null);
     try {
@@ -193,8 +236,8 @@ const DiagnosticsCenter: React.FC = () => {
 };
 
 // Form Components
-const HeartForm = ({ onSubmit, loading }: { onSubmit: (data: any) => void, loading: boolean }) => {
-  const [data, setData] = useState({
+const HeartForm = ({ onSubmit, loading }: FormProps<HeartData>) => {
+  const [data, setData] = useState<HeartData>({
     age: 50, sex: 1, cp: 0, trestbps: 120, chol: 200, fbs: 0, 
     restecg: 0, thalach: 150, exang: 0, oldpeak: 0.0, slope: 1, ca: 0, thal: 2
   });
@@ -222,8 +265,8 @@ const HeartForm = ({ onSubmit, loading }: { onSubmit: (data: any) => void, loadi
   );
 };
 
-const DiabetesForm = ({ onSubmit, loading }: { onSubmit: (data: any) => void, loading: boolean }) => {
-  const [data, setData] = useState({
+const DiabetesForm = ({ onSubmit, loading }: FormProps<DiabetesData>) => {
+  const [data, setData] = useState<DiabetesData>({
     pregnancies: 0, glucose: 100, blood_pressure: 70, skin_thickness: 20, 
     insulin: 80, bmi: 25.0, dpf: 0.5, age: 30
   });
@@ -249,7 +292,7 @@ const DiabetesForm = ({ onSubmit, loading }: { onSubmit: (data: any) => void, lo
   );
 };
 
-const ParkinsonsForm = ({ onSubmit, loading }: { onSubmit: (data: any) => void, loading: boolean }) => {
+const ParkinsonsForm = ({ onSubmit, loading }: FormProps<ParkinsonsData>) => {
   const [vocalMetrics, setVocalMetrics] = useState<number[]>(new Array(22).fill(0));
 
   const handleRandomize = () => {
@@ -306,7 +349,15 @@ const ParkinsonsForm = ({ onSubmit, loading }: { onSubmit: (data: any) => void, 
 };
 
 // UI Helpers
-const Input = ({ label, type, value, onChange, step }: any) => (
+export interface InputProps {
+  label: string;
+  type: string;
+  value: string | number;
+  onChange: (value: string) => void;
+  step?: string;
+}
+
+const Input = ({ label, type, value, onChange, step }: InputProps) => (
   <div className="flex flex-col gap-1.5">
     <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{label}</label>
     <input 
@@ -319,7 +370,19 @@ const Input = ({ label, type, value, onChange, step }: any) => (
   </div>
 );
 
-const Select = ({ label, value, options, onChange }: any) => (
+export interface SelectOption {
+  v: string | number;
+  l: string;
+}
+
+export interface SelectProps {
+  label: string;
+  value: string | number;
+  options: (SelectOption | string | number)[];
+  onChange: (value: string) => void;
+}
+
+const Select = ({ label, value, options, onChange }: SelectProps) => (
   <div className="flex flex-col gap-1.5">
     <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{label}</label>
     <select 
@@ -327,11 +390,15 @@ const Select = ({ label, value, options, onChange }: any) => (
       onChange={(e) => onChange(e.target.value)}
       className="bg-slate-900/80 border border-slate-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all"
     >
-      {options.map((o: any) => (
-        <option key={typeof o === 'object' ? o.v : o} value={typeof o === 'object' ? o.v : o}>
-          {typeof o === 'object' ? o.l : o}
-        </option>
-      ))}
+      {options.map((o: SelectOption | string | number) => {
+        const key = typeof o === 'object' && o !== null ? (o as SelectOption).v : (o as string | number);
+        const textLabel = typeof o === 'object' && o !== null ? (o as SelectOption).l : (o as string | number);
+        return (
+          <option key={key} value={key}>
+            {textLabel}
+          </option>
+        );
+      })}
     </select>
   </div>
 );
