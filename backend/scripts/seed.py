@@ -30,10 +30,15 @@ async def seed():
         # 1. Seed Districts
         print("Seeding Districts...")
         district_instances = []
+
+        # Optimize N+1: fetch existing districts in one query
+        names = [d["name"] for d in DISTRICTS]
+        q = await session.execute(select(District).filter(District.name.in_(names)))
+        existing_districts = {(dist.name, dist.state): dist for dist in q.scalars().all()}
+
         for d in DISTRICTS:
-            # Check if exists
-            q = await session.execute(select(District).filter_by(name=d["name"], state=d["state"]))
-            existing = q.scalars().first()
+            # Check if exists in the pre-fetched dictionary
+            existing = existing_districts.get((d["name"], d["state"]))
             if not existing:
                 dist = District(
                     id=d["id"], # Mission-aligned ID for GeoJSON mapping
