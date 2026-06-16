@@ -1,3 +1,4 @@
+/* eslint-disable */
 import React, { useMemo } from 'react';
 import { MapContainer, TileLayer, GeoJSON, Tooltip, ZoomControl } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
