@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { ShieldAlert, Lock, Mail, Loader2, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiClient } from '../api/client';
+import { isAxiosError } from 'axios';
 import { useAuthStore } from '../store/authStore';
 
 const loginSchema = z.object({
@@ -46,8 +47,12 @@ const LoginPage: React.FC = () => {
       setAuth(userResp.data, access_token);
       toast.success('Authentication successful. Welcome to EpiSense.');
       navigate('/');
-    } catch (error: any) {
-      toast.error(error.response?.data?.detail || 'Authentication failed. Check credentials.');
+    } catch (error) {
+      if (isAxiosError(error)) {
+        toast.error(error.response?.data?.detail || 'Authentication failed. Check credentials.');
+      } else {
+        toast.error('Authentication failed. Check credentials.');
+      }
     } finally {
       setIsLoading(false);
     }
