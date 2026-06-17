@@ -11,7 +11,7 @@ import {
   Info,
   Download
 } from 'lucide-react';
-import axios from 'axios';
+import { apiClient } from '../api/client';
 import { toast } from 'sonner';
 import { useSearchParams } from 'react-router-dom';
 
@@ -30,7 +30,7 @@ const DiagnosticsCenter: React.FC = () => {
     setLoading(true);
     setPrediction(null);
     try {
-      const response = await axios.post(`${import.meta.env.VITE_API_URL}/clinical/${activeTab}`, formData);
+      const response = await apiClient.post(`/clinical/${activeTab}`, formData);
       setPrediction(response.data);
       if (response.data.risk) {
         toast.error(`High risk detected for ${activeTab.toUpperCase()}`, {
