@@ -14,11 +14,13 @@ import {
 import axios from 'axios';
 import { toast } from 'sonner';
 import { useSearchParams } from 'react-router-dom';
+import { useOracle } from '../hooks/useOracle';
 
 type DiseaseType = 'heart' | 'diabetes' | 'parkinsons';
 
 const DiagnosticsCenter: React.FC = () => {
   const [searchParams] = useSearchParams();
+  const oracle = useOracle();
   const districtIdFromUrl = searchParams.get('district_id');
   
   const [activeTab, setActiveTab] = useState<DiseaseType>('heart');
@@ -36,6 +38,8 @@ const DiagnosticsCenter: React.FC = () => {
         toast.error(`High risk detected for ${activeTab.toUpperCase()}`, {
           description: response.data.advice
         });
+        // Oracle prediction: User will need map/alerts context next
+        oracle.predictPostHighRiskDiagnosis();
       } else {
         toast.success(`Low risk for ${activeTab.toUpperCase()}`, {
           description: response.data.advice
