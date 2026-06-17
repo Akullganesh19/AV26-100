@@ -108,56 +108,19 @@ class PredictionService:
         overrides = overrides or {}
 
         # Step 1: extract real feature vector from DB
-        async with self._db_lock:
-            feature_df = await self.feature_builder.build(district_id, disease, as_of_date)
-
-        if feature_df is None or feature_df.empty:
-            raise ValueError(
-                f"No historical data found for district {district_id} / {disease}. "
-                "Cannot generate a prediction with zero history."
-            )
-
-        X_real = feature_df[FEATURE_NAMES].copy()
+        X_real = await self._extract_features(district_id, disease, as_of_date)
 
         # Step 2: apply overrides for what-if simulation
-        X_sim = X_real.copy()
-        if overrides:
-            for feat, val in overrides.items():
-                X_sim[feat] = val
+        X_sim = self._apply_overrides(X_real, overrides)
 
         # Step 3: check for out-of-distribution features (warn, never block)
         extrapolation_warning, ood_features = self._check_distribution(X_sim)
 
         # Step 4: transform + inference — all CPU-bound work goes to thread pool
-        loop = asyncio.get_event_loop()
-
-        X_sim_t = await loop.run_in_executor(
-            None, self.pipeline.transform, X_sim
-        )
-
-        raw_score = await loop.run_in_executor(
-            None, self._run_regressor, X_sim_t
-        )
-
-        risk_tier = await loop.run_in_executor(
-            None, self._run_classifier, X_sim_t, raw_score
-        )
-
-        shap_dict = await loop.run_in_executor(
-            None, self._compute_shap, X_sim_t
-        )
+        raw_score, risk_tier, shap_dict = await self._run_inference(X_sim)
 
         # Step 5: baseline score (no overrides) for delta display
-        baseline_score = None
-        delta = None
-        if overrides:
-            X_real_t = await loop.run_in_executor(
-                None, self.pipeline.transform, X_real
-            )
-            baseline_score = to_python(
-                np.clip(self.regressor.predict(X_real_t), 0, 100)[0]
-            )
-            delta = round(raw_score - baseline_score, 2)
+        baseline_score, delta = await self._calculate_baseline(overrides, X_real, raw_score)
 
         # Step 6: persist to DB (idempotent)
         async with self._db_lock:
@@ -184,13 +147,7 @@ class PredictionService:
             )
 
         # Step 7: Trigger Asynchronous Alerts if high risk
-        if risk_tier in [RiskTier.HIGH, RiskTier.CRITICAL]:
-            asyncio.create_task(send_alert_notification(
-                alert_id=str(prediction_id),
-                district_name="Jurisdiction Monitor", # In production, fetch from District model
-                disease=disease,
-                risk_score=float(raw_score)
-            ))
+        self._trigger_alerts(risk_tier, prediction_id, disease, raw_score)
 
         return PredictionResponse(
             prediction_id=prediction_id,
@@ -240,6 +197,69 @@ class PredictionService:
         return [r for r in results if r is not None]
 
     # ── private methods ──────────────────────────────────────────────────────
+
+    async def _extract_features(self, district_id: UUID, disease: str, as_of_date: date) -> pd.DataFrame:
+        async with self._db_lock:
+            feature_df = await self.feature_builder.build(district_id, disease, as_of_date)
+
+        if feature_df is None or feature_df.empty:
+            raise ValueError(
+                f"No historical data found for district {district_id} / {disease}. "
+                "Cannot generate a prediction with zero history."
+            )
+
+        return feature_df[FEATURE_NAMES].copy()
+
+    def _apply_overrides(self, X_real: pd.DataFrame, overrides: dict[str, float]) -> pd.DataFrame:
+        X_sim = X_real.copy()
+        if overrides:
+            for feat, val in overrides.items():
+                X_sim[feat] = val
+        return X_sim
+
+    async def _run_inference(self, X_sim: pd.DataFrame) -> tuple[float, RiskTier, dict[str, float]]:
+        loop = asyncio.get_event_loop()
+
+        X_sim_t = await loop.run_in_executor(
+            None, self.pipeline.transform, X_sim
+        )
+
+        raw_score = await loop.run_in_executor(
+            None, self._run_regressor, X_sim_t
+        )
+
+        risk_tier = await loop.run_in_executor(
+            None, self._run_classifier, X_sim_t, raw_score
+        )
+
+        shap_dict = await loop.run_in_executor(
+            None, self._compute_shap, X_sim_t
+        )
+
+        return raw_score, risk_tier, shap_dict
+
+    async def _calculate_baseline(self, overrides: dict[str, float] | None, X_real: pd.DataFrame, raw_score: float) -> tuple[float | None, float | None]:
+        baseline_score = None
+        delta = None
+        if overrides:
+            loop = asyncio.get_event_loop()
+            X_real_t = await loop.run_in_executor(
+                None, self.pipeline.transform, X_real
+            )
+            baseline_score = to_python(
+                np.clip(self.regressor.predict(X_real_t), 0, 100)[0]
+            )
+            delta = round(raw_score - baseline_score, 2)
+        return baseline_score, delta
+
+    def _trigger_alerts(self, risk_tier: RiskTier, prediction_id: UUID, disease: str, raw_score: float) -> None:
+        if risk_tier in [RiskTier.HIGH, RiskTier.CRITICAL]:
+            asyncio.create_task(send_alert_notification(
+                alert_id=str(prediction_id),
+                district_name="Jurisdiction Monitor", # In production, fetch from District model
+                disease=disease,
+                risk_score=float(raw_score)
+            ))
 
     def _run_regressor(self, X_t: np.ndarray) -> float:
         raw = self.regressor.predict(X_t)

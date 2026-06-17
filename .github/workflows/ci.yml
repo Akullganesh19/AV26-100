@@ -15,7 +15,7 @@ jobs:
         env:
           POSTGRES_USER: episense
           POSTGRES_PASSWORD: episense
-          POSTGRES_DB: episense_test
+          POSTGRES_DB: episense
         ports:
           - 5432:5432
         options: >-
@@ -53,9 +53,12 @@ jobs:
 
     - name: Run Tests
       env:
-        DATABASE_URL: postgresql+asyncpg://episense:episense@localhost:5432/episense_test
+        DATABASE_URL: postgresql+asyncpg://episense:episense@localhost:5432/episense
         SECRET_KEY: test_secret_key_for_ci
         REDIS_HOST: localhost
       run: |
+        export PGPASSWORD=episense
+        psql -h localhost -U episense -d episense -c "CREATE DATABASE episense_test OWNER episense;"
+        psql -h localhost -U episense -d episense -c "CREATE DATABASE episense_test_test OWNER episense;"
         export PYTHONPATH=$PYTHONPATH:$(pwd)/backend
         pytest backend/tests/ml/test_features.py
