@@ -1,0 +1,6 @@
+## 2025-02-27 — District Targeted Alert Notifications
+**Systems connected:** Auth/Users ↔ Alerts/Notifications
+**Intelligence emerged:** The notification system is now district-aware and user-aware. Instead of a generic alert being sent out globally or simply logged, when an outbreak risk or clinical cluster is detected, the system queries the `Users` attached to that specific `District` who have `email_alerts` enabled and dispatches targeted emails to them.
+**Data flows:** When an `Alert` is triggered (via `AlertService.evaluate_clinical_cluster` or `AlertService.evaluate_autonomous_outbreak` or `PredictionService`), the generated `alert_id` and `district_id` flow into the `send_alert_notification` background task. This task uses the `district_id` to query `User` and `District` associations, then invokes the `IntegrationService.send_health_alert_email` for every user with `email_alerts == True`.
+**Coupling approach:** Event/Background Task Enrichment. The core prediction models and alert services remain entirely separate from the user management and integration services. The `send_alert_notification` background task acts as the thin neural pathway, retrieving the user context dynamically before dispatching notifications via `integration_service`.
+**Next connection:** Errors ↔ Users (Proactive Bug Notification for Affected Users).

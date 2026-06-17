@@ -1,5 +1,6 @@
 import json
 import logging
+import asyncio
 from datetime import datetime, timedelta
 from typing import Optional, List
 from sqlalchemy import select, func, and_
@@ -8,6 +9,7 @@ from app.models.alert import Alert, AlertStatus, AlertType
 from app.models.audit_log import PredictionAuditLog
 from app.models.prediction import Prediction
 from app.core.config import settings
+from app.tasks.alerts import send_alert_notification
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +64,13 @@ class AlertService:
                     db.add(new_alert)
                     await db.commit()
                     logger.info(f"TACTICAL ALERT: Clinical cluster detected in {district_id} ({disease})")
+
+                    asyncio.create_task(send_alert_notification(
+                        alert_id=str(new_alert.id),
+                        district_id=str(district_id),
+                        disease=disease,
+                        risk_score=float(new_alert.risk_score)
+                    ))
         
         except Exception as e:
             logger.error(
@@ -87,6 +96,13 @@ class AlertService:
             )
             db.add(new_alert)
             await db.commit()
+
+            asyncio.create_task(send_alert_notification(
+                alert_id=str(new_alert.id),
+                district_id=str(prediction.district_id),
+                disease=prediction.disease,
+                risk_score=float(prediction.risk_score)
+            ))
 
     @staticmethod
     async def acknowledge_alert(db: AsyncSession, alert_id: str, user_id: str):
