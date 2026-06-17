@@ -87,8 +87,7 @@ class IngestionService:
         Mock disease sync logic (simulating fetching from IHIP/IDSP API).
         In production, this would use a secure API client similar to WeatherClient.
         """
-        # This is a placeholder for the real disease data ingestion logic
-        # For the hackathon, we assume data arrives via seed or manual upload
-        pass
+        logger.warning("TODO: Implement disease data ingestion from external APIs. Currently using mock data.")
+        return 0
 
 ingestion_service = IngestionService()
