@@ -13,9 +13,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
 
 from app.core.database import SessionLocal
-from app.ml.features import FeatureBuilder, get_preprocessing_pipeline, FEATURE_NAMES
+from app.ml.features import get_preprocessing_pipeline, FEATURE_NAMES
 from app.models.model_metric import ModelMetric
-
 
 MODELS_DIR = Path("models")
 os.makedirs(MODELS_DIR, exist_ok=True)
@@ -26,7 +25,11 @@ def _synthetic_risk_score(row: pd.Series) -> float:
     Deterministic synthetic risk label for training.
     Combines epidemiological signal with environmental factors.
     """
-    case_growth = max(0, (row.get("confirmed_cases_lag1", 0) or 0) - (row.get("confirmed_cases_lag2", 0) or 0))
+    case_growth = max(
+        0,
+        (row.get("confirmed_cases_lag1", 0) or 0)
+        - (row.get("confirmed_cases_lag2", 0) or 0),
+    )
     rainfall_factor = (row.get("rainfall_mm", 0) or 0) * 0.3
     humidity_factor = max(0, (row.get("humidity_pct", 60) or 60) - 50) * 0.5
     vacc_penalty = max(0, 80 - (row.get("vaccination_coverage_pct", 60) or 60)) * 0.4
@@ -43,7 +46,7 @@ def _get_tier(score: float) -> int:
         return 2  # high
     if score >= 25:
         return 1  # medium
-    return 0      # low
+    return 0  # low
 
 
 async def load_training_data(db: AsyncSession) -> pd.DataFrame:
@@ -80,6 +83,202 @@ async def load_training_data(db: AsyncSession) -> pd.DataFrame:
     return df
 
 
+def prepare_data(df: pd.DataFrame) -> tuple:
+    # 2. Fill NaN lags with 0 (valid for start of history)
+    df["cases_rolling_std_4wk"] = df["cases_rolling_std_4wk"].fillna(0.0)
+    for col in FEATURE_NAMES:
+        if col in df.columns:
+            df[col] = df[col].fillna(0.0)
+
+    # 3. Synthetic risk score label
+    np.random.seed(42)
+    df["risk_score"] = df.apply(_synthetic_risk_score, axis=1)
+    df["risk_tier"] = df["risk_score"].apply(_get_tier)
+
+    # 4. Temporal Split (80/20 by week)
+    df = df.sort_values("week_start_date")
+    sorted_weeks = df["week_start_date"].unique()
+    cutoff_idx = int(len(sorted_weeks) * 0.80)
+    cutoff_date = sorted_weeks[cutoff_idx]
+
+    train_df = df[df["week_start_date"] <= cutoff_date].copy()
+    val_df = df[df["week_start_date"] > cutoff_date].copy()
+
+    print(
+        f"Train: {len(train_df)} rows | Val: {len(val_df)} rows | Cutoff: {cutoff_date}"
+    )
+
+    X_train_raw = train_df[FEATURE_NAMES]
+    y_train_reg = train_df["risk_score"].values
+    y_train_clf = train_df["risk_tier"].values
+
+    X_val_raw = val_df[FEATURE_NAMES]
+    y_val_reg = val_df["risk_score"].values
+    y_val_clf = val_df["risk_tier"].values
+
+    return X_train_raw, y_train_reg, y_train_clf, X_val_raw, y_val_reg, y_val_clf
+
+
+def train_models(
+    X_train_raw, y_train_reg, y_train_clf, X_val_raw, y_val_reg, y_val_clf
+) -> tuple:
+    # 5. Preprocessing Pipeline
+    pipeline = get_preprocessing_pipeline()
+    X_train = pipeline.fit_transform(X_train_raw)
+    X_val = pipeline.transform(X_val_raw)
+
+    # 6. Train Regressor
+    print("\nTraining XGBoost Regressor (risk score 0-100)...")
+    regressor = XGBRegressor(
+        n_estimators=300,
+        max_depth=6,
+        learning_rate=0.05,
+        subsample=0.8,
+        colsample_bytree=0.8,
+        objective="reg:squarederror",
+        random_state=42,
+        n_jobs=-1,
+    )
+    regressor.fit(X_train, y_train_reg, eval_set=[(X_val, y_val_reg)], verbose=False)
+
+    # 7. Stacked Classifier (regressor score as extra feature)
+    print("Training XGBoost Classifier (risk tier 0-3, stacked)...")
+    train_scores = regressor.predict(X_train)
+    val_scores = regressor.predict(X_val)
+
+    X_train_stacked = np.column_stack((X_train, train_scores))
+    X_val_stacked = np.column_stack((X_val, val_scores))
+
+    classifier = XGBClassifier(
+        n_estimators=200,
+        max_depth=5,
+        objective="multi:softmax",
+        num_class=4,
+        random_state=42,
+        n_jobs=-1,
+    )
+    classifier.fit(
+        X_train_stacked,
+        y_train_clf,
+        eval_set=[(X_val_stacked, y_val_clf)],
+        verbose=False,
+    )
+
+    return (
+        pipeline,
+        regressor,
+        classifier,
+        X_train,
+        X_val,
+        X_train_stacked,
+        X_val_stacked,
+        val_scores,
+    )
+
+
+def evaluate_models(
+    y_val_reg, y_val_clf, val_scores, X_val_stacked, classifier
+) -> tuple:
+    mae = float(mean_absolute_error(y_val_reg, val_scores))
+    rmse = float(root_mean_squared_error(y_val_reg, val_scores))
+    val_clf_preds = classifier.predict(X_val_stacked)
+    f1 = float(f1_score(y_val_clf, val_clf_preds, average="weighted"))
+
+    print(f"\n📊 Metrics: MAE={mae:.2f} | RMSE={rmse:.2f} | F1={f1:.4f}")
+    return mae, rmse, f1
+
+
+def generate_explainer(regressor, X_train):
+    print("Generating SHAP TreeExplainer...")
+    sample_size = min(100, len(X_train))
+    explainer = shap.TreeExplainer(regressor, data=shap.sample(X_train, sample_size))
+    return explainer
+
+
+def calculate_feature_bounds(X_train_raw: pd.DataFrame) -> dict:
+    feature_bounds = {}
+    for feat in FEATURE_NAMES:
+        if feat in X_train_raw.columns:
+            feature_bounds[feat] = {
+                "p01": float(np.percentile(X_train_raw[feat].dropna(), 1)),
+                "p99": float(np.percentile(X_train_raw[feat].dropna(), 99)),
+            }
+    return feature_bounds
+
+
+def check_deployment_gate(mae: float) -> bool:
+    try:
+        with open(MODELS_DIR / "latest.json", "r") as f:
+            current_manifest = json.load(f)
+            prev_mae = current_manifest.get("metrics", {}).get("mae", float("inf"))
+            if mae >= prev_mae * 1.05:
+                print(
+                    f"⚠️  Safety Gate: New MAE ({mae:.2f}) worse than previous ({prev_mae:.2f}). Aborting."
+                )
+                return False
+            else:
+                print(
+                    f"✅ Safety Gate: Passed. New MAE ({mae:.2f}) vs Previous ({prev_mae:.2f})."
+                )
+                return True
+    except FileNotFoundError:
+        print("ℹ️  Safety Gate: No previous model. Initial deployment authorized.")
+        return True
+
+
+def save_artifacts(
+    pipeline, regressor, classifier, explainer, feature_bounds, mae, rmse, f1
+) -> str:
+    version = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
+    joblib.dump(pipeline, MODELS_DIR / f"feature_pipeline_{version}.joblib")
+    joblib.dump(regressor, MODELS_DIR / f"regressor_{version}.joblib")
+    joblib.dump(classifier, MODELS_DIR / f"classifier_{version}.joblib")
+    joblib.dump(explainer, MODELS_DIR / f"shap_explainer_{version}.joblib")
+
+    manifest = {
+        "version": version,
+        "pipeline": f"feature_pipeline_{version}.joblib",
+        "regressor": f"regressor_{version}.joblib",
+        "classifier": f"classifier_{version}.joblib",
+        "explainer": f"shap_explainer_{version}.joblib",
+        "feature_bounds": feature_bounds,
+        "metrics": {"mae": mae, "rmse": rmse, "f1": f1},
+        "trained_at": datetime.now(UTC).isoformat(),
+    }
+    with open(MODELS_DIR / "latest.json", "w") as f:
+        json.dump(manifest, f, indent=2)
+
+    print(f"\n✅ Training complete! Model version {version} promoted to latest.")
+    return version
+
+
+async def log_metrics(
+    db: AsyncSession,
+    version: str,
+    regressor: XGBRegressor,
+    mae: float,
+    rmse: float,
+    f1: float,
+):
+    try:
+        feature_importance = dict(
+            zip(FEATURE_NAMES, [float(x) for x in regressor.feature_importances_])
+        )
+        metric_record = ModelMetric(
+            model_version=version,
+            mae=mae,
+            rmse=rmse,
+            f1_weighted=f1,
+            parameters=regressor.get_params(),
+            feature_importance=feature_importance,
+        )
+        db.add(metric_record)
+        await db.commit()
+        print("✅ Metrics saved to database.")
+    except Exception as e:
+        print(f"⚠️  Could not save metrics to DB (non-fatal): {e}")
+
+
 async def train_model():
     print("=" * 60)
     print("Starting EpiSense model training pipeline...")
@@ -96,150 +295,47 @@ async def train_model():
 
         print(f"Loaded {len(df)} rows across {df['district_id'].nunique()} districts.")
 
-        # 2. Fill NaN lags with 0 (valid for start of history)
-        df["cases_rolling_std_4wk"] = df["cases_rolling_std_4wk"].fillna(0.0)
-        for col in FEATURE_NAMES:
-            if col in df.columns:
-                df[col] = df[col].fillna(0.0)
-
-        # 3. Synthetic risk score label
-        np.random.seed(42)
-        df["risk_score"] = df.apply(_synthetic_risk_score, axis=1)
-        df["risk_tier"] = df["risk_score"].apply(_get_tier)
-
-        # 4. Temporal Split (80/20 by week)
-        df = df.sort_values("week_start_date")
-        sorted_weeks = df["week_start_date"].unique()
-        cutoff_idx = int(len(sorted_weeks) * 0.80)
-        cutoff_date = sorted_weeks[cutoff_idx]
-
-        train_df = df[df["week_start_date"] <= cutoff_date].copy()
-        val_df = df[df["week_start_date"] > cutoff_date].copy()
-
-        print(f"Train: {len(train_df)} rows | Val: {len(val_df)} rows | Cutoff: {cutoff_date}")
-
-        X_train_raw = train_df[FEATURE_NAMES]
-        y_train_reg = train_df["risk_score"].values
-        y_train_clf = train_df["risk_tier"].values
-
-        X_val_raw = val_df[FEATURE_NAMES]
-        y_val_reg = val_df["risk_score"].values
-        y_val_clf = val_df["risk_tier"].values
-
-        # 5. Preprocessing Pipeline
-        pipeline = get_preprocessing_pipeline()
-        X_train = pipeline.fit_transform(X_train_raw)
-        X_val = pipeline.transform(X_val_raw)
-
-        # 6. Train Regressor
-        print("\nTraining XGBoost Regressor (risk score 0-100)...")
-        regressor = XGBRegressor(
-            n_estimators=300,
-            max_depth=6,
-            learning_rate=0.05,
-            subsample=0.8,
-            colsample_bytree=0.8,
-            objective="reg:squarederror",
-            random_state=42,
-            n_jobs=-1,
+        # Data Preparation
+        X_train_raw, y_train_reg, y_train_clf, X_val_raw, y_val_reg, y_val_clf = (
+            prepare_data(df)
         )
-        regressor.fit(X_train, y_train_reg, eval_set=[(X_val, y_val_reg)], verbose=False)
 
-        # 7. Stacked Classifier (regressor score as extra feature)
-        print("Training XGBoost Classifier (risk tier 0-3, stacked)...")
-        train_scores = regressor.predict(X_train)
-        val_scores = regressor.predict(X_val)
-
-        X_train_stacked = np.column_stack((X_train, train_scores))
-        X_val_stacked = np.column_stack((X_val, val_scores))
-
-        classifier = XGBClassifier(
-            n_estimators=200,
-            max_depth=5,
-            objective="multi:softmax",
-            num_class=4,
-            random_state=42,
-            n_jobs=-1,
+        # Model Training
+        (
+            pipeline,
+            regressor,
+            classifier,
+            X_train,
+            X_val,
+            X_train_stacked,
+            X_val_stacked,
+            val_scores,
+        ) = train_models(
+            X_train_raw, y_train_reg, y_train_clf, X_val_raw, y_val_reg, y_val_clf
         )
-        classifier.fit(X_train_stacked, y_train_clf, eval_set=[(X_val_stacked, y_val_clf)], verbose=False)
 
-        # 8. Evaluation
-        mae = float(mean_absolute_error(y_val_reg, val_scores))
-        rmse = float(root_mean_squared_error(y_val_reg, val_scores))
-        val_clf_preds = classifier.predict(X_val_stacked)
-        f1 = float(f1_score(y_val_clf, val_clf_preds, average="weighted"))
+        # Evaluation
+        mae, rmse, f1 = evaluate_models(
+            y_val_reg, y_val_clf, val_scores, X_val_stacked, classifier
+        )
 
-        print(f"\n📊 Metrics: MAE={mae:.2f} | RMSE={rmse:.2f} | F1={f1:.4f}")
+        # SHAP Explainer
+        explainer = generate_explainer(regressor, X_train)
 
-        # 9. SHAP Explainer
-        print("Generating SHAP TreeExplainer...")
-        sample_size = min(100, len(X_train))
-        explainer = shap.TreeExplainer(regressor, data=shap.sample(X_train, sample_size))
+        # Feature Bounds
+        feature_bounds = calculate_feature_bounds(X_train_raw)
 
-        # 10. Feature bounds (p01 / p99) for OOD detection
-        feature_bounds = {}
-        for feat in FEATURE_NAMES:
-            if feat in X_train_raw.columns:
-                feature_bounds[feat] = {
-                    "p01": float(np.percentile(X_train_raw[feat].dropna(), 1)),
-                    "p99": float(np.percentile(X_train_raw[feat].dropna(), 99)),
-                }
-
-        # 11. Deployment gate (compare MAE with previous model)
-        should_deploy = True
-        try:
-            with open(MODELS_DIR / "latest.json", "r") as f:
-                current_manifest = json.load(f)
-                prev_mae = current_manifest.get("metrics", {}).get("mae", float("inf"))
-                if mae >= prev_mae * 1.05:
-                    print(f"⚠️  Safety Gate: New MAE ({mae:.2f}) worse than previous ({prev_mae:.2f}). Aborting.")
-                    should_deploy = False
-                else:
-                    print(f"✅ Safety Gate: Passed. New MAE ({mae:.2f}) vs Previous ({prev_mae:.2f}).")
-        except FileNotFoundError:
-            print("ℹ️  Safety Gate: No previous model. Initial deployment authorized.")
-
-        if not should_deploy:
+        # Deployment Gate
+        if not check_deployment_gate(mae):
             return
 
-        # 12. Save artifacts
-        version = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
-        joblib.dump(pipeline, MODELS_DIR / f"feature_pipeline_{version}.joblib")
-        joblib.dump(regressor, MODELS_DIR / f"regressor_{version}.joblib")
-        joblib.dump(classifier, MODELS_DIR / f"classifier_{version}.joblib")
-        joblib.dump(explainer, MODELS_DIR / f"shap_explainer_{version}.joblib")
+        # Persistence (Save artifacts)
+        version = save_artifacts(
+            pipeline, regressor, classifier, explainer, feature_bounds, mae, rmse, f1
+        )
 
-        manifest = {
-            "version": version,
-            "pipeline": f"feature_pipeline_{version}.joblib",
-            "regressor": f"regressor_{version}.joblib",
-            "classifier": f"classifier_{version}.joblib",
-            "explainer": f"shap_explainer_{version}.joblib",
-            "feature_bounds": feature_bounds,
-            "metrics": {"mae": mae, "rmse": rmse, "f1": f1},
-            "trained_at": datetime.now(UTC).isoformat(),
-        }
-        with open(MODELS_DIR / "latest.json", "w") as f:
-            json.dump(manifest, f, indent=2)
-
-        print(f"\n✅ Training complete! Model version {version} promoted to latest.")
-
-        # 13. Log metrics to DB
-        try:
-            feature_importance = dict(zip(FEATURE_NAMES, [float(x) for x in regressor.feature_importances_]))
-            metric_record = ModelMetric(
-                model_version=version,
-                mae=mae,
-                rmse=rmse,
-                f1_weighted=f1,
-                parameters=regressor.get_params(),
-                feature_importance=feature_importance,
-            )
-            db.add(metric_record)
-            await db.commit()
-            print("✅ Metrics saved to database.")
-        except Exception as e:
-            print(f"⚠️  Could not save metrics to DB (non-fatal): {e}")
+        # Log Metrics
+        await log_metrics(db, version, regressor, mae, rmse, f1)
 
 
 if __name__ == "__main__":
