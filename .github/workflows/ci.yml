@@ -16,6 +16,8 @@ jobs:
           POSTGRES_USER: episense
           POSTGRES_PASSWORD: episense
           POSTGRES_DB: episense_test
+        # Initialize test databases for pytest-asyncio and conftest.py
+        # Wait for Postgres to be ready then create episense_test_test
         ports:
           - 5432:5432
         options: >-
@@ -50,6 +52,12 @@ jobs:
       run: |
         pip install flake8
         flake8 backend/app --count --select=E9,F63,F7,F82 --show-source --statistics
+
+    - name: Create Test Database
+      env:
+        PGPASSWORD: episense
+      run: |
+        psql -h localhost -U episense -d episense_test -c "CREATE DATABASE episense_test_test;"
 
     - name: Run Tests
       env:
