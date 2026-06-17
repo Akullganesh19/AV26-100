@@ -15,6 +15,7 @@ from app.api.deps import get_db, limiter
 from app.services.prediction_service import load_artifacts, ml_state
 from app.core.scheduler import start_scheduler, stop_scheduler
 from app.core.logging import setup_logging
+from app.services.alert_dispatch import setup_alert_dispatch
 
 # Initialize Structured Logging
 setup_logging()
@@ -32,7 +33,10 @@ async def lifespan(app: FastAPI):
         logger.critical("Failed to load ML artifacts", exc_info=True)
         raise RuntimeError(f"System cannot start without ML models: {e}")
 
-    # 2. Start Background Scheduler
+    # 2. Setup Synapse Event Listeners
+    setup_alert_dispatch()
+
+    # 3. Start Background Scheduler
     start_scheduler()
     logger.info("Background scheduler started")
     
