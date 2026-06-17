@@ -7,3 +7,8 @@
 **Fix:** Memoized the search logic using `useMemo` so it's calculated only when the source array or lookup ID change.
 **Learning:** O(N) searches inside components can impact performance. Always memoize expensive inline array functions if they don't depend on varying render properties.
 **Watch for:** Other similar inline `.map()`, `.filter()`, or `.find()` usages in large un-memoized components or loops.
+## 2025-05-16 - CI database creation
+**Found:** CI job failing with `InvalidCatalogNameError: database "episense_test_test" does not exist`
+**Why it existed:** `conftest.py` appends `_test` to the `DATABASE_URL`, resulting in tests querying `episense_test_test` which was missing from the service definition in CI.
+**Fix:** Created the `episense_test_test` dynamically before running tests.
+**Learning:** Always verify that pytest setups relying on dynamic suffix URLs account for CI environments.
