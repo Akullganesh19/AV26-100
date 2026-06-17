@@ -3,18 +3,24 @@
     "heart": {
       "file": "heart_disease_model.sav",
       "sha256": "919A2FDF2C467298DB47196E47CBA7EE826FA7CBB877F58896BC4A540362D858",
+      "scaler_file": "scaler_heart.sav",
+      "scaler_sha256": "4b504c0dfa6383238c9ebb0e7e5f8ef110332f0132e44c9a513d6ec6e394871f",
       "version": "v1.0.0",
       "trained_on": "2024-05"
     },
     "diabetes": {
       "file": "diabetes_model.sav",
       "sha256": "EB92AAF764D2486022EA6542F100C3216C9C23885B584619FD7943AC3711D771",
+      "scaler_file": "scaler_diabetes.sav",
+      "scaler_sha256": "d18bb538aa1f1c52f46a3612a541bcdcedcef7f61bc8525a4b938f803ad245c9",
       "version": "v1.1.0",
       "trained_on": "2024-05"
     },
     "parkinsons": {
       "file": "parkinsons_model.sav",
       "sha256": "47AD166A3B18E3542872F32A6469D42EC366A20E5A4CF26B2AB588FC324B40D1",
+      "scaler_file": "scaler_parkinsons.sav",
+      "scaler_sha256": "e7e2573050feada833d1bd657ffb1ceef76eebe55eeda6f603a87c40cb1bf7f9",
       "version": "v1.0.0",
       "trained_on": "2024-05"
     }

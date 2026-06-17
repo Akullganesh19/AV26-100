@@ -31,12 +31,13 @@ class ClinicalService:
         with open(MANIFEST_PATH, "r") as f:
             return json.load(f)
 
-    def _verify_and_load(self, name: str, path: Path):
+    def _verify_and_load(self, name: str, path: Path, expected_hash: Optional[str] = None):
         if not path.exists():
-            raise FileNotFoundError(f"Model {name} not found at {path}")
+            raise FileNotFoundError(f"File {name} not found at {path}")
         
-        expected = self._manifest["active"].get(name, {})
-        expected_hash = expected.get("sha256")
+        if not expected_hash:
+            expected = self._manifest["active"].get(name, {})
+            expected_hash = expected.get("sha256")
         
         if not expected_hash:
             raise SecurityError(f"No hash defined for {name} in manifest!")
@@ -45,7 +46,7 @@ class ClinicalService:
             content = f.read()
             actual_hash = hashlib.sha256(content).hexdigest().upper()
             if actual_hash != expected_hash.upper():
-                raise SecurityError(f"Integrity violation: {name} model hash mismatch! Security compromised.")
+                raise SecurityError(f"Integrity violation: {name} file hash mismatch! Security compromised.")
             
             return joblib.loads(content)
 
@@ -55,11 +56,14 @@ class ClinicalService:
             if not metadata:
                 raise ValueError(f"Disease {disease} not supported in active manifest.")
             
-            self._models[disease] = self._verify_and_load(disease, MODELS_DIR / metadata["file"])
+            self._models[disease] = self._verify_and_load(disease, MODELS_DIR / metadata["file"], metadata.get("sha256"))
             
             scaler_path = MODELS_DIR / f"scaler_{disease}.sav"
             if scaler_path.exists():
-                self._scalers[disease] = joblib.load(scaler_path)
+                scaler_hash = metadata.get("scaler_sha256")
+                if not scaler_hash:
+                    raise SecurityError(f"No scaler hash defined for {disease} in manifest!")
+                self._scalers[disease] = self._verify_and_load(f"scaler_{disease}", scaler_path, scaler_hash)
             else:
                 self._scalers[disease] = None
 
