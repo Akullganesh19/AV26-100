@@ -10,21 +10,40 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@hookform/resolvers": "^5.4.0",
+    "@tanstack/react-query": "^5.101.0",
+    "@types/leaflet": "^1.9.21",
+    "axios": "^1.18.0",
+    "date-fns": "^4.4.0",
+    "leaflet": "^1.9.4",
     "lucide-react": "^0.344.0",
     "motion": "^12.0.0-alpha.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "sonner": "^2.0.7"
+    "react-hook-form": "^7.79.0",
+    "react-leaflet": "^5.0.0",
+    "react-router-dom": "^7.18.0",
+    "react-simple-maps": "^3.0.0",
+    "recharts": "^3.8.1",
+    "sonner": "^2.0.7",
+    "zod": "^4.4.3",
+    "zustand": "^5.0.14"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/node": "^24.12.3",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
     "autoprefixer": "^10.5.0",
+    "eslint": "^10.5.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.3",
+    "globals": "^17.6.0",
     "postcss": "^8.5.14",
     "tailwindcss": "4.0.0-alpha.25",
     "typescript": "~6.0.2",
+    "typescript-eslint": "^8.61.1",
     "vite": "^8.0.12"
   }
 }
