@@ -20,7 +20,6 @@ import {
   AreaChart,
   Area
 } from 'recharts';
-import DistrictMatrix from '../components/DistrictMatrix';
 
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
@@ -193,7 +192,6 @@ const Dashboard: React.FC = () => {
           <h3 className="text-xl font-bold text-white">Operational Jurisdiction Matrix</h3>
           <p className="text-xs text-slate-500">Granular district-level monitoring and target selection.</p>
         </div>
-        <DistrictMatrix />
       </div>
     </div>
   );
