@@ -25,10 +25,12 @@ interface Alert {
 }
 
 import { useSimulation } from '../context/SimulationContext';
+import { useOracle } from '../hooks/useOracle';
 
 const TacticalAlerts: React.FC = () => {
   const queryClient = useQueryClient();
   const { isSimulating, activeSimId } = useSimulation();
+  const oracle = useOracle();
   
   const { data: alerts, isLoading } = useQuery<Alert[]>({
     queryKey: ['tactical-alerts', isSimulating, activeSimId],
@@ -48,6 +50,9 @@ const TacticalAlerts: React.FC = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tactical-alerts'] });
       toast.success('Mission alert acknowledged');
+
+      // Oracle prediction: user will want to simulate response
+      oracle.predictPostAlertAcknowledge();
     }
   });
 
