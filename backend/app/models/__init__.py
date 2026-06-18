@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING
 from app.core.database import Base
 from app.models.user import User
 from app.models.district import District
+from app.models.user_district import user_district_association
 from app.models.raw_data import RawData
 from app.models.environmental_data import EnvironmentalData
 from app.models.vaccination_coverage import VaccinationCoverage
@@ -18,6 +19,7 @@ __all__ = [
     "Base",
     "User",
     "District",
+    "user_district_association",
     "RawData",
     "EnvironmentalData",
     "VaccinationCoverage",
