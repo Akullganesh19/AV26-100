@@ -4,10 +4,11 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
-from app.api.integrations import weather_client
+from app.api.integrations import weather_client, disease_client
 from app.models.district import District
 from app.models.environmental_data import EnvironmentalData
 from app.models.pipeline_run import PipelineRun
+from app.models.raw_data import RawData, DataSource
 
 
 logger = logging.getLogger(__name__)
@@ -87,8 +88,69 @@ class IngestionService:
         Mock disease sync logic (simulating fetching from IHIP/IDSP API).
         In production, this would use a secure API client similar to WeatherClient.
         """
-        # This is a placeholder for the real disease data ingestion logic
-        # For the hackathon, we assume data arrives via seed or manual upload
-        pass
+        # 1. Start Pipeline Run Audit
+        pipeline_run = PipelineRun(
+            pipeline_name="disease_sync",
+            status="running"
+        )
+        db.add(pipeline_run)
+        await db.flush()
+
+        try:
+            # 2. Get all districts
+            result = await db.execute(select(District))
+            districts = result.scalars().all()
+
+            # For this mock, simulate fetching data for the beginning of the current week
+            today = date.today()
+            start_of_week = today - timedelta(days=today.weekday())
+
+            total_rows = 0
+            for district in districts:
+                # Fetch disease data
+                records = await disease_client.get_disease_data(
+                    district_id=str(district.id),
+                    week_start_date=start_of_week
+                )
+
+                # Bulk upsert using ON CONFLICT
+                for rec in records:
+                    stmt = pg_insert(RawData).values(
+                        district_id=district.id,
+                        disease=rec["disease"],
+                        week_start_date=rec["week_start_date"],
+                        confirmed_cases=rec["confirmed_cases"],
+                        suspected_cases=rec["suspected_cases"],
+                        deaths=rec["deaths"],
+                        source=DataSource.SYNTHETIC
+                    ).on_conflict_do_update(
+                        index_elements=["district_id", "disease", "week_start_date"],
+                        set_={
+                            "confirmed_cases": rec["confirmed_cases"],
+                            "suspected_cases": rec["suspected_cases"],
+                            "deaths": rec["deaths"],
+                            "source": DataSource.SYNTHETIC,
+                            "ingested_at": datetime.now()
+                        }
+                    )
+                    await db.execute(stmt)
+                    total_rows += 1
+
+            # 3. Finalize Pipeline Run
+            pipeline_run.status = "success"
+            pipeline_run.rows_ingested = total_rows
+            pipeline_run.finished_at = datetime.now()
+            await db.commit()
+
+            logger.info(f"Disease sync complete: {total_rows} rows processed.")
+            return total_rows
+
+        except Exception as e:
+            logger.error(f"Disease sync failed: {e}")
+            pipeline_run.status = "failed"
+            pipeline_run.error_log = str(e)
+            pipeline_run.finished_at = datetime.now()
+            await db.commit()
+            raise e
 
 ingestion_service = IngestionService()
