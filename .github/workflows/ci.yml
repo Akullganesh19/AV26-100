@@ -57,5 +57,7 @@ jobs:
         SECRET_KEY: test_secret_key_for_ci
         REDIS_HOST: localhost
       run: |
+        export PGPASSWORD=episense
+        psql -h localhost -U episense -d episense_test -c 'CREATE DATABASE episense_test_test;'
         export PYTHONPATH=$PYTHONPATH:$(pwd)/backend
         pytest backend/tests/ml/test_features.py

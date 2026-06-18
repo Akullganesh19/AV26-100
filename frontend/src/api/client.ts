@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios, { AxiosRequestConfig, AxiosResponse } from 'axios';
 import { useAuthStore } from '../store/authStore';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
@@ -27,3 +27,29 @@ apiClient.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+// 🌀 Phantom: Request Coalescing
+// Multiple simultaneous GET requests for the same resource -> one network request
+const inFlightRequests = new Map<string, Promise<AxiosResponse>>();
+
+const originalGet = apiClient.get;
+
+apiClient.get = function (url: string, config?: AxiosRequestConfig) {
+  // Fallback to original behavior if signal is provided to allow aborting safely
+  if (config?.signal) {
+    return originalGet.call(this, url, config);
+  }
+
+  const key = `${url}::${config?.params ? JSON.stringify(config.params) : ''}`;
+
+  if (inFlightRequests.has(key)) {
+    return inFlightRequests.get(key) as Promise<AxiosResponse<unknown, unknown>>;
+  }
+
+  const promise = originalGet.call(this, url, config).finally(() => {
+    inFlightRequests.delete(key);
+  });
+
+  inFlightRequests.set(key, promise);
+  return promise;
+} as typeof apiClient.get;
