@@ -1,6 +1,7 @@
 from typing import Generator, List, Optional
 import uuid
 import httpx
+import logging
 from cachetools import TTLCache
 from fastapi import Depends, HTTPException, status, Query, Request
 from fastapi.security import OAuth2PasswordBearer
@@ -71,13 +72,23 @@ async def get_current_user(
         # Extract JTI (Unique Token ID)
         payload_unverified = jwt.get_unverified_claims(token)
         jti = payload_unverified.get("jti")
-        if jti and await r.get(f"revoked_token:{jti}"):
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Token has been revoked",
-            )
-    except Exception:
-        pass # Fall through to standard verification
+
+        if jti:
+            is_revoked = await r.get(f"revoked_token:{jti}")
+            if is_revoked:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Token has been revoked",
+                )
+    except HTTPException:
+        raise
+    except Exception as e:
+        # Fail closed on infrastructure errors like Redis connection failure
+        logging.getLogger(__name__).error(f"Error during token revocation check: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Authentication infrastructure unavailable",
+        )
     finally:
         await r.aclose()
 
