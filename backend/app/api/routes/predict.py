@@ -36,7 +36,6 @@ async def create_prediction(
             detail={"code": "INSUFFICIENT_HISTORY", "message": str(e)},
         )
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
-            detail=f"Inference engine failure: {str(e)}"
-        )
+        import logging
+        logging.getLogger(__name__).error("Inference engine failure: %s", str(e), exc_info=True)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal Server Error")
