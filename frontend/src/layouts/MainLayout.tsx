@@ -8,7 +8,6 @@ import {
   LogOut,
   ShieldAlert,
   Menu,
-  X,
   Stethoscope,
   Map as MapIcon
 } from 'lucide-react';

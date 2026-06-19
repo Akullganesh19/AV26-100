@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import axios from 'axios';
+import { apiClient } from '../api/client';
 import { 
   Play, 
   FastForward, 
   RotateCcw, 
   ShieldAlert, 
-  Activity, 
   TrendingUp, 
   CheckCircle2,
   AlertTriangle,
@@ -24,10 +23,10 @@ const SimulationLab: React.FC = () => {
   const [view, setView] = useState<SimulationView>(isSimulating ? 'console' : 'selection');
 
   // Fetch Scenarios
-  const { data: scenarios, isLoading: loadingScenarios } = useQuery({
+  const { data: scenarios } = useQuery({
     queryKey: ['sim-scenarios'],
     queryFn: async () => {
-      const response = await axios.get(`${import.meta.env.VITE_API_URL}/scenarios/`);
+      const response = await apiClient.get(`/scenarios/`);
       return response.data;
     }
   });
@@ -37,7 +36,7 @@ const SimulationLab: React.FC = () => {
     queryKey: ['active-sim', activeSimId],
     queryFn: async () => {
       if (!activeSimId) return null;
-      const response = await axios.get(`${import.meta.env.VITE_API_URL}/scenarios/active`);
+      const response = await apiClient.get(`/scenarios/active`);
       return response.data;
     },
     enabled: !!isSimulating
@@ -46,7 +45,7 @@ const SimulationLab: React.FC = () => {
   // Mutations
   const startMutation = useMutation({
     mutationFn: async (scenarioId: string) => {
-      const response = await axios.post(`${import.meta.env.VITE_API_URL}/scenarios/${scenarioId}/start`);
+      const response = await apiClient.post(`/scenarios/${scenarioId}/start`);
       return response.data;
     },
     onSuccess: (data) => {
@@ -58,7 +57,7 @@ const SimulationLab: React.FC = () => {
 
   const advanceMutation = useMutation({
     mutationFn: async () => {
-      const response = await axios.post(`${import.meta.env.VITE_API_URL}/scenarios/active/advance`);
+      const response = await apiClient.post(`/scenarios/active/advance`);
       return response.data;
     },
     onSuccess: (data) => {
@@ -84,7 +83,7 @@ const SimulationLab: React.FC = () => {
         </header>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {scenarios?.map((scenario: any) => (
+          {scenarios?.map((scenario: { id: string, name: string, description: string, total_days: number }) => (
             <div key={scenario.id} className="glass-panel p-6 rounded-3xl border-white/5 hover:border-brand-primary/30 transition-all group flex flex-col justify-between h-full">
               <div>
                 <div className="flex justify-between items-start mb-4">
@@ -168,13 +167,13 @@ const SimulationLab: React.FC = () => {
         <div className="flex items-center gap-6">
            <div className="flex flex-col">
              <span className="text-[10px] font-black uppercase tracking-widest text-brand-primary">Active Simulation</span>
-             <h2 className="text-lg font-bold text-white">Mission Day {activeSim?.current_day || 0} / {scenarios?.find((s:any) => s.id === activeSim?.scenario_id)?.total_days || 7}</h2>
+             <h2 className="text-lg font-bold text-white">Mission Day {activeSim?.current_day || 0} / {scenarios?.find((s: { id: string, total_days: number }) => s.id === activeSim?.scenario_id)?.total_days || 7}</h2>
            </div>
            
            <div className="flex gap-2">
              <button 
                onClick={() => {
-                 if (activeSim?.current_day >= (scenarios?.find((s:any) => s.id === activeSim?.scenario_id)?.total_days || 7)) {
+                 if (activeSim?.current_day >= (scenarios?.find((s: { id: string, total_days: number }) => s.id === activeSim?.scenario_id)?.total_days || 7)) {
                    setView('debrief');
                  } else {
                    advanceMutation.mutate();
@@ -183,8 +182,8 @@ const SimulationLab: React.FC = () => {
                disabled={advanceMutation.isPending}
                className="px-6 py-2 bg-brand-primary hover:bg-brand-secondary text-white text-xs font-black uppercase tracking-widest rounded-lg flex items-center gap-2 disabled:opacity-50"
              >
-               {activeSim?.current_day >= (scenarios?.find((s:any) => s.id === activeSim?.scenario_id)?.total_days || 7) ? <ShieldAlert size={14}/> : <FastForward size={14} />}
-               {activeSim?.current_day >= (scenarios?.find((s:any) => s.id === activeSim?.scenario_id)?.total_days || 7) ? 'Generate Debrief' : 'Advance Day'}
+               {activeSim?.current_day >= (scenarios?.find((s: { id: string, total_days: number }) => s.id === activeSim?.scenario_id)?.total_days || 7) ? <ShieldAlert size={14}/> : <FastForward size={14} />}
+               {activeSim?.current_day >= (scenarios?.find((s: { id: string, total_days: number }) => s.id === activeSim?.scenario_id)?.total_days || 7) ? 'Generate Debrief' : 'Advance Day'}
              </button>
              <button 
                onClick={() => { stopSimulation(); setView('selection'); }}
