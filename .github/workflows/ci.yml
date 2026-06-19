@@ -56,6 +56,8 @@ jobs:
         DATABASE_URL: postgresql+asyncpg://episense:episense@localhost:5432/episense_test
         SECRET_KEY: test_secret_key_for_ci
         REDIS_HOST: localhost
+        PGPASSWORD: episense
       run: |
+        psql -h localhost -U episense -d episense_test -c "CREATE DATABASE episense_test_test OWNER episense;"
         export PYTHONPATH=$PYTHONPATH:$(pwd)/backend
         pytest backend/tests/ml/test_features.py
