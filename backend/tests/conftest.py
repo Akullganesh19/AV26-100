@@ -7,7 +7,8 @@ from app.core.database import Base
 from app.core.config import settings
 
 # Use the dedicated test database created in the previous step
-TEST_DATABASE_URL = str(settings.DATABASE_URL) + "_test"
+# In CI, the DATABASE_URL is already `episense_test` and adding `_test` makes it `episense_test_test` which doesn't exist
+TEST_DATABASE_URL = str(settings.DATABASE_URL) if "episense_test" in str(settings.DATABASE_URL) else str(settings.DATABASE_URL) + "_test"
 
 @pytest_asyncio.fixture
 async def db_session():
