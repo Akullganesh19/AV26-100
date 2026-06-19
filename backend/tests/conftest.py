@@ -5,9 +5,11 @@ from sqlalchemy.orm import sessionmaker
 
 from app.core.database import Base
 from app.core.config import settings
+import app.models  # Important: import all models before creating schema
 
 # Use the dedicated test database created in the previous step
-TEST_DATABASE_URL = str(settings.DATABASE_URL) + "_test"
+_db_url = str(settings.DATABASE_URL)
+TEST_DATABASE_URL = _db_url if _db_url.endswith("_test") else _db_url + "_test"
 
 @pytest_asyncio.fixture
 async def db_session():
