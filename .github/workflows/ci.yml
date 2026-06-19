@@ -41,6 +41,12 @@ jobs:
         pip install -r backend/requirements.txt
         pip install pytest pytest-asyncio httpx psycopg2-binary
 
+    - name: Create Test Test Database
+      env:
+        PGPASSWORD: episense
+      run: |
+        psql -h localhost -U episense -d episense_test -c "CREATE DATABASE episense_test_test;"
+
     - name: Run Gitleaks Secret Scan
       uses: gitleaks/gitleaks-action@v3
       env:
