@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios, { AxiosRequestConfig, AxiosResponse } from 'axios';
 import { useAuthStore } from '../store/authStore';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
@@ -27,3 +27,29 @@ apiClient.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+// 🌀 Phantom: Request Coalescing Infrastructure
+const inFlight = new Map<string, Promise<AxiosResponse>>();
+
+const originalGet = apiClient.get;
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+apiClient.get = async function<T = any, R = AxiosResponse<T>, D = any>(
+  url: string,
+  config?: AxiosRequestConfig<D>
+): Promise<R> {
+  const queryParams = config?.params ? JSON.stringify(config.params) : '';
+  const cacheKey = `${url}?${queryParams}`;
+
+  if (inFlight.has(cacheKey)) {
+    return inFlight.get(cacheKey) as Promise<R>;
+  }
+
+  const promise = originalGet.call(this, url, config).finally(() => {
+    inFlight.delete(cacheKey);
+  });
+
+  inFlight.set(cacheKey, promise);
+
+  return promise as Promise<R>;
+};
