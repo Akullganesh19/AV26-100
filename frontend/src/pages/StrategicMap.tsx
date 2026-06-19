@@ -1,9 +1,9 @@
 import React, { useMemo } from 'react';
-import { MapContainer, TileLayer, GeoJSON, Tooltip, ZoomControl } from 'react-leaflet';
+import { MapContainer, TileLayer, GeoJSON, ZoomControl } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useQuery } from '@tanstack/react-query';
-import axios from 'axios';
-import { ShieldAlert, Activity, Users, Map as MapIcon } from 'lucide-react';
+import { apiClient } from '../api/client';
+import { ShieldAlert, Activity, Map as MapIcon } from 'lucide-react';
 import indiaDistricts from '../assets/india_districts.json';
 
 // Theme for the Tactical Map
@@ -23,28 +23,28 @@ const StrategicMap: React.FC = () => {
     queryKey: ['choropleth-data', isSimulating, activeSimId],
     queryFn: async () => {
       const url = isSimulating 
-        ? `${import.meta.env.VITE_API_URL}/districts` // Simulation could have its own mapping
-        : `${import.meta.env.VITE_API_URL}/districts`;
-      const response = await axios.get(url);
+        ? `/districts` // Simulation could have its own mapping
+        : `/districts`;
+      const response = await apiClient.get(url);
       return response.data;
     }
   });
 
   const riskMap = useMemo(() => {
     if (!districtData) return {};
-    return Object.fromEntries(districtData.map((d: any) => [d.id, d]));
+    return Object.fromEntries(districtData.map((d: { id: string, risk_tier: string, name: string, risk_score: number }) => [d.id, d]));
   }, [districtData]);
 
   const stats = useMemo(() => {
     if (!districtData) return { HIGH: 0, MEDIUM: 0, LOW: 0 };
-    return districtData.reduce((acc: any, curr: any) => {
+    return districtData.reduce((acc: Record<string, number>, curr: { risk_tier: string }) => {
       const tier = curr.risk_tier.toUpperCase();
       acc[tier] = (acc[tier] || 0) + 1;
       return acc;
     }, { HIGH: 0, MEDIUM: 0, LOW: 0 });
   }, [districtData]);
 
-  const styleFeature = (feature: any) => {
+  const styleFeature = (feature: { properties: { district_id: string } }) => {
     const districtId = feature.properties.district_id;
     const district = riskMap[districtId];
     return {
@@ -55,7 +55,7 @@ const StrategicMap: React.FC = () => {
     };
   };
 
-  const onEachFeature = (feature: any, layer: any) => {
+  const onEachFeature = (feature: { properties: { district_id: string } }, layer: { bindTooltip: (content: string, options?: Record<string, unknown>) => void }) => {
     const districtId = feature.properties.district_id;
     const d = riskMap[districtId];
     if (d) {
@@ -129,7 +129,7 @@ const StrategicMap: React.FC = () => {
           <ZoomControl position="bottomright" />
           
           <GeoJSON 
-            data={indiaDistricts as any} 
+            data={indiaDistricts as never}
             style={styleFeature}
             onEachFeature={onEachFeature}
           />

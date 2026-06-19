@@ -4,14 +4,13 @@ import {
   Droplet, 
   Brain, 
   FileText, 
-  ChevronRight, 
   AlertTriangle, 
   CheckCircle2,
   Stethoscope,
   Info,
   Download
 } from 'lucide-react';
-import axios from 'axios';
+import { apiClient } from '../api/client';
 import { toast } from 'sonner';
 import { useSearchParams } from 'react-router-dom';
 
@@ -20,17 +19,19 @@ type DiseaseType = 'heart' | 'diabetes' | 'parkinsons';
 const DiagnosticsCenter: React.FC = () => {
   const [searchParams] = useSearchParams();
   const districtIdFromUrl = searchParams.get('district_id');
-  
-  const [activeTab, setActiveTab] = useState<DiseaseType>('heart');
-  const [selectedDistrict, setSelectedDistrict] = useState<string>(districtIdFromUrl || '');
-  const [loading, setLoading] = useState(false);
-  const [prediction, setPrediction] = useState<any>(null);
 
-  const handleDiagnose = async (formData: any) => {
+
+  const [activeTab, setActiveTab] = useState<DiseaseType>('heart');
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [selectedDistrict, setSelectedDistrict] = useState<string>(districtIdFromUrl || '');
+    const [loading, setLoading] = useState(false);
+  const [prediction, setPrediction] = useState<Record<string, unknown> | null>(null);
+
+  const handleDiagnose = async (formData: Record<string, unknown>) => {
     setLoading(true);
     setPrediction(null);
     try {
-      const response = await axios.post(`${import.meta.env.VITE_API_URL}/clinical/${activeTab}`, formData);
+      const response = await apiClient.post(`/clinical/${activeTab}`, formData);
       setPrediction(response.data);
       if (response.data.risk) {
         toast.error(`High risk detected for ${activeTab.toUpperCase()}`, {
@@ -54,8 +55,8 @@ const DiagnosticsCenter: React.FC = () => {
   const handleDownloadReport = async () => {
     if (!prediction) return;
     try {
-      const response = await axios.post(
-        `${import.meta.env.VITE_API_URL}/clinical/report`,
+      const response = await apiClient.post(
+        '/clinical/report',
         [prediction], // Send current prediction in a list
         { responseType: 'blob' }
       );
@@ -193,7 +194,7 @@ const DiagnosticsCenter: React.FC = () => {
 };
 
 // Form Components
-const HeartForm = ({ onSubmit, loading }: { onSubmit: (data: any) => void, loading: boolean }) => {
+const HeartForm = ({ onSubmit, loading }: { onSubmit: (data: Record<string, unknown>) => void, loading: boolean }) => {
   const [data, setData] = useState({
     age: 50, sex: 1, cp: 0, trestbps: 120, chol: 200, fbs: 0, 
     restecg: 0, thalach: 150, exang: 0, oldpeak: 0.0, slope: 1, ca: 0, thal: 2
@@ -222,7 +223,7 @@ const HeartForm = ({ onSubmit, loading }: { onSubmit: (data: any) => void, loadi
   );
 };
 
-const DiabetesForm = ({ onSubmit, loading }: { onSubmit: (data: any) => void, loading: boolean }) => {
+const DiabetesForm = ({ onSubmit, loading }: { onSubmit: (data: Record<string, unknown>) => void, loading: boolean }) => {
   const [data, setData] = useState({
     pregnancies: 0, glucose: 100, blood_pressure: 70, skin_thickness: 20, 
     insulin: 80, bmi: 25.0, dpf: 0.5, age: 30
@@ -249,7 +250,7 @@ const DiabetesForm = ({ onSubmit, loading }: { onSubmit: (data: any) => void, lo
   );
 };
 
-const ParkinsonsForm = ({ onSubmit, loading }: { onSubmit: (data: any) => void, loading: boolean }) => {
+const ParkinsonsForm = ({ onSubmit, loading }: { onSubmit: (data: Record<string, unknown>) => void, loading: boolean }) => {
   const [vocalMetrics, setVocalMetrics] = useState<number[]>(new Array(22).fill(0));
 
   const handleRandomize = () => {
@@ -306,7 +307,7 @@ const ParkinsonsForm = ({ onSubmit, loading }: { onSubmit: (data: any) => void, 
 };
 
 // UI Helpers
-const Input = ({ label, type, value, onChange, step }: any) => (
+const Input = ({ label, type, value, onChange, step }: { label: string, type?: string, value: string | number, onChange: (val: string) => void, step?: string }) => (
   <div className="flex flex-col gap-1.5">
     <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{label}</label>
     <input 
@@ -319,7 +320,7 @@ const Input = ({ label, type, value, onChange, step }: any) => (
   </div>
 );
 
-const Select = ({ label, value, options, onChange }: any) => (
+const Select = ({ label, value, options, onChange }: { label: string, value: string | number, options: Array<{v: string | number, l: string} | string | number>, onChange: (val: string) => void }) => (
   <div className="flex flex-col gap-1.5">
     <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{label}</label>
     <select 
@@ -327,7 +328,7 @@ const Select = ({ label, value, options, onChange }: any) => (
       onChange={(e) => onChange(e.target.value)}
       className="bg-slate-900/80 border border-slate-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all"
     >
-      {options.map((o: any) => (
+      {options.map((o: {v: string | number, l: string} | string | number) => (
         <option key={typeof o === 'object' ? o.v : o} value={typeof o === 'object' ? o.v : o}>
           {typeof o === 'object' ? o.l : o}
         </option>

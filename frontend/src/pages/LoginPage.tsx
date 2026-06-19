@@ -1,3 +1,4 @@
+import axios from 'axios';
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
@@ -46,8 +47,8 @@ const LoginPage: React.FC = () => {
       setAuth(userResp.data, access_token);
       toast.success('Authentication successful. Welcome to EpiSense.');
       navigate('/');
-    } catch (error: any) {
-      toast.error(error.response?.data?.detail || 'Authentication failed. Check credentials.');
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error)) { toast.error(error.response?.data?.detail || 'Authentication failed. Check credentials.'); } else { toast.error('Authentication failed. Check credentials.'); }
     } finally {
       setIsLoading(false);
     }

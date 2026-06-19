@@ -3,7 +3,7 @@ import { Check } from 'lucide-react';
 import { toast } from 'sonner';
 
 // STYLES FOR THE SLIDER (MANUAL SHADCN-LIKE SLIDER)
-const Slider = ({ value, min, max, step, onChange }: any) => {
+const Slider = ({ value, min, max, step, onChange }: { value: number, min: number, max: number, step: number, onChange: (val: number) => void }) => {
   return (
     <div className="relative w-full h-6 flex items-center group">
       <input
@@ -88,7 +88,7 @@ export const CalculatorSection = () => {
                 ].map((opt) => (
                   <button
                     key={opt.id}
-                    onClick={() => setServiceType(opt.id as any)}
+                    onClick={() => setServiceType(opt.id as 'design' | 'development' | 'both')}
                     className="flex items-center gap-3 group cursor-pointer"
                   >
                     <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${serviceType === opt.id ? 'border-[#FF5656]' : 'border-[#333]'}`}>
@@ -155,7 +155,7 @@ export const CalculatorSection = () => {
                 ].map((opt) => (
                   <button
                     key={opt.id}
-                    onClick={() => setTimeline(opt.id as any)}
+                    onClick={() => setTimeline(opt.id as 'regular' | 'fast' | 'rush')}
                     className="flex items-center justify-between group cursor-pointer w-full text-left"
                   >
                     <div className="flex items-center gap-3">
