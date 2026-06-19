@@ -1,3 +1,6 @@
+import logging
+
+logger = logging.getLogger(__name__)
 from typing import List, Any, Dict, Optional
 from uuid import UUID
 from datetime import date, timedelta
@@ -66,8 +69,9 @@ async def list_districts(
                 })
             
         return output
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to retrieve jurisdiction matrix: {str(e)}")
+    except Exception:
+        logger.error(f"Failed to retrieve jurisdiction matrix", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 @router.get("/{district_id}", response_model=Dict[str, Any])
 async def get_district_detail(
@@ -97,14 +101,15 @@ async def get_district_detail(
             "shap_values": pred.shap_values,
             "feature_snapshot": pred.feature_snapshot
         }
-    except Exception as e:
+    except Exception:
+        logger.error(f"Failed to fetch detail for district {district_id}", exc_info=True)
         return {
             "id": str(district.id),
             "name": district.name,
             "state": district.state,
             "risk_score": 0,
             "risk_tier": "unknown",
-            "error": str(e)
+            "error": "Internal server error"
         }
 
 @router.get("/stats", response_model=Dict[str, Any])
