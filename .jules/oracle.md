@@ -1,0 +1,6 @@
+## 2026-06-16 — Predictive Intelligence Engine (Route & Behavioral Prefetch)
+**Product understood as:** A predictive analytics platform that ingests health data to forecast disease outbreak risks, allowing health officers to monitor jurisdictions, triage clinical cases, and run simulations.
+**Prediction invented:** Implemented Predictive Route Prefetching using `queryClient.prefetchQuery` on hover over sidebar links, effectively eliminating load times. Added Predictive Behavioral Prefetching to generate Tactical Report PDFs in the background automatically when a HIGH RISK diagnosis is detected.
+**Data used:** User navigation events (hover state via `onMouseEnter`) and clinical diagnosis state (`risk` flag from `POST /clinical/{disease}` response).
+**Impact:** Reduced perceived latency to zero when navigating key dashboards and maps. PDF report generation feels instantaneous to the user for critical risk alerts, closing the gap between finding a high risk and deciding to download the report.
+**Next opportunity:** Investigate Prefetching scenarios within the Simulation Lab based on what settings users consistently start with, or caching district level predictions based on time-window defaults to make dashboards load immediately instead of fetching on load.
