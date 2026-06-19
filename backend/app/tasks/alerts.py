@@ -1,9 +1,12 @@
 import logging
 import time
 from uuid import UUID
+from app.core.resilience import with_retry, with_dead_letter_queue
 
 logger = logging.getLogger(__name__)
 
+@with_dead_letter_queue()
+@with_retry(max_attempts=3, initial_backoff=0.2)
 async def send_alert_notification(alert_id: str, district_name: str, disease: str, risk_score: float):
     """
     Asynchronous task to deliver critical alerts to health officials.
