@@ -1,0 +1,6 @@
+## 2026-06-18 — Clinical Screening History
+**Product understood as:** A predictive intelligence platform for health mission officers to track, anticipate, and respond to regional disease threats using geospatial mapping, autonomous clustering alerts, and point-in-time clinical screenings.
+**Derivation reasoning:** This product has point-in-time clinical screenings (heart, diabetes, Parkinson's) that are tracked via `PredictionAuditLog` whenever a screening runs. Users conduct repeated clinical checks but the app never provides a view into past assessments. Therefore users obviously need a screening history view to understand temporal changes or track their diagnostic trail. It doesn't exist because we focused heavily on cluster threat detection from logs instead of exposing the raw log to the user who ran the screening.
+**Feature built:** Added a `GET /clinical/history` backend endpoint that exposes a user's recent `PredictionAuditLog` entries, and added a 'Screening History' tab to the Tactical Diagnostics Center on the frontend.
+**User impact:** As a user, I can now review my past clinical screenings, see what risk tier was calculated, and track the status of the screenings across the mission.
+**Next logical feature:** "Mission Threat Summary" digest or export based on the historical pattern of autonomous alerts.

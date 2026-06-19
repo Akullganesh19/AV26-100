@@ -9,13 +9,16 @@ import {
   CheckCircle2,
   Stethoscope,
   Info,
-  Download
+  Download,
+  History
 } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
 import { toast } from 'sonner';
 import { useSearchParams } from 'react-router-dom';
+import { apiClient } from '../api/client';
 
-type DiseaseType = 'heart' | 'diabetes' | 'parkinsons';
+type DiseaseType = 'heart' | 'diabetes' | 'parkinsons' | 'history';
 
 const DiagnosticsCenter: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -111,7 +114,7 @@ const DiagnosticsCenter: React.FC = () => {
             <Droplet className={activeTab === 'diabetes' ? 'text-emerald-500' : ''} />
             <span className="font-medium">Diabetes</span>
           </button>
-          <button
+                    <button
             onClick={() => setActiveTab('parkinsons')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all border ${
               activeTab === 'parkinsons' 
@@ -121,6 +124,20 @@ const DiagnosticsCenter: React.FC = () => {
           >
             <Brain className={activeTab === 'parkinsons' ? 'text-emerald-500' : ''} />
             <span className="font-medium">Parkinson's</span>
+          </button>
+
+          <div className="h-px bg-slate-800 my-4" />
+
+          <button
+            onClick={() => setActiveTab('history')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all border ${
+              activeTab === 'history'
+              ? 'bg-brand-primary/10 border-brand-primary/50 text-white shadow-lg shadow-brand-primary/10'
+              : 'bg-slate-900/50 border-slate-800 text-slate-400 hover:bg-slate-800/50 hover:text-white'
+            }`}
+          >
+            <History className={activeTab === 'history' ? 'text-brand-primary' : ''} />
+            <span className="font-medium">Screening History</span>
           </button>
 
           <div className="mt-8 p-4 rounded-xl bg-slate-900/50 border border-slate-800/50">
@@ -143,11 +160,13 @@ const DiagnosticsCenter: React.FC = () => {
               {activeTab === 'heart' && <><Activity className="text-emerald-500" /> Heart Risk Assessment</>}
               {activeTab === 'diabetes' && <><Droplet className="text-emerald-500" /> Metabolic Screening</>}
               {activeTab === 'parkinsons' && <><Brain className="text-emerald-500" /> Neuro-vocal Analysis</>}
+              {activeTab === 'history' && <><History className="text-brand-primary" /> Screening History</>}
             </h2>
 
             {activeTab === 'heart' && <HeartForm onSubmit={handleDiagnose} loading={loading} />}
             {activeTab === 'diabetes' && <DiabetesForm onSubmit={handleDiagnose} loading={loading} />}
             {activeTab === 'parkinsons' && <ParkinsonsForm onSubmit={handleDiagnose} loading={loading} />}
+            {activeTab === 'history' && <HistoryView />}
           </div>
 
           {prediction && (
@@ -335,5 +354,65 @@ const Select = ({ label, value, options, onChange }: any) => (
     </select>
   </div>
 );
+
+
+const HistoryView = () => {
+  const { data: history, isLoading } = useQuery({
+    queryKey: ['clinical-history'],
+    queryFn: async () => {
+      const response = await apiClient.get('/clinical/history');
+      return response.data;
+    }
+  });
+
+  if (isLoading) {
+    return <div className="p-8 text-center text-slate-400">Loading history...</div>;
+  }
+
+  if (!history || history.length === 0) {
+    return <div className="p-8 text-center text-slate-400">No screening history found.</div>;
+  }
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-left border-collapse">
+        <thead>
+          <tr className="border-b border-slate-800 text-xs uppercase tracking-wider text-slate-500">
+            <th className="p-4 font-semibold">Date</th>
+            <th className="p-4 font-semibold">Diagnosis Type</th>
+            <th className="p-4 font-semibold">Risk Score</th>
+            <th className="p-4 font-semibold">Status</th>
+          </tr>
+        </thead>
+        <tbody className="text-sm">
+          {history.map((log: any) => (
+            <tr key={log.id} className="border-b border-slate-800/50 hover:bg-slate-800/20 transition-colors">
+              <td className="p-4 text-slate-300">{new Date(log.timestamp).toLocaleString()}</td>
+              <td className="p-4 text-white font-medium capitalize">
+                {log.endpoint.replace('clinical/', '')}
+              </td>
+              <td className="p-4">
+                <span className={`px-2 py-1 rounded text-xs font-bold ${
+                  log.risk_score > 0.7
+                    ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                    : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                }`}>
+                  {(log.risk_score * 100).toFixed(1)}%
+                </span>
+              </td>
+              <td className="p-4">
+                <span className={`px-2 py-1 rounded text-xs ${
+                  log.status === 'SUCCESS' ? 'text-emerald-500' : 'text-rose-500'
+                }`}>
+                  {log.status}
+                </span>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+};
 
 export default DiagnosticsCenter;
