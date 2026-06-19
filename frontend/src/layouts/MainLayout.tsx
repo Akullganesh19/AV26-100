@@ -13,9 +13,12 @@ import {
   Map as MapIcon
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
+import { useQueryClient } from '@tanstack/react-query';
+import axios from 'axios';
 
 const MainLayout: React.FC = () => {
   const location = useLocation();
+  const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { logout, user } = useAuthStore();
   const [isSidebarOpen, setSidebarOpen] = React.useState(true);
@@ -29,6 +32,51 @@ const MainLayout: React.FC = () => {
     { path: '/simulations', label: 'Scenario Lab', icon: AlertTriangle },
     { path: '/settings', label: 'System Config', icon: Settings },
   ];
+
+  const handlePrefetch = (path: string) => {
+    // Determine which API calls to prefetch based on the destination route
+    if (path === '/') {
+      queryClient.prefetchQuery({
+        queryKey: ['dashboard-stats'],
+        queryFn: async () => {
+          const response = await axios.get(`${import.meta.env.VITE_API_URL}/districts/stats`);
+          return response.data;
+        }
+      });
+    } else if (path === '/map') {
+      // Prefetch map districts
+      queryClient.prefetchQuery({
+        queryKey: ['choropleth-data', false, null], // Default isSimulating false, activeSimId null
+        queryFn: async () => {
+          const response = await axios.get(`${import.meta.env.VITE_API_URL}/districts`);
+          return response.data;
+        }
+      });
+    } else if (path === '/alerts') {
+      // Prefetch alerts
+      queryClient.prefetchQuery({
+        queryKey: ['tactical-alerts', false, null],
+        queryFn: async () => {
+          const response = await axios.get(`${import.meta.env.VITE_API_URL}/alerts`);
+          return response.data;
+        }
+      });
+    } else if (path === '/simulations') {
+      queryClient.prefetchQuery({
+        queryKey: ['sim-scenarios'],
+        queryFn: async () => {
+          const response = await axios.get(`${import.meta.env.VITE_API_URL}/scenarios/`);
+          return response.data;
+        }
+      });
+      queryClient.prefetchQuery({
+        queryKey: ['active-sim', null],
+        queryFn: async () => {
+          return null; // Will just pre-fill the cache with null when not simulating
+        }
+      });
+    }
+  };
 
   const handleLogout = () => {
     logout();
@@ -62,6 +110,7 @@ const MainLayout: React.FC = () => {
               <Link
                 key={item.path}
                 to={item.path}
+                onMouseEnter={() => handlePrefetch(item.path)}
                 className={`flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-200 group ${
                   isActive 
                     ? 'bg-brand-primary/10 text-brand-primary border border-brand-primary/20 shadow-[0_0_15px_rgba(30,144,255,0.1)]' 
