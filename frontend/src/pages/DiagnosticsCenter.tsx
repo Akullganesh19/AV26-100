@@ -306,34 +306,44 @@ const ParkinsonsForm = ({ onSubmit, loading }: { onSubmit: (data: any) => void, 
 };
 
 // UI Helpers
-const Input = ({ label, type, value, onChange, step }: any) => (
-  <div className="flex flex-col gap-1.5">
-    <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{label}</label>
-    <input 
-      type={type} 
-      step={step}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="bg-slate-900/80 border border-slate-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all"
-    />
-  </div>
-);
+const Input = ({ label, type, value, onChange, step }: any) => {
+  const id = React.useId();
+  return (
+    <div className="flex flex-col gap-1.5">
+      {/* Palette: Added useId to automatically link labels and inputs via htmlFor/id for screen reader accessibility */}
+      <label htmlFor={id} className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{label}</label>
+      <input
+        id={id}
+        type={type}
+        step={step}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="bg-slate-900/80 border border-slate-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all"
+      />
+    </div>
+  );
+};
 
-const Select = ({ label, value, options, onChange }: any) => (
-  <div className="flex flex-col gap-1.5">
-    <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{label}</label>
-    <select 
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="bg-slate-900/80 border border-slate-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all"
-    >
-      {options.map((o: any) => (
-        <option key={typeof o === 'object' ? o.v : o} value={typeof o === 'object' ? o.v : o}>
-          {typeof o === 'object' ? o.l : o}
-        </option>
-      ))}
-    </select>
-  </div>
-);
+const Select = ({ label, value, options, onChange }: any) => {
+  const id = React.useId();
+  return (
+    <div className="flex flex-col gap-1.5">
+      {/* Palette: Added useId to automatically link labels and select inputs via htmlFor/id for screen reader accessibility */}
+      <label htmlFor={id} className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{label}</label>
+      <select
+        id={id}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="bg-slate-900/80 border border-slate-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all"
+      >
+        {options.map((o: any) => (
+          <option key={typeof o === 'object' ? o.v : o} value={typeof o === 'object' ? o.v : o}>
+            {typeof o === 'object' ? o.l : o}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+};
 
 export default DiagnosticsCenter;
