@@ -1,0 +1,6 @@
+## 2026-06-20 — Simulation Day Concurrency Fix
+**Value type:** Simulation current day (progress tracker / counter)
+**Drift risk found:** The `SimulationService.advance_day` method used a read-modify-write pattern on `current_day` (reading `SimulationState`, verifying total days, incrementing, and processing events) without row locking or wrapping in a transaction with proper isolation. Under concurrent requests (e.g. frontend double clicks, or retries), multiple requests could read the same `current_day` and overwrite the state, leading to lost updates, skipped scenarios, and disjointed event triggers.
+**Fix:** atomic operation via `with_for_update()` in the SELECT query to enforce a row-level lock serialization, ensuring consecutive concurrent increments correctly advance state instead of clobbering one another.
+**Proven by:** `test_simulation_advance_day_concurrency` simulates exactly 5 concurrent `advance_day()` calls on the same state, asserting the resultant `current_day` is exactly 5.
+**Other balances to check:** Any other counter logic in the system, specifically potential quotas or credits if added in the future, and quota counters on ML evaluation if they are maintained in state.

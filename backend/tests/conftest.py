@@ -6,6 +6,9 @@ from sqlalchemy.orm import sessionmaker
 from app.core.database import Base
 from app.core.config import settings
 
+# Explicitly import all models to register them with Base.metadata
+import app.models
+
 # Use the dedicated test database created in the previous step
 TEST_DATABASE_URL = str(settings.DATABASE_URL) + "_test"
 
