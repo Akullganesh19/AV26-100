@@ -91,7 +91,7 @@ async def get_current_user(
             options={"verify_aud": True, "verify_iss": True}
         )
         clerk_id = payload.get("sub")
-    except Exception:
+    except jwt.PyJWTError:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Could not validate credentials",
