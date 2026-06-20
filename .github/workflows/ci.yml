@@ -56,6 +56,11 @@ jobs:
         DATABASE_URL: postgresql+asyncpg://episense:episense@localhost:5432/episense_test
         SECRET_KEY: test_secret_key_for_ci
         REDIS_HOST: localhost
+        CLOUDINARY_API_KEY: test
+        SENDGRID_API_KEY: test
+        ALGOLIA_API_KEY: test
+        CLINICAL_MANIFEST_PATH: app/core/manifest.json
+        CLINICAL_MODELS_DIR: ml/saved_models
       run: |
         export PYTHONPATH=$PYTHONPATH:$(pwd)/backend
         pytest backend/tests/ml/test_features.py
