@@ -19,14 +19,19 @@ from app.core.config import settings
 from app.ml.features import FeatureBuilder, FEATURE_NAMES
 from app.models.prediction import Prediction, RiskTier
 from app.schemas.prediction import PredictionResponse
-from app.tasks.alerts import send_alert_notification
+from app.core.events import event_bus
 
 logger = logging.getLogger(__name__)
 
 MODELS_DIR = Path(__file__).parent.parent.parent / "models"
 MANIFEST_PATH = MODELS_DIR / "latest.json"
 
-TIER_LABELS = {0: RiskTier.LOW, 1: RiskTier.MEDIUM, 2: RiskTier.HIGH, 3: RiskTier.CRITICAL}
+TIER_LABELS = {
+    0: RiskTier.LOW,
+    1: RiskTier.MEDIUM,
+    2: RiskTier.HIGH,
+    3: RiskTier.CRITICAL,
+}
 
 
 def to_python(val: Any) -> Any:
@@ -49,7 +54,14 @@ def get_latest_manifest() -> dict:
     with open(MANIFEST_PATH) as f:
         manifest = json.load(f)
 
-    required_keys = {"version", "pipeline", "regressor", "classifier", "explainer", "feature_bounds"}
+    required_keys = {
+        "version",
+        "pipeline",
+        "regressor",
+        "classifier",
+        "explainer",
+        "feature_bounds",
+    }
     missing = required_keys - set(manifest.keys())
     if missing:
         raise RuntimeError(f"Manifest missing required keys: {missing}")
@@ -96,7 +108,7 @@ class PredictionService:
         self.explainer = ml_state["explainer"]
         self.manifest = ml_state["manifest"]
         self.feature_builder = FeatureBuilder(db)
-        self._db_lock = asyncio.Lock() # Protect non-concurrent-safe AsyncSession
+        self._db_lock = asyncio.Lock()  # Protect non-concurrent-safe AsyncSession
 
     async def predict_single(
         self,
@@ -109,7 +121,9 @@ class PredictionService:
 
         # Step 1: extract real feature vector from DB
         async with self._db_lock:
-            feature_df = await self.feature_builder.build(district_id, disease, as_of_date)
+            feature_df = await self.feature_builder.build(
+                district_id, disease, as_of_date
+            )
 
         if feature_df is None or feature_df.empty:
             raise ValueError(
@@ -131,29 +145,21 @@ class PredictionService:
         # Step 4: transform + inference — all CPU-bound work goes to thread pool
         loop = asyncio.get_event_loop()
 
-        X_sim_t = await loop.run_in_executor(
-            None, self.pipeline.transform, X_sim
-        )
+        X_sim_t = await loop.run_in_executor(None, self.pipeline.transform, X_sim)
 
-        raw_score = await loop.run_in_executor(
-            None, self._run_regressor, X_sim_t
-        )
+        raw_score = await loop.run_in_executor(None, self._run_regressor, X_sim_t)
 
         risk_tier = await loop.run_in_executor(
             None, self._run_classifier, X_sim_t, raw_score
         )
 
-        shap_dict = await loop.run_in_executor(
-            None, self._compute_shap, X_sim_t
-        )
+        shap_dict = await loop.run_in_executor(None, self._compute_shap, X_sim_t)
 
         # Step 5: baseline score (no overrides) for delta display
         baseline_score = None
         delta = None
         if overrides:
-            X_real_t = await loop.run_in_executor(
-                None, self.pipeline.transform, X_real
-            )
+            X_real_t = await loop.run_in_executor(None, self.pipeline.transform, X_real)
             baseline_score = to_python(
                 np.clip(self.regressor.predict(X_real_t), 0, 100)[0]
             )
@@ -185,12 +191,15 @@ class PredictionService:
 
         # Step 7: Trigger Asynchronous Alerts if high risk
         if risk_tier in [RiskTier.HIGH, RiskTier.CRITICAL]:
-            asyncio.create_task(send_alert_notification(
-                alert_id=str(prediction_id),
-                district_name="Jurisdiction Monitor", # In production, fetch from District model
-                disease=disease,
-                risk_score=float(raw_score)
-            ))
+            asyncio.create_task(
+                event_bus.publish(
+                    "prediction.high_risk",
+                    alert_id=str(prediction_id),
+                    district_id=str(district_id),
+                    disease=disease,
+                    risk_score=float(raw_score),
+                )
+            )
 
         return PredictionResponse(
             prediction_id=prediction_id,
@@ -211,7 +220,7 @@ class PredictionService:
         district_ids: list[UUID],
         disease: str,
         as_of_date: date,
-        concurrency: int = 5
+        concurrency: int = 5,
     ) -> list[PredictionResponse]:
         """
         Optimized batch inference using asyncio.gather for concurrency.
@@ -248,20 +257,15 @@ class PredictionService:
     def _run_classifier(self, X_t: np.ndarray, risk_score: float) -> RiskTier:
         X_stacked = np.append(X_t, [[risk_score]], axis=1)
         tier_idx = int(self.classifier.predict(X_stacked)[0])
-        return TIER_LABELS.get(tier_idx, RiskTier.LOW) # Default to LOW if unknown
+        return TIER_LABELS.get(tier_idx, RiskTier.LOW)  # Default to LOW if unknown
 
     def _compute_shap(self, X_t: np.ndarray) -> dict[str, float]:
         shap_vals = self.explainer.shap_values(X_t)[0]
-        result = {
-            FEATURE_NAMES[i]: round(float(v), 4)
-            for i, v in enumerate(shap_vals)
-        }
+        result = {FEATURE_NAMES[i]: round(float(v), 4) for i, v in enumerate(shap_vals)}
         result["_base_value"] = round(float(self.explainer.expected_value), 4)
         return result
 
-    def _check_distribution(
-        self, X: pd.DataFrame
-    ) -> tuple[bool, list[str]]:
+    def _check_distribution(self, X: pd.DataFrame) -> tuple[bool, list[str]]:
         bounds = self.manifest.get("feature_bounds", {})
         ood = []
         for feat in FEATURE_NAMES:
@@ -301,7 +305,12 @@ class PredictionService:
                 pipeline_run_id=None,  # set by scheduled pipeline, None for on-demand
             )
             .on_conflict_do_nothing(
-                index_elements=["district_id", "disease", "prediction_date", "model_version"]
+                index_elements=[
+                    "district_id",
+                    "disease",
+                    "prediction_date",
+                    "model_version",
+                ]
             )
             .returning(Prediction.id)
         )
@@ -324,5 +333,7 @@ class PredictionService:
             else:
                 # This case should ideally not happen if on_conflict_do_nothing worked as expected
                 # but as a fallback, raise an error or log
-                raise RuntimeError("Failed to retrieve existing prediction ID after conflict.")
+                raise RuntimeError(
+                    "Failed to retrieve existing prediction ID after conflict."
+                )
         return row[0]
