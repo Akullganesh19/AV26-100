@@ -64,7 +64,11 @@ async def get_current_user(
 ) -> User:
     # 1. Check Redis Revocation List
     import redis.asyncio as redis
+    import redis.exceptions
     from app.core.config import settings
+    import logging
+    logger = logging.getLogger(__name__)
+
     r = redis.from_url(settings.CELERY_BROKER_URL) # Reuse Redis host
     
     try:
@@ -76,8 +80,15 @@ async def get_current_user(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Token has been revoked",
             )
-    except Exception:
-        pass # Fall through to standard verification
+    except HTTPException:
+        raise
+    except (redis.exceptions.ConnectionError, redis.exceptions.TimeoutError, Exception) as e:
+        logger.error(f"Redis connection failed during token revocation check: {e}")
+        # Fail closed on infrastructure errors
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error",
+        )
     finally:
         await r.aclose()
 

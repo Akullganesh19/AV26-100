@@ -8,6 +8,7 @@ from app.api.integrations import weather_client
 from app.models.district import District
 from app.models.environmental_data import EnvironmentalData
 from app.models.pipeline_run import PipelineRun
+from app.core.resilience import with_retry
 
 
 logger = logging.getLogger(__name__)
@@ -15,6 +16,7 @@ logger = logging.getLogger(__name__)
 
 class IngestionService:
     @staticmethod
+    @with_retry(max_attempts=3)
     async def run_weather_ingestion(db: AsyncSession, days_back: int = 7) -> int:
         """
         Orchestrates weather data collection for all registered districts.
