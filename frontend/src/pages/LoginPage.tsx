@@ -62,7 +62,7 @@ const LoginPage: React.FC = () => {
       <div className="w-full max-w-md z-10">
         <div className="text-center mb-10">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-brand-primary/10 border border-brand-primary/20 shadow-[0_0_30px_rgba(30,144,255,0.2)] mb-6">
-            <ShieldAlert className="w-8 h-8 text-brand-primary" />
+            <ShieldAlert aria-hidden="true" className="w-8 h-8 text-brand-primary" />
           </div>
           <h1 className="text-4xl font-black tracking-tighter text-white mb-2">EPISENSE</h1>
           <p className="text-slate-500 font-medium uppercase tracking-[0.3em] text-[10px]">Tactical Health Command</p>
@@ -71,10 +71,11 @@ const LoginPage: React.FC = () => {
         <div className="glass-panel p-8 rounded-3xl">
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             <div className="space-y-2">
-              <label className="tactical-header">Operational Identity</label>
+              <label htmlFor="email" className="tactical-header">Operational Identity</label>
               <div className="relative group">
-                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 group-focus-within:text-brand-primary transition-colors" />
+                <Mail aria-hidden="true" className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 group-focus-within:text-brand-primary transition-colors" />
                 <input
+                  id="email"
                   {...register('email')}
                   type="email"
                   placeholder="name@agency.gov"
@@ -85,10 +86,11 @@ const LoginPage: React.FC = () => {
             </div>
 
             <div className="space-y-2">
-              <label className="tactical-header">Access Protocol</label>
+              <label htmlFor="password" className="tactical-header">Access Protocol</label>
               <div className="relative group">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 group-focus-within:text-brand-primary transition-colors" />
+                <Lock aria-hidden="true" className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 group-focus-within:text-brand-primary transition-colors" />
                 <input
+                  id="password"
                   {...register('password')}
                   type={showPassword ? 'text' : 'password'}
                   placeholder="••••••••••••"
@@ -96,10 +98,11 @@ const LoginPage: React.FC = () => {
                 />
                 <button
                   type="button"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors"
                 >
-                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  {showPassword ? <EyeOff aria-hidden="true" className="w-5 h-5" /> : <Eye aria-hidden="true" className="w-5 h-5" />}
                 </button>
               </div>
               {errors.password && <p className="text-xs text-rose-500 font-medium ml-1">{errors.password.message}</p>}
@@ -107,11 +110,12 @@ const LoginPage: React.FC = () => {
 
             <button
               disabled={isLoading}
+              aria-busy={isLoading}
               type="submit"
               className="w-full btn-tactical btn-primary py-4 flex items-center justify-center gap-3 mt-4"
             >
               {isLoading ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
+                <Loader2 aria-hidden="true" className="w-5 h-5 animate-spin" />
               ) : (
                 <>
                   <span className="uppercase tracking-widest text-xs font-bold">Initiate Authentication</span>
