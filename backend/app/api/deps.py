@@ -64,7 +64,6 @@ async def get_current_user(
 ) -> User:
     # 1. Check Redis Revocation List
     import redis.asyncio as redis
-    import redis.exceptions
     from app.core.config import settings
     import logging
     logger = logging.getLogger(__name__)
@@ -82,7 +81,7 @@ async def get_current_user(
             )
     except HTTPException:
         raise
-    except (redis.exceptions.ConnectionError, redis.exceptions.TimeoutError, Exception) as e:
+    except Exception as e:
         logger.error(f"Redis connection failed during token revocation check: {e}")
         # Fail closed on infrastructure errors
         raise HTTPException(
