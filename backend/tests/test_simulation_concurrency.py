@@ -11,7 +11,9 @@ from app.models.scenario import Scenario, SimulationState
 from app.models.user import User
 from app.services.simulation_service import SimulationService
 
-TEST_DATABASE_URL = str(settings.DATABASE_URL) + "_test"
+TEST_DATABASE_URL = str(settings.DATABASE_URL)
+if not TEST_DATABASE_URL.endswith("_test"):
+    TEST_DATABASE_URL += "_test"
 
 @pytest.mark.asyncio
 async def test_simulation_advance_day_concurrency():
