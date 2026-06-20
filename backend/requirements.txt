@@ -20,3 +20,7 @@ python-multipart==0.0.9
 joblib==1.4.2
 fpdf2==2.7.8
 slowapi==0.1.9
+cloudinary
+algoliasearch
+sendgrid
+stream-chat

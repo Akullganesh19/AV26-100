@@ -15,10 +15,12 @@ from app.api.deps import get_db, limiter
 from app.services.prediction_service import load_artifacts, ml_state
 from app.core.scheduler import start_scheduler, stop_scheduler
 from app.core.logging import setup_logging
+import app.tasks.alerts  # Initialize event listeners
 
 # Initialize Structured Logging
 setup_logging()
 logger = logging.getLogger(__name__)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -27,7 +29,9 @@ async def lifespan(app: FastAPI):
     try:
         artifacts = load_artifacts()
         ml_state.update(artifacts)
-        logger.info("ML context initialized", extra={"version": ml_state["manifest"]["version"]})
+        logger.info(
+            "ML context initialized", extra={"version": ml_state["manifest"]["version"]}
+        )
     except Exception as e:
         logger.critical("Failed to load ML artifacts", exc_info=True)
         raise RuntimeError(f"System cannot start without ML models: {e}")
@@ -35,19 +39,20 @@ async def lifespan(app: FastAPI):
     # 2. Start Background Scheduler
     start_scheduler()
     logger.info("Background scheduler started")
-    
+
     yield
-    
+
     # 3. Shutdown: Clean up state and scheduler
     stop_scheduler()
     ml_state.clear()
     logger.info("Application shutdown complete")
 
+
 app = FastAPI(
     title="EpiSense Intelligence Platform",
     version="1.0.0",
     openapi_url=f"{settings.API_V1_STR}/openapi.json",
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
 # Rate Limiting & Middleware
@@ -65,6 +70,7 @@ if settings.CORS_ORIGINS:
         allow_headers=["*"],
     )
 
+
 # Security Headers Middleware
 @app.middleware("http")
 async def add_security_headers(request: Request, call_next):
@@ -72,21 +78,25 @@ async def add_security_headers(request: Request, call_next):
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-XSS-Protection"] = "1; mode=block"
-    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    response.headers["Strict-Transport-Security"] = (
+        "max-age=31536000; includeSubDomains"
+    )
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; "
-        "script-src 'self' https://*.clerk.accounts.dev; " # Authorized Clerk Scripts
+        "script-src 'self' https://*.clerk.accounts.dev; "  # Authorized Clerk Scripts
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
         "font-src 'self' https://fonts.gstatic.com data:; "
-        "img-src 'self' data: blob: https://img.clerk.com; " # Allow Clerk User Images
+        "img-src 'self' data: blob: https://img.clerk.com; "  # Allow Clerk User Images
         "connect-src 'self' https://*.clerk.accounts.dev; "
-        "frame-src https://*.clerk.accounts.dev; " # Allow Clerk Auth IFrames
+        "frame-src https://*.clerk.accounts.dev; "  # Allow Clerk Auth IFrames
         "frame-ancestors 'none';"
     )
     return response
 
+
 # Routing
 app.include_router(api_router, prefix=settings.API_V1_STR)
+
 
 @app.get("/api/health")
 async def health_check(db: AsyncSession = Depends(get_db)):
@@ -99,7 +109,7 @@ async def health_check(db: AsyncSession = Depends(get_db)):
             "status": "healthy",
             "service": "episense-core",
             "database": "connected",
-            "model_version": ml_state.get("manifest", {}).get("version", "unknown")
+            "model_version": ml_state.get("manifest", {}).get("version", "unknown"),
         }
     except Exception as e:
         logger.error("Health check failed", exc_info=True)
@@ -107,6 +117,7 @@ async def health_check(db: AsyncSession = Depends(get_db)):
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Service infrastructure unavailable",
         )
+
 
 @app.get("/api/ready")
 async def readiness_probe(db: AsyncSession = Depends(get_db)):
@@ -118,14 +129,15 @@ async def readiness_probe(db: AsyncSession = Depends(get_db)):
         # DB Check
         await db.execute(text("SELECT 1"))
         checks["database"] = True
-        
+
         # Redis Check (using asyncio client)
         import redis.asyncio as redis
+
         r = redis.from_url(settings.CELERY_BROKER_URL)
         await r.ping()
         await r.aclose()
         checks["redis"] = True
-        
+
         if all(checks.values()):
             return {"status": "ready", "dependencies": checks}
         else:
