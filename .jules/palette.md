@@ -1,0 +1,7 @@
+## 2025-06-21 — Missing Accessibility Wrappers
+
+**Found:** Custom UI elements like "checkboxes" using `hidden` to entirely obscure the native input, custom Radio buttons using non-radio standard `button` elements, and generic `Input` components missing `useId()` and proper label association `htmlFor`. Also, complex maps of unnamed inputs (like the 22 vocal metrics) lacking an `aria-label`.
+**Why it existed:** Tailwind UI components often sacrifice native accessibility elements to achieve perfect styling via divs and spans without implementing `sr-only` natively focusable fallbacks or ARIA radiogroups. Form labels were visual text instead of semantically linked.
+**Fix:** Refactored Calculator custom radio buttons to `<div role="radiogroup">` enclosing `<button role="radio" aria-checked="...">`. Changed Calculator custom checkboxes from `hidden` to `peer sr-only` allowing keyboard focus, styled using `peer-focus-visible:ring-2`. Addressed Diagnostics inputs to map generated `useId()` onto `id` and `htmlFor`, and mapped array elements using `aria-labelledby`.
+**Learning:** For custom styled form inputs, native underlying form fields should never be `hidden` or `display: none`. Always use `sr-only` coupled with the `peer` class in tailwind, so you can style the `peer-focus-visible:` on the visual box. Generic form inputs need `React.useId()`.
+**Watch for:** Other forms or map overlays incorporating complex bespoke UI logic without corresponding ARIA attributes and keyboard focusability.
