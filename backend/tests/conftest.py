@@ -1,4 +1,3 @@
-import pytest
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
@@ -6,28 +5,34 @@ from sqlalchemy.orm import sessionmaker
 from app.core.database import Base
 from app.core.config import settings
 
+# ensure all model modules are explicitly imported
+import app.models  # noqa: F401
+
 # Use the dedicated test database created in the previous step
-TEST_DATABASE_URL = str(settings.DATABASE_URL) + "_test"
+_db_url_str = str(settings.DATABASE_URL)
+if not _db_url_str.endswith("_test"):
+    TEST_DATABASE_URL = _db_url_str + "_test"
+else:
+    TEST_DATABASE_URL = _db_url_str
+
 
 @pytest_asyncio.fixture
 async def db_session():
     """
-    Creates a fresh database session for each test, 
+    Creates a fresh database session for each test,
     ensuring loop consistency and data isolation.
     """
     engine = create_async_engine(TEST_DATABASE_URL)
-    
+
     async with engine.begin() as conn:
         # Reset schema for each test run
         await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
-    
-    async_session = sessionmaker(
-        engine, class_=AsyncSession, expire_on_commit=False
-    )
-    
+
+    async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+
     async with async_session() as session:
         yield session
         await session.rollback()
-    
+
     await engine.dispose()
