@@ -1,0 +1,7 @@
+## 2026-06-21 — Migrate passlib to bcrypt
+
+**Risk identified:** The backend utilized `passlib` to interface with `bcrypt`. However, `passlib` is largely unmaintained and has known compatibility issues with newer versions of its underlying crypto dependencies (specifically causing unresolvable exceptions like `AttributeError: module 'bcrypt' has no attribute '__about__'`). This blocks standard validation methods during routine operations like password verification and tests.
+**Migration target:** Modern Python backends use direct cryptographic library APIs over unmaintained wrapper meta-libraries. The system must migrate towards direct `bcrypt` calls (`bcrypt.hashpw`, `bcrypt.checkpw`).
+**Migrated this session:** The `backend/app/core/security.py` hashing and verification mechanisms were converted directly to use the `bcrypt` library instead of `passlib.context.CryptContext`. `backend/requirements.txt` was adjusted to explicitly depend on `bcrypt` instead of `passlib[bcrypt]`.
+**Remaining:** The backend still utilizes `python-jose` for JWT tokens, which is similarly aging and commonly replaced by `PyJWT`.
+**Next session:** Migrate `python-jose` to `PyJWT` in `backend/app/core/security.py` and remove it from `requirements.txt`.
