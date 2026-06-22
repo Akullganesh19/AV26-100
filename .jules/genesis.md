@@ -1,0 +1,7 @@
+## 2024-05-24 — Integration Service Resilience
+
+**Failure point found:** All third-party external calls in `backend/app/api/integrations.py` (Algolia, SendGrid, Cloudinary, Stream) were unprotected. A transient failure or timeout in any of these external dependencies would cause an unhandled exception, propagating the error up and crashing the request handling. Furthermore, the Cloudinary synchronous `upload` call was blocking the FastAPI asyncio event loop.
+**Why it existed:** The initial implementation focused on achieving functional integration with the APIs without considering network fragility, transient outages, or proper non-blocking I/O for the external SDKs.
+**Recovery built:** Created `@with_retry` (exponential backoff, idempotency checks) and `@with_circuit_breaker` decorators in `backend/app/core/resilience.py`. Applied these to all external calls in `IntegrationService`. Also wrapped `cloudinary.uploader.upload` in `asyncio.to_thread`.
+**Blast radius before:** Any transient network issue with a 3rd-party provider would fail the entire request for the user, potentially failing critical clinical alert emails or report generation. A slow Cloudinary upload would block the entire backend event loop, freezing all other concurrent users.
+**Watch for:** Look for other synchronous I/O operations (like `requests.get` or database access without `AsyncSession`) that might still be blocking the event loop. Also check background jobs (e.g., Celery) for missing retry logic.
