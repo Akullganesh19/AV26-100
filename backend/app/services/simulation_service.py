@@ -27,7 +27,8 @@ class SimulationService:
     @staticmethod
     async def advance_day(db: AsyncSession, simulation_id: str) -> Optional[SimulationState]:
         """Snapshot playback engine: Advances one mission day and triggers all day-offset events."""
-        query = select(SimulationState).where(SimulationState.id == simulation_id)
+        # Use with_for_update() to prevent read-modify-write race condition
+        query = select(SimulationState).where(SimulationState.id == simulation_id).with_for_update()
         result = await db.execute(query)
         sim = result.scalar_one_or_none()
         
@@ -94,7 +95,7 @@ class SimulationService:
 
     @staticmethod
     async def reset_simulation(db: AsyncSession, simulation_id: str):
-        query = select(SimulationState).where(SimulationState.id == simulation_id)
+        query = select(SimulationState).where(SimulationState.id == simulation_id).with_for_update()
         result = await db.execute(query)
         sim = result.scalar_one_or_none()
         if sim:
