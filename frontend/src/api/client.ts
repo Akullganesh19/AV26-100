@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios, { AxiosRequestConfig, AxiosResponse } from 'axios';
 import { useAuthStore } from '../store/authStore';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
@@ -27,3 +27,27 @@ apiClient.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+// Request Coalescing (Deduplication)
+const inFlightGetRequests = new Map<string, Promise<AxiosResponse>>();
+
+const originalGet = apiClient.get;
+
+apiClient.get = function <T = unknown, R = AxiosResponse<T>, D = unknown>(
+  url: string,
+  config?: AxiosRequestConfig<D>
+): Promise<R> {
+  const key = url + (config?.params ? JSON.stringify(config.params) : '');
+
+  if (inFlightGetRequests.has(key)) {
+    // Return the existing promise to coalesce requests
+    return inFlightGetRequests.get(key) as Promise<R>;
+  }
+
+  const promise = originalGet.call(this, url, config).finally(() => {
+    inFlightGetRequests.delete(key);
+  });
+
+  inFlightGetRequests.set(key, promise);
+  return promise as Promise<R>;
+};
