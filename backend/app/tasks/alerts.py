@@ -4,16 +4,17 @@ from uuid import UUID
 
 logger = logging.getLogger(__name__)
 
-async def send_alert_notification(alert_id: str, district_name: str, disease: str, risk_score: float):
+async def send_alert_notification(alert_id: str, district_name: str, disease: str, risk_score: float, user_email: str = None):
     """
     Asynchronous task to deliver critical alerts to health officials.
     """
     logger.info(
-        f"Initiating alert dispatch for {alert_id}",
+        f"Initiating alert dispatch for {alert_id} to {user_email or 'System'}",
         extra={
             "district": district_name,
             "disease": disease,
-            "risk_score": risk_score
+            "risk_score": risk_score,
+            "user_email": user_email
         }
     )
     
