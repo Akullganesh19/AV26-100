@@ -66,3 +66,20 @@ if TYPE_CHECKING:
     from .pipeline_run import PipelineRun
     from .scenario import Scenario, SimulationState, ScenarioEvent
     from .password_reset_token import PasswordResetToken
+
+from sqlalchemy.orm import Session
+from sqlalchemy import event
+from app.core.events import event_bus
+
+@event.listens_for(Session, 'transient_to_pending')
+def receive_transient_to_pending(session, instance):
+    if isinstance(instance, Alert):
+        if getattr(instance, '_publish_on_commit', None) is None:
+            instance._publish_on_commit = True
+
+@event.listens_for(Session, 'after_commit')
+def receive_after_commit(session):
+    for instance in session.identity_map.values():
+        if isinstance(instance, Alert) and getattr(instance, '_publish_on_commit', False):
+            instance._publish_on_commit = False
+            event_bus.publish("alert.created", instance)
