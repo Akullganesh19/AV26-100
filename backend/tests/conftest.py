@@ -6,8 +6,15 @@ from sqlalchemy.orm import sessionmaker
 from app.core.database import Base
 from app.core.config import settings
 
-# Use the dedicated test database created in the previous step
-TEST_DATABASE_URL = str(settings.DATABASE_URL) + "_test"
+import app.models
+
+# In CI we already specify the DB as `episense_test` in DATABASE_URL.
+# Appending `_test` locally might work because `episense_test_test` is created,
+# but it fails in CI because the environment only creates `episense_test` in Postgres.
+# So we just use DATABASE_URL if it already ends in "_test", otherwise append.
+TEST_DATABASE_URL = str(settings.DATABASE_URL)
+if not TEST_DATABASE_URL.endswith("_test"):
+    TEST_DATABASE_URL += "_test"
 
 @pytest_asyncio.fixture
 async def db_session():
