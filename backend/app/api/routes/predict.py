@@ -4,9 +4,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api import deps
 from app.api.deps import get_db, get_current_user, limiter
 from app.schemas.prediction import PredictionRequest, PredictionResponse
+import logging
 from app.services.prediction_service import PredictionService
 from app.models.user import User
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 @router.post("/", response_model=PredictionResponse, status_code=status.HTTP_201_CREATED)
@@ -31,12 +33,14 @@ async def create_prediction(
         )
         return result
     except ValueError as e:
+        logger.warning(f"Inference engine failed with value error: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={"code": "INSUFFICIENT_HISTORY", "message": str(e)},
+            detail={"code": "INSUFFICIENT_HISTORY", "message": "Insufficient history or invalid input provided."},
         )
     except Exception as e:
+        logger.error(f"Inference engine failed: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
-            detail=f"Inference engine failure: {str(e)}"
+            detail="Inference engine failure due to an internal error."
         )

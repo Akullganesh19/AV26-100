@@ -7,8 +7,10 @@ from sqlalchemy import select, and_
 
 from app.api import deps
 from app.models.district import District
+import logging
 from app.services.prediction_service import PredictionService
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 @router.get("/", response_model=List[Dict[str, Any]])
@@ -67,7 +69,8 @@ async def list_districts(
             
         return output
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to retrieve jurisdiction matrix: {str(e)}")
+        logger.error(f"Failed to retrieve jurisdiction matrix: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to retrieve jurisdiction matrix due to an internal error.")
 
 @router.get("/{district_id}", response_model=Dict[str, Any])
 async def get_district_detail(
@@ -98,13 +101,14 @@ async def get_district_detail(
             "feature_snapshot": pred.feature_snapshot
         }
     except Exception as e:
+        logger.error(f"Failed to retrieve district detail: {e}", exc_info=True)
         return {
             "id": str(district.id),
             "name": district.name,
             "state": district.state,
             "risk_score": 0,
             "risk_tier": "unknown",
-            "error": str(e)
+            "error": "An internal error occurred while fetching details."
         }
 
 @router.get("/stats", response_model=Dict[str, Any])
