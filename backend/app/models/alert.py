@@ -66,3 +66,10 @@ if TYPE_CHECKING:
     from .pipeline_run import PipelineRun
     from .scenario import Scenario, SimulationState, ScenarioEvent
     from .password_reset_token import PasswordResetToken
+
+from sqlalchemy import event
+from app.core.events import event_bus
+
+@event.listens_for(Alert, 'after_insert')
+def receive_after_insert(mapper, connection, target):
+    event_bus.publish("alert.created", target)
