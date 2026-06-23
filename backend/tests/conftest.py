@@ -5,9 +5,10 @@ from sqlalchemy.orm import sessionmaker
 
 from app.core.database import Base
 from app.core.config import settings
+import app.models  # Ensure all models are imported before metadata creation
 
 # Use the dedicated test database created in the previous step
-TEST_DATABASE_URL = str(settings.DATABASE_URL) + "_test"
+TEST_DATABASE_URL = str(settings.DATABASE_URL) if str(settings.DATABASE_URL).endswith("_test") else str(settings.DATABASE_URL) + "_test"
 
 @pytest_asyncio.fixture
 async def db_session():
