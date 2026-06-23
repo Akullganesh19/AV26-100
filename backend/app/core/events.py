@@ -7,6 +7,7 @@ logger = logging.getLogger(__name__)
 class EventBus:
     def __init__(self):
         self._subscribers: Dict[str, List[Callable]] = {}
+        self._background_tasks = set()
 
     def subscribe(self, event_type: str, callback: Callable):
         if event_type not in self._subscribers:
@@ -20,7 +21,9 @@ class EventBus:
             for callback in self._subscribers[event_type]:
                 # If it's a coroutine function, schedule it
                 if asyncio.iscoroutinefunction(callback):
-                    asyncio.create_task(callback(data))
+                    task = asyncio.create_task(callback(data))
+                    self._background_tasks.add(task)
+                    task.add_done_callback(self._background_tasks.discard)
                 else:
                     try:
                         callback(data)
