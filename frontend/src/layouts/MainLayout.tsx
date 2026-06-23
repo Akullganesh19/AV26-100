@@ -8,17 +8,47 @@ import {
   LogOut,
   ShieldAlert,
   Menu,
-  X,
   Stethoscope,
   Map as MapIcon
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
+import { useQueryClient } from '@tanstack/react-query';
+import { apiClient } from '../api/client';
 
 const MainLayout: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { logout, user } = useAuthStore();
   const [isSidebarOpen, setSidebarOpen] = React.useState(true);
+  const queryClient = useQueryClient();
+
+  const handlePrefetch = (path: string) => {
+    if (path === '/') {
+      queryClient.prefetchQuery({
+        queryKey: ['dashboard-stats'],
+        queryFn: async () => {
+          const response = await apiClient.get(`/districts/stats`);
+          return response.data;
+        }
+      });
+    } else if (path === '/map') {
+      queryClient.prefetchQuery({
+        queryKey: ['choropleth-data', false, null],
+        queryFn: async () => {
+          const response = await apiClient.get(`/districts`);
+          return response.data;
+        }
+      });
+    } else if (path === '/alerts') {
+      queryClient.prefetchQuery({
+        queryKey: ['tactical-alerts', false, null],
+        queryFn: async () => {
+          const response = await apiClient.get(`/alerts`);
+          return response.data;
+        }
+      });
+    }
+  };
 
   const navItems = [
     { path: '/', label: 'Command Center', icon: LayoutDashboard },
@@ -62,6 +92,7 @@ const MainLayout: React.FC = () => {
               <Link
                 key={item.path}
                 to={item.path}
+                onMouseEnter={() => handlePrefetch(item.path)}
                 className={`flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-200 group ${
                   isActive 
                     ? 'bg-brand-primary/10 text-brand-primary border border-brand-primary/20 shadow-[0_0_15px_rgba(30,144,255,0.1)]' 
