@@ -4,6 +4,7 @@ import httpx
 from cachetools import TTLCache
 from fastapi import Depends, HTTPException, status, Query, Request
 from fastapi.security import OAuth2PasswordBearer
+import logging
 from jose import jwt
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -57,6 +58,8 @@ async def get_clerk_public_key() -> str:
     clerk_key_cache["pem"] = settings.CLERK_PEM_PUBLIC_KEY
     return clerk_key_cache["pem"]
 
+logger = logging.getLogger(__name__)
+
 async def get_current_user(
     db: AsyncSession = Depends(get_db),
     token: str = Depends(reusable_oauth2),
@@ -65,6 +68,7 @@ async def get_current_user(
     # 1. Check Redis Revocation List
     import redis.asyncio as redis
     from app.core.config import settings
+
     r = redis.from_url(settings.CELERY_BROKER_URL) # Reuse Redis host
     
     try:
@@ -76,8 +80,16 @@ async def get_current_user(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Token has been revoked",
             )
-    except Exception:
-        pass # Fall through to standard verification
+    except HTTPException:
+        # Re-raise explicit HTTP exceptions (like token revocation)
+        raise
+    except Exception as e:
+        # Fail closed on unexpected errors (e.g., Redis connection failure)
+        logger.error(f"Failed to check token revocation: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Authentication infrastructure temporarily unavailable",
+        )
     finally:
         await r.aclose()
 
