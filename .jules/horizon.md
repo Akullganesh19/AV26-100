@@ -1,0 +1,6 @@
+## 2025-02-21 — Passlib and Python-JOSE Migration
+**Risk identified:** `passlib` is an unmaintained dependency that breaks on newer Python versions (e.g. `AttributeError: module 'bcrypt' has no attribute '__about__'`). `python-jose` is similarly unmaintained and has known issues with modern setups. Both represent technical debt and present a growing risk as Python and surrounding dependencies progress.
+**Migration target:** The ecosystem is moving away from overarching crypto wrapper libraries to specific direct API usage. The target is the direct `bcrypt` API (`bcrypt.hashpw`, `bcrypt.checkpw`) for password hashing, and `PyJWT[crypto]` for JSON Web Tokens creation and verification.
+**Migrated this session:** Replaced `passlib[bcrypt]` with `bcrypt` in `requirements.txt` and `backend/app/core/security.py`. Replaced `python-jose[cryptography]` with `PyJWT[crypto]` in `requirements.txt`, `backend/app/core/security.py`, and `backend/app/api/deps.py`.
+**Remaining:** Complete. All occurrences of `passlib` and `python-jose` dependencies have been successfully removed and replaced.
+**Next session:** Look for other outdated ecosystem dependencies, such as standardizing asynchronous query syntax, checking for older styling configurations on the frontend, or validating legacy dependency management setups.
