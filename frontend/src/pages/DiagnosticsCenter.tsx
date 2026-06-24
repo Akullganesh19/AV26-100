@@ -25,13 +25,41 @@ const DiagnosticsCenter: React.FC = () => {
   const [selectedDistrict, setSelectedDistrict] = useState<string>(districtIdFromUrl || '');
   const [loading, setLoading] = useState(false);
   const [prediction, setPrediction] = useState<any>(null);
+  const [prefetchedReportUrl, setPrefetchedReportUrl] = useState<string | null>(null);
+
+  const prefetchTacticalReport = async (predData: any) => {
+    try {
+      const response = await axios.post(
+        `${import.meta.env.VITE_API_URL}/clinical/report`,
+        [predData],
+        { responseType: 'blob' }
+      );
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      setPrefetchedReportUrl(url);
+    } catch (error) {
+      console.error('Prefetching tactical report failed:', error);
+      // Fail silently for prefetch
+    }
+  };
 
   const handleDiagnose = async (formData: any) => {
     setLoading(true);
     setPrediction(null);
+    if (prefetchedReportUrl) {
+      window.URL.revokeObjectURL(prefetchedReportUrl);
+      setPrefetchedReportUrl(null);
+    }
+
     try {
       const response = await axios.post(`${import.meta.env.VITE_API_URL}/clinical/${activeTab}`, formData);
       setPrediction(response.data);
+
+      // Behavior Prediction: If high risk, user WILL want the tactical report next.
+      // We prefetch it silently so it's instant when they click.
+      if (response.data.risk) {
+        prefetchTacticalReport(response.data);
+      }
+
       if (response.data.risk) {
         toast.error(`High risk detected for ${activeTab.toUpperCase()}`, {
           description: response.data.advice
@@ -54,19 +82,30 @@ const DiagnosticsCenter: React.FC = () => {
   const handleDownloadReport = async () => {
     if (!prediction) return;
     try {
-      const response = await axios.post(
-        `${import.meta.env.VITE_API_URL}/clinical/report`,
-        [prediction], // Send current prediction in a list
-        { responseType: 'blob' }
-      );
+      let url = prefetchedReportUrl;
+
+      // Fallback if not prefetched or still loading
+      if (!url) {
+        const response = await axios.post(
+          `${import.meta.env.VITE_API_URL}/clinical/report`,
+          [prediction], // Send current prediction in a list
+          { responseType: 'blob' }
+        );
+        url = window.URL.createObjectURL(new Blob([response.data]));
+      }
       
-      const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute('download', `EpiSense_Tactical_Report_${activeTab.toUpperCase()}.pdf`);
       document.body.appendChild(link);
       link.click();
       link.remove();
+
+      // Clean up object URL if we just created it and didn't save to state
+      if (!prefetchedReportUrl) {
+        window.URL.revokeObjectURL(url);
+      }
+
       toast.success('Report generated successfully');
     } catch (error) {
       console.error('Report generation failed:', error);
