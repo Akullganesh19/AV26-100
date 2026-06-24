@@ -2,6 +2,7 @@ import pytest
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
+import os
 
 from app.core.database import Base
 from app.core.config import settings
@@ -22,8 +23,12 @@ from app.models.audit_log import PredictionAuditLog
 from app.models.user_district import user_district_association
 import app.models
 
-# Use the dedicated test database created in the previous step
-TEST_DATABASE_URL = str(settings.DATABASE_URL) + "_test"
+# In CI we use the DATABASE_URL as is (which points to episense_test)
+if "GITHUB_ACTIONS" in os.environ:
+    TEST_DATABASE_URL = str(settings.DATABASE_URL)
+else:
+    # Local dev: Use the dedicated test database created in the previous step
+    TEST_DATABASE_URL = str(settings.DATABASE_URL) + "_test"
 
 @pytest_asyncio.fixture
 async def db_session():
