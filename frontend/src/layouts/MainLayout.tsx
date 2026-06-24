@@ -1,5 +1,7 @@
 import React from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
+import axios from 'axios';
 import { 
   LayoutDashboard, 
   AlertTriangle, 
@@ -8,17 +10,55 @@ import {
   LogOut,
   ShieldAlert,
   Menu,
-  X,
   Stethoscope,
   Map as MapIcon
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
+import { useSimulation } from '../context/SimulationContext';
 
 const MainLayout: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { logout, user } = useAuthStore();
   const [isSidebarOpen, setSidebarOpen] = React.useState(true);
+  const queryClient = useQueryClient();
+  const { isSimulating, activeSimId } = useSimulation();
+
+  const handlePrefetch = (path: string) => {
+    // Intent Prediction: User hovered over a nav link, they will click it within ~300ms.
+    // Fetch the data *now* so it's already there when they arrive.
+    if (path === '/') {
+      queryClient.prefetchQuery({
+        queryKey: ['dashboard-stats'],
+        queryFn: async () => {
+          const response = await axios.get(`${import.meta.env.VITE_API_URL}/districts/stats`);
+          return response.data;
+        }
+      });
+    } else if (path === '/map') {
+      queryClient.prefetchQuery({
+        queryKey: ['choropleth-data', isSimulating, activeSimId],
+        queryFn: async () => {
+          const url = isSimulating
+            ? `${import.meta.env.VITE_API_URL}/districts`
+            : `${import.meta.env.VITE_API_URL}/districts`;
+          const response = await axios.get(url);
+          return response.data;
+        }
+      });
+    } else if (path === '/alerts') {
+      queryClient.prefetchQuery({
+        queryKey: ['tactical-alerts', isSimulating, activeSimId],
+        queryFn: async () => {
+          const url = isSimulating
+            ? `${import.meta.env.VITE_API_URL}/alerts?simulation_id=${activeSimId}`
+            : `${import.meta.env.VITE_API_URL}/alerts`;
+          const response = await axios.get(url);
+          return response.data;
+        }
+      });
+    }
+  };
 
   const navItems = [
     { path: '/', label: 'Command Center', icon: LayoutDashboard },
@@ -62,6 +102,7 @@ const MainLayout: React.FC = () => {
               <Link
                 key={item.path}
                 to={item.path}
+                onMouseEnter={() => handlePrefetch(item.path)}
                 className={`flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-200 group ${
                   isActive 
                     ? 'bg-brand-primary/10 text-brand-primary border border-brand-primary/20 shadow-[0_0_15px_rgba(30,144,255,0.1)]' 
