@@ -1,0 +1,7 @@
+## 2025-02-14 — Request Coalescing for API Client
+**Gap found:** The frontend `apiClient` did not deduplicate simultaneous GET requests for the same resource. This meant if 10 components mounted simultaneously and requested the same user profile or config, 10 identical network requests would be fired.
+**Why it existed:** The app historically favored simple direct `axios` usage. State management libraries like React Query were introduced but some low-level configuration fetches or overlapping direct API calls still bypassed deduplication, wasting throughput and causing backend spikes.
+**Built:** A request coalescing interceptor pattern wrapped around `apiClient.get`. It intercepts outgoing GET requests, tracks them in an `inFlightGets` Map using the URL and query parameters as a cache key, and returns a shared promise for any identical concurrent requests. Once the initial request resolves, the response is softly cloned to avoid `DataCloneError`, and the cache key is cleared.
+**Hot path affected:** Any dashboard or page load involving multiple simultaneous data fetches (e.g., Tactical Alerts, Strategic Map, or generic configuration loads).
+**Measurable improvement:** Reduces duplicate network bandwidth and backend database load significantly on complex screens. 10 identical concurrent API calls now coalesce into exactly 1 network request.
+**Next opportunity:** Edge caching for static assets or stale-while-revalidate background refresh for high-latency endpoints.
