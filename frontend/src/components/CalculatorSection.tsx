@@ -2,8 +2,8 @@ import { useState, useMemo } from 'react';
 import { Check } from 'lucide-react';
 import { toast } from 'sonner';
 
-// STYLES FOR THE SLIDER (MANUAL SHADCN-LIKE SLIDER)
-const Slider = ({ value, min, max, step, onChange }: any) => {
+// 🎨 UX Concern: Range inputs need visible focus rings for keyboard users and an aria-label for screen readers.
+const Slider = ({ value, min, max, step, onChange }: { value: number, min: number, max: number, step: number, onChange: (val: number) => void }) => {
   return (
     <div className="relative w-full h-6 flex items-center group">
       <input
@@ -12,8 +12,9 @@ const Slider = ({ value, min, max, step, onChange }: any) => {
         max={max}
         step={step}
         value={value}
+        aria-label="Number of pages"
         onChange={(e) => onChange(parseInt(e.target.value))}
-        className="w-full h-1.5 bg-[#1E1E1E] rounded-lg appearance-none cursor-pointer accent-[#FF5656]"
+        className="w-full h-1.5 bg-[#1E1E1E] rounded-lg appearance-none cursor-pointer accent-[#FF5656] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF5656] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0D0D0D]"
       />
     </div>
   );
@@ -78,9 +79,10 @@ export const CalculatorSection = () => {
           <div className="bg-[#0D0D0D] p-8 lg:p-12 flex flex-col gap-10 divide-y divide-[#1E1E1E]">
             
             {/* Service Type */}
+            {/* 🎨 UX Concern: Custom grouped buttons act as radios but lack radiogroup/radio roles, aria-checked states, and focus styles. */}
             <div className="space-y-6">
-              <h3 className="text-lg font-medium opacity-80">What kind of service do you need?</h3>
-              <div className="flex flex-wrap gap-4">
+              <h3 id="service-type-label" className="text-lg font-medium opacity-80">What kind of service do you need?</h3>
+              <div role="radiogroup" aria-labelledby="service-type-label" className="flex flex-wrap gap-4">
                 {[
                   { id: 'design', label: 'Only Design' },
                   { id: 'development', label: 'Only Development' },
@@ -88,8 +90,11 @@ export const CalculatorSection = () => {
                 ].map((opt) => (
                   <button
                     key={opt.id}
-                    onClick={() => setServiceType(opt.id as any)}
-                    className="flex items-center gap-3 group cursor-pointer"
+                    type="button"
+                    role="radio"
+                    aria-checked={serviceType === opt.id}
+                    onClick={() => setServiceType(opt.id as 'design' | 'development' | 'both')}
+                    className="flex items-center gap-3 group cursor-pointer rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF5656] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0D0D0D]"
                   >
                     <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${serviceType === opt.id ? 'border-[#FF5656]' : 'border-[#333]'}`}>
                       {serviceType === opt.id && <div className="w-2 h-2 rounded-full bg-[#FF5656]" />}
@@ -118,6 +123,7 @@ export const CalculatorSection = () => {
             </div>
 
             {/* Add-ons */}
+            {/* 🎨 UX Concern: Hidden checkboxes (display: none) drop out of focus order. Use sr-only and peer focus styles instead. */}
             <div className="pt-10 space-y-6">
               <h3 className="text-lg font-medium opacity-80">Add-ons</h3>
               <div className="grid gap-4">
@@ -127,15 +133,15 @@ export const CalculatorSection = () => {
                 ].map((addon) => (
                   <label key={addon.id} className="flex items-center justify-between group cursor-pointer">
                     <div className="flex items-center gap-3">
-                      <div className={`w-5 h-5 border-2 rounded flex items-center justify-center transition-all ${addon.state ? 'bg-[#FF5656] border-[#FF5656]' : 'border-[#333]'}`}>
-                        {addon.state && <Check size={14} strokeWidth={4} className="text-white" />}
-                      </div>
                       <input 
                         type="checkbox" 
-                        className="hidden" 
+                        className="sr-only peer"
                         checked={addon.state} 
                         onChange={() => addon.set(!addon.state)} 
                       />
+                      <div className={`w-5 h-5 border-2 rounded flex items-center justify-center transition-all peer-focus-visible:ring-2 peer-focus-visible:ring-[#FF5656] peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-[#0D0D0D] ${addon.state ? 'bg-[#FF5656] border-[#FF5656]' : 'border-[#333]'}`}>
+                        {addon.state && <Check size={14} strokeWidth={4} className="text-white" />}
+                      </div>
                       <span className={`text-sm transition-colors ${addon.state ? 'text-white' : 'text-[#666]'}`}>{addon.label}</span>
                     </div>
                     <span className="text-xs font-bold text-[#FF5656]">{addon.price}</span>
@@ -145,9 +151,10 @@ export const CalculatorSection = () => {
             </div>
 
             {/* Timeline */}
+            {/* 🎨 UX Concern: Timeline buttons are mutually exclusive choices but lack radio roles and keyboard focus styles. */}
             <div className="pt-10 space-y-6">
-              <h3 className="text-lg font-medium opacity-80">How fast do you need this?</h3>
-              <div className="grid gap-4">
+              <h3 id="timeline-label" className="text-lg font-medium opacity-80">How fast do you need this?</h3>
+              <div role="radiogroup" aria-labelledby="timeline-label" className="grid gap-4">
                 {[
                   { id: 'rush', label: 'Within 7 Days', price: '+$100/page' },
                   { id: 'fast', label: 'Within 14 Days', price: '+$25/page' },
@@ -155,8 +162,11 @@ export const CalculatorSection = () => {
                 ].map((opt) => (
                   <button
                     key={opt.id}
-                    onClick={() => setTimeline(opt.id as any)}
-                    className="flex items-center justify-between group cursor-pointer w-full text-left"
+                    type="button"
+                    role="radio"
+                    aria-checked={timeline === opt.id}
+                    onClick={() => setTimeline(opt.id as 'regular' | 'fast' | 'rush')}
+                    className="flex items-center justify-between group cursor-pointer w-full text-left rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF5656] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0D0D0D]"
                   >
                     <div className="flex items-center gap-3">
                       <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${timeline === opt.id ? 'border-[#FF5656]' : 'border-[#333]'}`}>
