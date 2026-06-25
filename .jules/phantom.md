@@ -1,0 +1,7 @@
+## 2025-02-18 — Request Coalescing Infrastructure
+**Gap found:** The frontend had no request coalescing and was bypassing the centralized `apiClient` instance in multiple locations (`TacticalAlerts`, `StrategicMap`, `DiagnosticsCenter`, `SimulationLab`, `Dashboard`), directly using `axios` to make network calls. This resulted in identical API calls being made multiple times simultaneously (e.g. `TacticalAlerts` and `StrategicMap` both fetching from identical endpoints during their mounting phases).
+**Why it existed:** The `apiClient` was instantiated early on for basic Auth interceptors, but subsequent components were built utilizing raw `axios` imports natively, perhaps for convenience or due to lack of a global state pattern awareness.
+**Built:** An intelligent request coalescing proxy for `apiClient.get`. All in-flight requests are tracked in a Map, and if multiple concurrent network requests attempt to fetch the same URL and query parameters, they now await the same shared promise instead of triggering new HTTP connections.
+**Hot path affected:** Core dashboards, tactical alerts, and mapping layers—anything loading large aggregate data immediately upon render.
+**Measurable improvement:** Reduces concurrent load on the backend, saves overlapping network requests, and eliminates visual lag/flickering caused by racing parallel responses during navigation and multi-component mounts.
+**Next opportunity:** Edge Cache Headers / HTTP caching policies to keep reference data (like district list) from ever hitting the backend once fetched.
