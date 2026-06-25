@@ -23,12 +23,15 @@ async def log_prediction(
     input_data: Any, 
     result: Optional[Dict[str, Any]] = None,
     status: str = "SUCCESS",
-    error: Optional[str] = None,
+    error: Optional[Exception] = None,
     district_id: Optional[str] = None
 ):
     input_str = json.dumps(input_data, sort_keys=True, default=str)
     input_hash = hashlib.sha256(input_str.encode()).hexdigest()
     
+    # Extract only the exception class name to prevent PII leakage from validation errors
+    safe_error_msg = type(error).__name__ if error else None
+
     audit = PredictionAuditLog(
         user_id=user_id,
         district_id=district_id, # Link individual screening to mission sector
@@ -37,7 +40,7 @@ async def log_prediction(
         risk_score=result["risk_score"] if result else 0.0,
         model_version=result["model_version"] if result else "unknown",
         status=status,
-        metadata_json=json.dumps({"error": error}) if error else None
+        metadata_json=json.dumps({"error": safe_error_msg}) if safe_error_msg else None
     )
     db.add(audit)
     await db.commit()
@@ -70,8 +73,8 @@ async def diagnose_heart(
             
         return result
     except Exception as e:
-        await log_prediction(db, current_user.id, "clinical/heart", data.dict(), status="FAIL", error=str(e), district_id=data.district_id)
-        raise HTTPException(status_code=500, detail=str(e))
+        await log_prediction(db, current_user.id, "clinical/heart", data.dict(), status="FAIL", error=e, district_id=data.district_id)
+        raise HTTPException(status_code=500, detail="An error occurred during screening.")
 
 @router.post("/diabetes", response_model=Dict[str, Any])
 @limiter.limit("5/minute")
@@ -99,8 +102,8 @@ async def diagnose_diabetes(
 
         return result
     except Exception as e:
-        await log_prediction(db, current_user.id, "clinical/diabetes", data.dict(), status="FAIL", error=str(e), district_id=data.district_id)
-        raise HTTPException(status_code=500, detail=str(e))
+        await log_prediction(db, current_user.id, "clinical/diabetes", data.dict(), status="FAIL", error=e, district_id=data.district_id)
+        raise HTTPException(status_code=500, detail="An error occurred during screening.")
 
 @router.post("/parkinsons", response_model=Dict[str, Any])
 @limiter.limit("5/minute")
@@ -124,8 +127,8 @@ async def diagnose_parkinsons(
 
         return result
     except Exception as e:
-        await log_prediction(db, current_user.id, "clinical/parkinsons", data.dict(), status="FAIL", error=str(e), district_id=data.district_id)
-        raise HTTPException(status_code=500, detail=str(e))
+        await log_prediction(db, current_user.id, "clinical/parkinsons", data.dict(), status="FAIL", error=e, district_id=data.district_id)
+        raise HTTPException(status_code=500, detail="An error occurred during screening.")
 
 from fastapi.responses import StreamingResponse
 import io
