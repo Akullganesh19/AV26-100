@@ -67,7 +67,8 @@ async def list_districts(
             
         return output
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to retrieve jurisdiction matrix: {str(e)}")
+        # 🛡️ SENTINEL: Return generic error to client to prevent internal leaks
+        raise HTTPException(status_code=500, detail="Failed to retrieve jurisdiction matrix")
 
 @router.get("/{district_id}", response_model=Dict[str, Any])
 async def get_district_detail(
@@ -104,7 +105,7 @@ async def get_district_detail(
             "state": district.state,
             "risk_score": 0,
             "risk_tier": "unknown",
-            "error": str(e)
+            "error": "Prediction unavailable"
         }
 
 @router.get("/stats", response_model=Dict[str, Any])
