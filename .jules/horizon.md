@@ -1,0 +1,6 @@
+## 2026-06-25 — Migrate abandoned passlib dependency to direct bcrypt API
+**Risk identified:** The backend uses `passlib` to wrap `bcrypt` hashing. `passlib` is effectively abandoned and unmaintained. It relies on accessing internal structures of the underlying `bcrypt` library (specifically `__about__.__version__`) which causes hard crashes (`AttributeError`) when used with modern versions of `bcrypt`. This prevents reliable password verification and creates a brittle auth dependency.
+**Migration target:** The ecosystem is moving towards using `bcrypt` and `PyJWT` directly rather than using large, unmaintained wrapper libraries like `passlib` or `python-jose`. The direct API is stable and actively maintained.
+**Migrated this session:** Replaced `passlib.context.CryptContext` with direct `bcrypt.hashpw` and `bcrypt.checkpw` calls in `backend/app/core/security.py`. Removed `passlib` from `requirements.txt` and added an explicit dependency on `bcrypt`.
+**Remaining:** The `python-jose` library is similarly unmaintained and relies on older cryptographic primitives. It should be migrated to `PyJWT`.
+**Next session:** Migrate `python-jose` usage in `backend/app/core/security.py` and `backend/app/api/deps.py` to `PyJWT` directly.
