@@ -4,7 +4,7 @@ import httpx
 from cachetools import TTLCache
 from fastapi import Depends, HTTPException, status, Query, Request
 from fastapi.security import OAuth2PasswordBearer
-from jose import jwt
+import jwt
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -24,7 +24,7 @@ def get_user_id(request: Request) -> str:
             return f"ip:{get_remote_address(request)}"
         
         token = auth_header.split(" ")[1]
-        payload = jwt.get_unverified_claims(token)
+        payload = jwt.decode(token, options={"verify_signature": False, "verify_exp": False})
         user_id = payload.get("sub")
         return f"user:{user_id}" if user_id else f"ip:{get_remote_address(request)}"
     except Exception:
@@ -68,30 +68,54 @@ async def get_current_user(
     r = redis.from_url(settings.CELERY_BROKER_URL) # Reuse Redis host
     
     try:
-        # Extract JTI (Unique Token ID)
-        payload_unverified = jwt.get_unverified_claims(token)
-        jti = payload_unverified.get("jti")
-        if jti and await r.get(f"revoked_token:{jti}"):
+        unverified_payload = jwt.decode(token, options={"verify_signature": False, "verify_exp": False})
+        jti = unverified_payload.get("jti")
+        issuer = unverified_payload.get("iss")
+    except jwt.PyJWTError:
+        jti = None
+        issuer = None
+        unverified_payload = {}
+
+    if jti:
+        try:
+            if await r.get(f"revoked_token:{jti}"):
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Token has been revoked",
+                )
+        except HTTPException:
+            raise
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error("Redis revocation check failed", exc_info=True)
             raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Token has been revoked",
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Internal server error during authentication",
             )
-    except Exception:
-        pass # Fall through to standard verification
-    finally:
+        finally:
+            await r.aclose()
+    else:
         await r.aclose()
 
     try:
-        payload = jwt.decode(
-            token, 
-            public_key, 
-            algorithms=["RS256"],
-            issuer=settings.CLERK_ISSUER,
-            audience=settings.CLERK_AUDIENCE,
-            options={"verify_aud": True, "verify_iss": True}
-        )
-        clerk_id = payload.get("sub")
-    except Exception:
+
+        if issuer == settings.CLERK_ISSUER:
+            payload = jwt.decode(
+                token,
+                public_key,
+                algorithms=["RS256"],
+                issuer=settings.CLERK_ISSUER,
+                audience=settings.CLERK_AUDIENCE
+            )
+            clerk_id = payload.get("sub")
+        else:
+            payload = jwt.decode(
+                token,
+                settings.SECRET_KEY,
+                algorithms=[settings.ALGORITHM]
+            )
+            clerk_id = payload.get("sub")
+    except jwt.PyJWTError:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Could not validate credentials",
