@@ -1,6 +1,7 @@
 import logging
 import time
 from uuid import UUID
+from app.api.integrations import integration_service
 
 logger = logging.getLogger(__name__)
 
@@ -22,9 +23,14 @@ async def send_alert_notification(alert_id: str, district_name: str, disease: st
         # Using settings.SENDGRID_API_KEY
         logger.info(f"CRITICAL ALERT: Outbreak risk detected in {district_name} ({disease}). Score: {risk_score}")
         
-        # Here you would implement real SendGrid logic
-        # if settings.SENDGRID_API_KEY:
-        #     ... 
+        # Real SendGrid Integration with built-in resilience
+        await integration_service.send_health_alert_email(
+            to_email="health@episense.org",
+            district_name=district_name,
+            disease=disease,
+            risk_score=risk_score,
+            idempotency_key=str(alert_id)
+        )
         
         return {"status": "dispatched", "alert_id": alert_id}
         
