@@ -10,8 +10,15 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-# Global Redis connection pool for idempotency checking
-redis_client = redis.from_url(str(settings.CELERY_BROKER_URL), decode_responses=True)
+_redis_pool = None
+
+def get_redis_client():
+    global _redis_pool
+    if _redis_pool is None:
+        broker_url = str(settings.CELERY_BROKER_URL)
+        if broker_url.startswith("redis://"):
+            _redis_pool = redis.from_url(broker_url, decode_responses=True)
+    return _redis_pool
 
 class CircuitBreakerOpenException(Exception):
     pass
@@ -147,8 +154,14 @@ def with_idempotency_guard():
                 return await func(*args, **kwargs)
 
             full_key = f"{func.__name__}:{key}"
+            client = get_redis_client()
+
+            if client is None:
+                logger.warning(f"Idempotency guard skipped for {full_key}: Redis not configured.")
+                return await func(*args, **kwargs)
+
             try:
-                if await redis_client.get(full_key):
+                if await client.get(full_key):
                     logger.info(f"RECOVERY FIRED: Idempotency guard blocked duplicate execution for {full_key}.")
                     # Return None or skip safely depending on idempotency design,
                     # returning None is safest for functions like email or sync.
@@ -160,7 +173,7 @@ def with_idempotency_guard():
 
             # Ensure the guard itself has a failure mode - if redis/store fails
             try:
-                await redis_client.setex(full_key, 86400, "1")
+                await client.setex(full_key, 86400, "1")
             except Exception as e:
                 logger.error(f"Failed to save idempotency key {full_key}: {e}")
             return result
