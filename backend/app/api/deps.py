@@ -76,8 +76,15 @@ async def get_current_user(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Token has been revoked",
             )
-    except Exception:
+    except HTTPException:
+        raise
+    except jwt.JWTError:
         pass # Fall through to standard verification
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error validating token revocation status"
+        )
     finally:
         await r.aclose()
 
