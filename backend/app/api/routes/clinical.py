@@ -42,6 +42,26 @@ async def log_prediction(
     db.add(audit)
     await db.commit()
 
+async def _process_diagnosis(
+    disease: str,
+    features: List[float],
+    data: Any,
+    db: AsyncSession,
+    current_user: Any,
+    background_tasks: BackgroundTasks
+) -> Dict[str, Any]:
+    try:
+        result = clinical_service.predict(disease, features)
+        await log_prediction(db, current_user.id, f"clinical/{disease}", data.dict(), result, district_id=data.district_id)
+
+        if result["risk_score"] > 0.7 and data.district_id:
+            background_tasks.add_task(AlertService.evaluate_clinical_cluster, db, data.district_id, disease)
+
+        return result
+    except Exception as e:
+        await log_prediction(db, current_user.id, f"clinical/{disease}", data.dict(), status="FAIL", error=str(e), district_id=data.district_id)
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.post("/heart", response_model=Dict[str, Any])
 @limiter.limit("5/minute")
 @limiter.limit("50/hour")
@@ -52,26 +72,13 @@ async def diagnose_heart(
     db: AsyncSession = Depends(get_db),
     current_user: Any = Depends(deps.get_current_user)
 ) -> Any:
-    """
-    Tactical diagnosis for Heart Disease using clinical metrics.
-    """
-    try:
-        features = [
-            data.age, data.sex, data.cp, data.trestbps, data.chol,
-            data.fbs, data.restecg, data.thalach, data.exang,
-            data.oldpeak, data.slope, data.ca, data.thal
-        ]
-        result = clinical_service.predict_heart(features)
-        await log_prediction(db, current_user.id, "clinical/heart", data.dict(), result, district_id=data.district_id)
-        
-        # Trigger cluster evaluation in background if high risk
-        if result["risk_score"] > 0.7 and data.district_id:
-            background_tasks.add_task(AlertService.evaluate_clinical_cluster, db, data.district_id, "heart")
-            
-        return result
-    except Exception as e:
-        await log_prediction(db, current_user.id, "clinical/heart", data.dict(), status="FAIL", error=str(e), district_id=data.district_id)
-        raise HTTPException(status_code=500, detail=str(e))
+    """Tactical diagnosis for Heart Disease using clinical metrics."""
+    features = [
+        data.age, data.sex, data.cp, data.trestbps, data.chol,
+        data.fbs, data.restecg, data.thalach, data.exang,
+        data.oldpeak, data.slope, data.ca, data.thal
+    ]
+    return await _process_diagnosis("heart", features, data, db, current_user, background_tasks)
 
 @router.post("/diabetes", response_model=Dict[str, Any])
 @limiter.limit("5/minute")
@@ -83,24 +90,12 @@ async def diagnose_diabetes(
     db: AsyncSession = Depends(get_db),
     current_user: Any = Depends(deps.get_current_user)
 ) -> Any:
-    """
-    Tactical diagnosis for Diabetes.
-    """
-    try:
-        features = [
-            data.pregnancies, data.glucose, data.blood_pressure,
-            data.skin_thickness, data.insulin, data.bmi, data.dpf, data.age
-        ]
-        result = clinical_service.predict_diabetes(features)
-        await log_prediction(db, current_user.id, "clinical/diabetes", data.dict(), result, district_id=data.district_id)
-        
-        if result["risk_score"] > 0.7 and data.district_id:
-            background_tasks.add_task(AlertService.evaluate_clinical_cluster, db, data.district_id, "diabetes")
-
-        return result
-    except Exception as e:
-        await log_prediction(db, current_user.id, "clinical/diabetes", data.dict(), status="FAIL", error=str(e), district_id=data.district_id)
-        raise HTTPException(status_code=500, detail=str(e))
+    """Tactical diagnosis for Diabetes."""
+    features = [
+        data.pregnancies, data.glucose, data.blood_pressure,
+        data.skin_thickness, data.insulin, data.bmi, data.dpf, data.age
+    ]
+    return await _process_diagnosis("diabetes", features, data, db, current_user, background_tasks)
 
 @router.post("/parkinsons", response_model=Dict[str, Any])
 @limiter.limit("5/minute")
@@ -112,20 +107,8 @@ async def diagnose_parkinsons(
     db: AsyncSession = Depends(get_db),
     current_user: Any = Depends(deps.get_current_user)
 ) -> Any:
-    """
-    Tactical diagnosis for Parkinson's Disease.
-    """
-    try:
-        result = clinical_service.predict_parkinsons(data.vocal_metrics)
-        await log_prediction(db, current_user.id, "clinical/parkinsons", data.dict(), result, district_id=data.district_id)
-        
-        if result["risk_score"] > 0.7 and data.district_id:
-            background_tasks.add_task(AlertService.evaluate_clinical_cluster, db, data.district_id, "parkinsons")
-
-        return result
-    except Exception as e:
-        await log_prediction(db, current_user.id, "clinical/parkinsons", data.dict(), status="FAIL", error=str(e), district_id=data.district_id)
-        raise HTTPException(status_code=500, detail=str(e))
+    """Tactical diagnosis for Parkinson's Disease."""
+    return await _process_diagnosis("parkinsons", data.vocal_metrics, data, db, current_user, background_tasks)
 
 from fastapi.responses import StreamingResponse
 import io

@@ -58,7 +58,7 @@ class Settings(BaseSettings):
     ALERT_THRESHOLD_DEFAULT: int = 70
     
     CLINICAL_MANIFEST_PATH: str = "app/core/manifest.json"
-    CLINICAL_MODELS_DIR: str = "../integrated_diagnostics/Saved_Models"
+    CLINICAL_MODELS_DIR: str = "models/clinical"
 
     # Logging
     LOG_LEVEL: str = "INFO"

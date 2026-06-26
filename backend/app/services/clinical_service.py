@@ -11,7 +11,7 @@ from app.core.config import settings
 # Paths resolved relative to the backend root (where main.py runs)
 BACKEND_ROOT = Path(__file__).parent.parent.parent
 MANIFEST_PATH = BACKEND_ROOT / settings.CLINICAL_MANIFEST_PATH
-MODELS_DIR = BACKEND_ROOT / "app" / settings.CLINICAL_MODELS_DIR
+MODELS_DIR = BACKEND_ROOT / settings.CLINICAL_MODELS_DIR
 
 DISCLAIMER = (
     "Tactical screening tool only. Not a clinical diagnosis. "
@@ -46,8 +46,8 @@ class ClinicalService:
             actual_hash = hashlib.sha256(content).hexdigest().upper()
             if actual_hash != expected_hash.upper():
                 raise SecurityError(f"Integrity violation: {name} model hash mismatch! Security compromised.")
-            
-            return joblib.loads(content)
+
+        return joblib.load(path)
 
     def _load_model(self, disease: str):
         if disease not in self._models:
@@ -78,44 +78,18 @@ class ClinicalService:
             "screened_at": datetime.utcnow().isoformat()
         }
 
-    def predict_heart(self, features: List[float]) -> Dict[str, Any]:
-        self._load_model("heart")
+    def predict(self, disease: str, features: List[float]) -> Dict[str, Any]:
+        self._load_model(disease)
         arr = np.array(features).reshape(1, -1)
-        if self._scalers["heart"]:
-            arr = self._scalers["heart"].transform(arr)
+        if self._scalers[disease]:
+            arr = self._scalers[disease].transform(arr)
         
         try:
-            prob = self._models["heart"].predict_proba(arr)[0][1]
+            prob = self._models[disease].predict_proba(arr)[0][1]
         except AttributeError:
-            prob = float(self._models["heart"].predict(arr)[0])
+            prob = float(self._models[disease].predict(arr)[0])
             
-        return self._build_response("heart", prob)
-
-    def predict_diabetes(self, features: List[float]) -> Dict[str, Any]:
-        self._load_model("diabetes")
-        arr = np.array(features).reshape(1, -1)
-        if self._scalers["diabetes"]:
-            arr = self._scalers["diabetes"].transform(arr)
-        
-        try:
-            prob = self._models["diabetes"].predict_proba(arr)[0][1]
-        except AttributeError:
-            prob = float(self._models["diabetes"].predict(arr)[0])
-            
-        return self._build_response("diabetes", prob)
-
-    def predict_parkinsons(self, features: List[float]) -> Dict[str, Any]:
-        self._load_model("parkinsons")
-        arr = np.array(features).reshape(1, -1)
-        if self._scalers["parkinsons"]:
-            arr = self._scalers["parkinsons"].transform(arr)
-        
-        try:
-            prob = self._models["parkinsons"].predict_proba(arr)[0][1]
-        except AttributeError:
-            prob = float(self._models["parkinsons"].predict(arr)[0])
-            
-        return self._build_response("parkinsons", prob)
+        return self._build_response(disease, prob)
 
 class SecurityError(Exception):
     pass
