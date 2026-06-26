@@ -1,12 +1,12 @@
 import pytest
 from unittest.mock import patch, AsyncMock
 from fastapi import HTTPException
-from jose import jwt
+import jwt
 
 from app.api.deps import get_current_user
 
 # Valid JWT without signature but well-formed to bypass basic syntax checks in gitleaks
-DUMMY_TOKEN = jwt.encode({"sub": "1234567890", "name": "John Doe", "iat": 1516239022, "jti": "mission-critical-jti"}, "secret", algorithm="HS256")
+DUMMY_TOKEN = jwt.encode({"sub": "1234567890", "name": "John Doe", "iat": 1516239022, "jti": "mission-critical-jti"}, "a_very_long_secret_key_that_is_at_least_32_bytes_long", algorithm="HS256")
 
 @pytest.mark.asyncio
 async def test_get_current_user_redis_failure_fails_closed():
