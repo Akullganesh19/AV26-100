@@ -1,0 +1,6 @@
+## 2026-06-26 — JWT Library Migration
+**Risk identified:** The `python-jose` library is abandoned and no longer maintained. It presents a compounding security risk as the ecosystem moves away from it, potentially leaving us vulnerable to unpatched CVEs.
+**Migration target:** The modern standard `PyJWT[crypto]`, which is actively maintained and handles cryptographic dependencies reliably.
+**Migrated this session:** Swapped `python-jose` for `PyJWT[crypto]` in `backend/requirements.txt`, updated `jwt` imports, and safely migrated unverified token parsing and exception handling (`jwt.get_unverified_claims` -> `jwt.decode` with signature/exp verification disabled, `Exception` -> `jwt.PyJWTError`).
+**Remaining:** The current slice handles the main authentication dependency and parsing correctly. No remaining functionality needs immediate migration for this specific library swap.
+**Next session:** Assess other outdated dependencies (like FastAPI/Pydantic versions) or architectural patterns flagged as future risks.
