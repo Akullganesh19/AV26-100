@@ -2,12 +2,13 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 import uuid
 import enum
-from sqlalchemy import String, Numeric, Integer, ForeignKey, DateTime, Index, Enum
+from sqlalchemy import String, Numeric, Integer, ForeignKey, DateTime, Index, Enum, event
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 from datetime import datetime
 
 from app.core.database import Base
+from app.core.events import bus
 
 
 class AlertStatus(str, enum.Enum):
@@ -52,8 +53,12 @@ class Alert(Base):
     __table_args__ = (
         Index("ix_alert_status_triggered_at", status, triggered_at.desc()),
         # Partial index for acknowledged_by to avoid indexing NULLs
-        Index("ix_alert_acknowledged_by", acknowledged_by, postgres_where=(acknowledged_by != None)),
+        Index("ix_alert_acknowledged_by", acknowledged_by, postgresql_where=(acknowledged_by != None)),
     )
+
+@event.listens_for(Alert, 'after_insert')
+def receive_after_insert(mapper, connection, target):
+    bus.publish("alert.created", target)
 
 if TYPE_CHECKING:
     from .user import User
