@@ -183,14 +183,7 @@ class PredictionService:
                 },
             )
 
-        # Step 7: Trigger Asynchronous Alerts if high risk
-        if risk_tier in [RiskTier.HIGH, RiskTier.CRITICAL]:
-            asyncio.create_task(send_alert_notification(
-                alert_id=str(prediction_id),
-                district_name="Jurisdiction Monitor", # In production, fetch from District model
-                disease=disease,
-                risk_score=float(raw_score)
-            ))
+        # Step 7 is now handled by AlertService autonomous evaluation
 
         return PredictionResponse(
             prediction_id=prediction_id,
