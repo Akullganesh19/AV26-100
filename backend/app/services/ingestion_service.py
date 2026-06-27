@@ -74,9 +74,9 @@ class IngestionService:
             return total_rows
             
         except Exception as e:
-            logger.error(f"Weather ingestion failed: {e}")
+            logger.error(f"Weather ingestion failed: {type(e).__name__}")
             pipeline_run.status = "failed"
-            pipeline_run.error_log = str(e)
+            pipeline_run.error_log = type(e).__name__
             pipeline_run.finished_at = datetime.now()
             await db.commit()
             raise e

@@ -32,5 +32,5 @@ def monitor_dlq_depth() -> Optional[Dict[str, Any]]:
         
         return {"dlq_depth": depth}
     except Exception as e:
-        logger.error(f"Failed to monitor DLQ: {str(e)}")
+        logger.error(f"Failed to monitor DLQ: {type(e).__name__}")
         return None
