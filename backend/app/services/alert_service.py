@@ -66,7 +66,7 @@ class AlertService:
         except Exception as e:
             logger.error(
                 f"MISSION FAILURE: Failed to evaluate clinical cluster for {district_id}",
-                extra={"disease": disease, "error": str(e)},
+                extra={"disease": disease, "error": type(e).__name__},
                 exc_info=True
             )
 

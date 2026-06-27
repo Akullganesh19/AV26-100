@@ -29,5 +29,5 @@ async def send_alert_notification(alert_id: str, district_name: str, disease: st
         return {"status": "dispatched", "alert_id": alert_id}
         
     except Exception as exc:
-        logger.error(f"Dispatch failed for {alert_id}: {str(exc)}")
-        return {"status": "failed", "error": str(exc)}
+        logger.error(f"Dispatch failed for {alert_id}: {type(exc).__name__}")
+        return {"status": "failed", "error": type(exc).__name__}

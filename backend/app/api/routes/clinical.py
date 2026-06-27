@@ -70,8 +70,8 @@ async def diagnose_heart(
             
         return result
     except Exception as e:
-        await log_prediction(db, current_user.id, "clinical/heart", data.dict(), status="FAIL", error=str(e), district_id=data.district_id)
-        raise HTTPException(status_code=500, detail=str(e))
+        await log_prediction(db, current_user.id, "clinical/heart", data.dict(), status="FAIL", error=type(e).__name__, district_id=data.district_id)
+        raise HTTPException(status_code=500, detail="An error occurred during heart screening")
 
 @router.post("/diabetes", response_model=Dict[str, Any])
 @limiter.limit("5/minute")
@@ -99,8 +99,8 @@ async def diagnose_diabetes(
 
         return result
     except Exception as e:
-        await log_prediction(db, current_user.id, "clinical/diabetes", data.dict(), status="FAIL", error=str(e), district_id=data.district_id)
-        raise HTTPException(status_code=500, detail=str(e))
+        await log_prediction(db, current_user.id, "clinical/diabetes", data.dict(), status="FAIL", error=type(e).__name__, district_id=data.district_id)
+        raise HTTPException(status_code=500, detail="An error occurred during diabetes screening")
 
 @router.post("/parkinsons", response_model=Dict[str, Any])
 @limiter.limit("5/minute")
@@ -124,8 +124,8 @@ async def diagnose_parkinsons(
 
         return result
     except Exception as e:
-        await log_prediction(db, current_user.id, "clinical/parkinsons", data.dict(), status="FAIL", error=str(e), district_id=data.district_id)
-        raise HTTPException(status_code=500, detail=str(e))
+        await log_prediction(db, current_user.id, "clinical/parkinsons", data.dict(), status="FAIL", error=type(e).__name__, district_id=data.district_id)
+        raise HTTPException(status_code=500, detail="An error occurred during parkinsons screening")
 
 from fastapi.responses import StreamingResponse
 import io
@@ -150,4 +150,4 @@ async def generate_screening_report(
             headers={"Content-Disposition": f"attachment; filename=EpiSense_Screening_{datetime.now():%Y%m%d}.pdf"}
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"PDF generation failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="PDF generation failed: An error occurred")
