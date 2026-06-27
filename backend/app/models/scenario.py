@@ -23,6 +23,8 @@ class Scenario(Base):
     # Relationships
     events: Mapped[List["ScenarioEvent"]] = relationship(back_populates="scenario", cascade="all, delete-orphan")
     active_simulations: Mapped[List["SimulationState"]] = relationship(back_populates="scenario")
+    user: Mapped["User"] = relationship(secondary="simulation_states", back_populates="scenarios", uselist=False, viewonly=True)
+    district: Mapped["District"] = relationship(secondary="scenario_events", back_populates="scenarios", uselist=False, viewonly=True)
 
 
 class ScenarioEvent(Base):
