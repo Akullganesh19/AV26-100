@@ -27,3 +27,44 @@ apiClient.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+// Request Coalescing
+const originalGet = apiClient.get;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const inFlightGets = new Map<string, Promise<any>>();
+
+function getCacheKey(url: string, config?: { params?: Record<string, unknown> }) {
+  if (!config?.params) return url;
+
+  const sortedParams = Object.keys(config.params)
+    .sort()
+    .reduce((acc, key) => {
+      acc[key] = config!.params![key];
+      return acc;
+    }, {} as Record<string, unknown>);
+
+  return `${url}?${JSON.stringify(sortedParams)}`;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+apiClient.get = function (url: string, config?: any) {
+  const cacheKey = getCacheKey(url, config);
+
+  if (inFlightGets.has(cacheKey)) {
+    return inFlightGets.get(cacheKey)!.then(response => {
+      return {
+        ...response,
+        data: typeof response.data === 'object' && response.data !== null
+          ? Array.isArray(response.data) ? [...response.data] : { ...response.data }
+          : response.data
+      };
+    });
+  }
+
+  const promise = originalGet.call(this, url, config).finally(() => {
+    inFlightGets.delete(cacheKey);
+  });
+
+  inFlightGets.set(cacheKey, promise);
+  return promise;
+};
