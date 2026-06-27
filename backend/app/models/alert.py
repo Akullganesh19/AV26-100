@@ -53,7 +53,7 @@ class Alert(Base):
     __table_args__ = (
         Index("ix_alert_status_triggered_at", status, triggered_at.desc()),
         # Partial index for acknowledged_by to avoid indexing NULLs
-        Index("ix_alert_acknowledged_by", acknowledged_by, postgres_where=(acknowledged_by != None)),
+        Index("ix_alert_acknowledged_by", acknowledged_by, postgresql_where=(acknowledged_by != None)),
     )
 
 @event.listens_for(Alert, 'after_insert')
