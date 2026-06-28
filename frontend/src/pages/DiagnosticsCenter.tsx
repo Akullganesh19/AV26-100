@@ -4,7 +4,6 @@ import {
   Droplet, 
   Brain, 
   FileText, 
-  ChevronRight, 
   AlertTriangle, 
   CheckCircle2,
   Stethoscope,
@@ -22,23 +21,46 @@ const DiagnosticsCenter: React.FC = () => {
   const districtIdFromUrl = searchParams.get('district_id');
   
   const [activeTab, setActiveTab] = useState<DiseaseType>('heart');
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [selectedDistrict, setSelectedDistrict] = useState<string>(districtIdFromUrl || '');
   const [loading, setLoading] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [prediction, setPrediction] = useState<any>(null);
+  const [prefetchedReportUrl, setPrefetchedReportUrl] = useState<string | null>(null);
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleDiagnose = async (formData: any) => {
     setLoading(true);
     setPrediction(null);
+    if (prefetchedReportUrl) {
+      window.URL.revokeObjectURL(prefetchedReportUrl);
+      setPrefetchedReportUrl(null);
+    }
+
     try {
       const response = await axios.post(`${import.meta.env.VITE_API_URL}/clinical/${activeTab}`, formData);
-      setPrediction(response.data);
-      if (response.data.risk) {
+      const predictionData = response.data;
+      setPrediction(predictionData);
+
+      // Oracle: Predict the user will want the report and pre-generate it immediately in the background
+      axios.post(
+        `${import.meta.env.VITE_API_URL}/clinical/report`,
+        [predictionData],
+        { responseType: 'blob' }
+      ).then(reportResponse => {
+        const url = window.URL.createObjectURL(new Blob([reportResponse.data]));
+        setPrefetchedReportUrl(url);
+      }).catch(err => {
+        console.error('Prefetching report failed:', err);
+      });
+
+      if (predictionData.risk) {
         toast.error(`High risk detected for ${activeTab.toUpperCase()}`, {
-          description: response.data.advice
+          description: predictionData.advice
         });
       } else {
         toast.success(`Low risk for ${activeTab.toUpperCase()}`, {
-          description: response.data.advice
+          description: predictionData.advice
         });
       }
     } catch (error) {
@@ -53,6 +75,20 @@ const DiagnosticsCenter: React.FC = () => {
 
   const handleDownloadReport = async () => {
     if (!prediction) return;
+
+    // Oracle: Use the prefetched report if available for zero-latency download
+    if (prefetchedReportUrl) {
+      const link = document.createElement('a');
+      link.href = prefetchedReportUrl;
+      link.setAttribute('download', `EpiSense_Tactical_Report_${activeTab.toUpperCase()}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      toast.success('Report downloaded instantly');
+      return;
+    }
+
+    // Fallback if the user clicks before the prefetch completes
     try {
       const response = await axios.post(
         `${import.meta.env.VITE_API_URL}/clinical/report`,
@@ -193,6 +229,7 @@ const DiagnosticsCenter: React.FC = () => {
 };
 
 // Form Components
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const HeartForm = ({ onSubmit, loading }: { onSubmit: (data: any) => void, loading: boolean }) => {
   const [data, setData] = useState({
     age: 50, sex: 1, cp: 0, trestbps: 120, chol: 200, fbs: 0, 
@@ -222,6 +259,7 @@ const HeartForm = ({ onSubmit, loading }: { onSubmit: (data: any) => void, loadi
   );
 };
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const DiabetesForm = ({ onSubmit, loading }: { onSubmit: (data: any) => void, loading: boolean }) => {
   const [data, setData] = useState({
     pregnancies: 0, glucose: 100, blood_pressure: 70, skin_thickness: 20, 
@@ -249,6 +287,7 @@ const DiabetesForm = ({ onSubmit, loading }: { onSubmit: (data: any) => void, lo
   );
 };
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const ParkinsonsForm = ({ onSubmit, loading }: { onSubmit: (data: any) => void, loading: boolean }) => {
   const [vocalMetrics, setVocalMetrics] = useState<number[]>(new Array(22).fill(0));
 
@@ -306,6 +345,7 @@ const ParkinsonsForm = ({ onSubmit, loading }: { onSubmit: (data: any) => void, 
 };
 
 // UI Helpers
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const Input = ({ label, type, value, onChange, step }: any) => (
   <div className="flex flex-col gap-1.5">
     <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{label}</label>
@@ -319,6 +359,7 @@ const Input = ({ label, type, value, onChange, step }: any) => (
   </div>
 );
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const Select = ({ label, value, options, onChange }: any) => (
   <div className="flex flex-col gap-1.5">
     <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{label}</label>
@@ -327,6 +368,7 @@ const Select = ({ label, value, options, onChange }: any) => (
       onChange={(e) => onChange(e.target.value)}
       className="bg-slate-900/80 border border-slate-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all"
     >
+      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
       {options.map((o: any) => (
         <option key={typeof o === 'object' ? o.v : o} value={typeof o === 'object' ? o.v : o}>
           {typeof o === 'object' ? o.l : o}
