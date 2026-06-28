@@ -27,3 +27,44 @@ apiClient.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+// Invisible Infrastructure: Request Coalescing
+// Identical simultaneous GET requests are deduplicated into a single network call.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const inFlightGets = new Map<string, Promise<any>>();
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const generateCacheKey = (url: string, config?: any) => {
+  if (!config || !config.params) return url;
+
+  const sortedParams = Object.keys(config.params)
+    .sort()
+    .reduce((acc, key) => {
+      acc[key] = config.params[key];
+      return acc;
+    }, {} as Record<string, unknown>);
+
+  return `${url}?${JSON.stringify(sortedParams)}`;
+};
+
+const originalGet = apiClient.get;
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+apiClient.get = async function (url: string, config?: any) {
+  const cacheKey = generateCacheKey(url, config);
+
+  if (inFlightGets.has(cacheKey)) {
+    const response = await inFlightGets.get(cacheKey);
+    // Return a shallow copy so modifications by one caller don't affect others.
+    // We cannot use structuredClone on AxiosResponse.
+    return { ...response };
+  }
+
+  const promise = originalGet.call(this, url, config).finally(() => {
+    inFlightGets.delete(cacheKey);
+  });
+
+  inFlightGets.set(cacheKey, promise);
+
+  return promise;
+};
