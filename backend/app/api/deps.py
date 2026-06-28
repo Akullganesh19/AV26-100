@@ -1,10 +1,12 @@
-from typing import Generator, List, Optional
+from typing import Generator, List, Optional, Any
 import uuid
 import httpx
 from cachetools import TTLCache
 from fastapi import Depends, HTTPException, status, Query, Request
 from fastapi.security import OAuth2PasswordBearer
 import jwt
+from jwt.algorithms import RSAAlgorithm
+import json
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -47,14 +49,20 @@ async def get_db() -> Generator:
     async with SessionLocal() as session:
         yield session
 
-async def get_clerk_public_key() -> str:
+async def get_clerk_public_key() -> Any:
     """Fetches and caches Clerk JWKS to prevent outbound calls on every request."""
     if "pem" in clerk_key_cache:
         return clerk_key_cache["pem"]
     
-    # Note: In a world-class setup, we would fetch from settings.CLERK_JWKS_URL
-    # and convert the JWK to PEM. For now, we protect the existing PEM setting.
-    clerk_key_cache["pem"] = settings.CLERK_PEM_PUBLIC_KEY
+    key_val = settings.CLERK_PEM_PUBLIC_KEY
+    if key_val and key_val.strip().startswith("{"):
+        try:
+            jwk_dict = json.loads(key_val)
+            key_val = RSAAlgorithm.from_jwk(jwk_dict)
+        except Exception:
+            pass
+
+    clerk_key_cache["pem"] = key_val
     return clerk_key_cache["pem"]
 
 async def get_current_user(
