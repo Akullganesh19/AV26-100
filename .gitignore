@@ -23,3 +23,4 @@ dist/
 # Security
 zap_report.html
 tests/security/zap_report/
+backend/.env_test
