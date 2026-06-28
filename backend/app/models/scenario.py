@@ -19,10 +19,14 @@ class Scenario(Base):
     total_days: Mapped[int] = mapped_column(nullable=False, default=14)
     is_template: Mapped[bool] = mapped_column(default=True)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=True)
+    district_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("districts.id"), nullable=True)
 
     # Relationships
     events: Mapped[List["ScenarioEvent"]] = relationship(back_populates="scenario", cascade="all, delete-orphan")
     active_simulations: Mapped[List["SimulationState"]] = relationship(back_populates="scenario")
+    user: Mapped["User"] = relationship(back_populates="scenarios", foreign_keys=[user_id])
+    district: Mapped["District"] = relationship(back_populates="scenarios", foreign_keys=[district_id])
 
 
 class ScenarioEvent(Base):
