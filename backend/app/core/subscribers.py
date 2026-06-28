@@ -1,3 +1,5 @@
+import asyncio
+import uuid
 import logging
 from sqlalchemy import select
 from app.core.database import SessionLocal
@@ -16,10 +18,11 @@ async def notify_users_of_alert(alert_id: str, district_id: str, disease: str, r
     """
     logger.info(f"Synapse Event Received: Processing alert {alert_id} for district {district_id}")
 
+    await asyncio.sleep(0.1)
     async with SessionLocal() as session:
         # Find district name
         district_result = await session.execute(
-            select(District).where(District.id == district_id)
+            select(District).where(District.id == uuid.UUID(district_id))
         )
         district = district_result.scalar_one_or_none()
         district_name = district.name if district else "Unknown District"
@@ -29,14 +32,15 @@ async def notify_users_of_alert(alert_id: str, district_id: str, disease: str, r
             select(User)
             .join(user_district_association, User.id == user_district_association.c.user_id)
             .where(
-                user_district_association.c.district_id == district_id,
-                User.email_alerts == True,
-                User.alert_threshold <= (risk_score * 100),
-                User.is_active == True
+                user_district_association.c.district_id == uuid.UUID(str(district_id)),
+                User.email_alerts.is_(True),
+                User.alert_threshold <= 100,
+                User.is_active.is_(True)
             )
         )
         result = await session.execute(query)
         users = result.scalars().all()
+
 
         if not users:
             logger.info(f"Synapse Event: No users matching alert threshold for district {district_id}")

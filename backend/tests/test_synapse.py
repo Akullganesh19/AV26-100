@@ -14,16 +14,6 @@ from app.models.user import User, UserRole
 from app.models.district import District
 from app.models.alert import Alert, AlertStatus, AlertType
 
-import app.core.subscribers
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.orm import sessionmaker
-from app.core.config import settings
-
-# Override SessionLocal in subscribers to point to test database
-TEST_DATABASE_URL = str(settings.DATABASE_URL) + "_test"
-engine = create_async_engine(TEST_DATABASE_URL)
-TestSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
-app.core.subscribers.SessionLocal = TestSessionLocal
 from app.core.subscribers import notify_users_of_alert
 from app.core.events import event_bus
 
@@ -58,9 +48,14 @@ async def test_synapse_alert_to_user_notification(db_session):
     db_session.add(user)
 
     # Assign User to District
+
+    # Assign User to District
     user.districts.append(district)
     await db_session.commit()
+    await db_session.refresh(user)
 
+
+    await asyncio.sleep(0.1)
     # Create Alert with risk_score = 0.88 (88 > 50)
     alert = Alert(
         district_id=district.id,
