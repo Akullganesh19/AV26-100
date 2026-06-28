@@ -1,0 +1,6 @@
+## 2024-06-28 — advance_day read-modify-write race condition
+**Value type:** Quota/Day Counter (SimulationState.current_day)
+**Drift risk found:** The `advance_day` function in `SimulationService` implements a classic read-modify-write pattern by reading the current simulation state without an explicit lock, computing the new `current_day` in application memory (`sim.current_day += 1`), and writing it back to the database. Concurrent playback triggers result in multiple workers reading the exact same `current_day`, incrementing it to the same value, and redundantly saving it — causing missing days or duplicate event processing for the same day.
+**Fix:** Appended `.with_for_update()` to the `select(SimulationState)` query, leveraging PostgreSQL row-level locks to serialize concurrent playback triggers against the same simulation session.
+**Proven by:** Created `backend/tests/test_simulation_race.py`, which spawns 5 concurrent `advance_task()` instances using separate DB sessions. Before the fix, the balance incremented by only 1-2 units. After the lock, `current_day` consistently reaches exactly 5.
+**Other balances to check:** Any other mutable fields within `SimulationState` or point-based systems in alerting quotas.
