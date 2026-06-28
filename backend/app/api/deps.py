@@ -1,10 +1,12 @@
-from typing import Generator, List, Optional
+from typing import Generator, List, Optional, Any
 import uuid
 import httpx
 from cachetools import TTLCache
 from fastapi import Depends, HTTPException, status, Query, Request
 from fastapi.security import OAuth2PasswordBearer
-from jose import jwt
+import jwt
+from jwt.algorithms import RSAAlgorithm
+import json
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -24,7 +26,7 @@ def get_user_id(request: Request) -> str:
             return f"ip:{get_remote_address(request)}"
         
         token = auth_header.split(" ")[1]
-        payload = jwt.get_unverified_claims(token)
+        payload = jwt.decode(token, options={"verify_signature": False, "verify_exp": False, "verify_aud": False, "verify_iss": False})
         user_id = payload.get("sub")
         return f"user:{user_id}" if user_id else f"ip:{get_remote_address(request)}"
     except Exception:
@@ -47,14 +49,20 @@ async def get_db() -> Generator:
     async with SessionLocal() as session:
         yield session
 
-async def get_clerk_public_key() -> str:
+async def get_clerk_public_key() -> Any:
     """Fetches and caches Clerk JWKS to prevent outbound calls on every request."""
     if "pem" in clerk_key_cache:
         return clerk_key_cache["pem"]
     
-    # Note: In a world-class setup, we would fetch from settings.CLERK_JWKS_URL
-    # and convert the JWK to PEM. For now, we protect the existing PEM setting.
-    clerk_key_cache["pem"] = settings.CLERK_PEM_PUBLIC_KEY
+    key_val = settings.CLERK_PEM_PUBLIC_KEY
+    if key_val and key_val.strip().startswith("{"):
+        try:
+            jwk_dict = json.loads(key_val)
+            key_val = RSAAlgorithm.from_jwk(jwk_dict)
+        except Exception:
+            pass
+
+    clerk_key_cache["pem"] = key_val
     return clerk_key_cache["pem"]
 
 async def get_current_user(
@@ -69,14 +77,14 @@ async def get_current_user(
     
     try:
         # Extract JTI (Unique Token ID)
-        payload_unverified = jwt.get_unverified_claims(token)
+        payload_unverified = jwt.decode(token, options={"verify_signature": False, "verify_exp": False, "verify_aud": False, "verify_iss": False})
         jti = payload_unverified.get("jti")
         if jti and await r.get(f"revoked_token:{jti}"):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Token has been revoked",
             )
-    except Exception:
+    except jwt.PyJWTError:
         pass # Fall through to standard verification
     finally:
         await r.aclose()
@@ -91,7 +99,7 @@ async def get_current_user(
             options={"verify_aud": True, "verify_iss": True}
         )
         clerk_id = payload.get("sub")
-    except Exception:
+    except jwt.PyJWTError:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Could not validate credentials",
