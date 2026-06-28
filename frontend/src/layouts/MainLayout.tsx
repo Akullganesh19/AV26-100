@@ -8,25 +8,77 @@ import {
   LogOut,
   ShieldAlert,
   Menu,
-  X,
   Stethoscope,
   Map as MapIcon
 } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '../store/authStore';
+import { apiClient } from '../api/client';
+import { useSimulation } from '../context/SimulationContext';
 
 const MainLayout: React.FC = () => {
   const location = useLocation();
+  const queryClient = useQueryClient();
+  const { isSimulating, activeSimId } = useSimulation();
   const navigate = useNavigate();
   const { logout, user } = useAuthStore();
   const [isSidebarOpen, setSidebarOpen] = React.useState(true);
 
   const navItems = [
-    { path: '/', label: 'Command Center', icon: LayoutDashboard },
-    { path: '/map', label: 'Strategic Map', icon: MapIcon },
+    {
+      path: '/',
+      label: 'Command Center',
+      icon: LayoutDashboard,
+      prefetch: () => queryClient.prefetchQuery({
+        queryKey: ['dashboard-stats'],
+        queryFn: async () => {
+          const response = await apiClient.get('/districts/stats');
+          return response.data;
+        }
+      })
+    },
+    {
+      path: '/map',
+      label: 'Strategic Map',
+      icon: MapIcon,
+      prefetch: () => queryClient.prefetchQuery({
+        queryKey: ['choropleth-data', isSimulating, activeSimId],
+        queryFn: async () => {
+          const url = isSimulating ? '/districts' : '/districts';
+          const response = await apiClient.get(url);
+          return response.data;
+        }
+      })
+    },
     { path: '/diagnostics', label: 'Clinical Center', icon: Stethoscope },
-    { path: '/alerts', label: 'Tactical Alerts', icon: ShieldAlert },
+    {
+      path: '/alerts',
+      label: 'Tactical Alerts',
+      icon: ShieldAlert,
+      prefetch: () => queryClient.prefetchQuery({
+        queryKey: ['tactical-alerts', isSimulating, activeSimId],
+        queryFn: async () => {
+          const url = isSimulating
+            ? `/alerts?simulation_id=${activeSimId}`
+            : `/alerts`;
+          const response = await apiClient.get(url);
+          return response.data;
+        }
+      })
+    },
     { path: '/analysis', label: 'Epi Analysis', icon: Activity },
-    { path: '/simulations', label: 'Scenario Lab', icon: AlertTriangle },
+    {
+      path: '/simulations',
+      label: 'Scenario Lab',
+      icon: AlertTriangle,
+      prefetch: () => queryClient.prefetchQuery({
+        queryKey: ['sim-scenarios'],
+        queryFn: async () => {
+          const response = await apiClient.get('/scenarios/');
+          return response.data;
+        }
+      })
+    },
     { path: '/settings', label: 'System Config', icon: Settings },
   ];
 
@@ -62,6 +114,11 @@ const MainLayout: React.FC = () => {
               <Link
                 key={item.path}
                 to={item.path}
+                onMouseEnter={() => {
+                  if (item.prefetch && !isActive) {
+                    item.prefetch().catch(e => console.error('Prefetch failed', e));
+                  }
+                }}
                 className={`flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-200 group ${
                   isActive 
                     ? 'bg-brand-primary/10 text-brand-primary border border-brand-primary/20 shadow-[0_0_15px_rgba(30,144,255,0.1)]' 
