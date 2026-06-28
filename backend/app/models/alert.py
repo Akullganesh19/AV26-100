@@ -2,12 +2,13 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 import uuid
 import enum
-from sqlalchemy import String, Numeric, Integer, ForeignKey, DateTime, Index, Enum
+from sqlalchemy import String, Numeric, Integer, ForeignKey, DateTime, Index, Enum, event
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 from datetime import datetime
 
 from app.core.database import Base
+from app.core.events import event_bus
 
 
 class AlertStatus(str, enum.Enum):
@@ -66,3 +67,14 @@ if TYPE_CHECKING:
     from .pipeline_run import PipelineRun
     from .scenario import Scenario, SimulationState, ScenarioEvent
     from .password_reset_token import PasswordResetToken
+
+
+@event.listens_for(Alert, "after_insert")
+def after_alert_insert(mapper, connection, target):
+    event_bus.publish(
+        "alert.triggered",
+        alert_id=str(target.id),
+        district_id=str(target.district_id),
+        disease=target.disease,
+        risk_score=float(target.risk_score)
+    )
