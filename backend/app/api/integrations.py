@@ -1,6 +1,9 @@
 import asyncio
 import cloudinary.uploader
-from algoliasearch.search_client import SearchClient
+try:
+    from algoliasearch.search_client import SearchClient
+except:
+    from algoliasearch.search.client import SearchClientSync as SearchClient
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
 from stream_chat import StreamChat
