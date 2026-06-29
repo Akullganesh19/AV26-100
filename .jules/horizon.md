@@ -1,0 +1,6 @@
+## 2026-06-29 — PyJWT Migration
+**Risk identified:** The backend authentication was relying on `python-jose`, which is deprecated, unmaintained, and presents a growing risk for future security patches or dependency conflicts as the Python ecosystem moves forward.
+**Migration target:** `PyJWT[crypto]`, the actively maintained and widely adopted standard for JWT operations in modern Python backends.
+**Migrated this session:** Replaced `python-jose` with `PyJWT[crypto]>=2.8.0` in `backend/requirements.txt`. Updated core security and dependency files (`backend/app/core/security.py`, `backend/app/api/deps.py`) to use `import jwt` instead of `from jose import jwt` and updated `decode` options to correctly handle unverified claim extraction using `options={"verify_signature": False, "verify_exp": False, "verify_aud": False, "verify_iss": False}` in place of `get_unverified_claims`. Replaced `Exception` / `jose.jwt.JWTError` catching with `jwt.PyJWTError`.
+**Remaining:** Full codebase sweep for any other indirect `jose` usage, though standard `deps.py` and `security.py` were the primary targets.
+**Next session:** Analyze any frontend JWT token parsing (e.g. `jwt-decode`) if applicable to ensure it aligns with backend changes or identify the next highest-risk dependency.
