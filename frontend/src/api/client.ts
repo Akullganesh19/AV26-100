@@ -34,19 +34,28 @@ const inFlightRequests = new Map<string, Promise<unknown>>();
 
 const getCacheKey = (url: string, config?: Record<string, unknown>) => {
   if (!config?.params || typeof config.params !== 'object') return url;
-  const params = config.params as Record<string, unknown>;
+
+  let paramsObj: Record<string, unknown> = {};
+  if (config.params instanceof URLSearchParams) {
+    for (const [key, value] of config.params.entries()) {
+      paramsObj[key] = value;
+    }
+  } else {
+    paramsObj = config.params as Record<string, unknown>;
+  }
+
   // Sort params for consistent cache key
-  const sortedParams = Object.keys(params)
+  const sortedParams = Object.keys(paramsObj)
     .sort()
     .reduce((acc: Record<string, unknown>, key) => {
-      acc[key] = params[key];
+      acc[key] = paramsObj[key];
       return acc;
     }, {});
   return `${url}?${JSON.stringify(sortedParams)}`;
 };
 
 const originalGet = apiClient.get;
-apiClient.get = async function (url: string, config?: Record<string, unknown>) {
+apiClient.get = (async function (url: string, config?: Record<string, unknown>) {
   const cacheKey = getCacheKey(url, config);
 
   if (inFlightRequests.has(cacheKey)) {
@@ -66,4 +75,4 @@ apiClient.get = async function (url: string, config?: Record<string, unknown>) {
 
   inFlightRequests.set(cacheKey, promise);
   return promise;
-};
+}) as typeof originalGet;
