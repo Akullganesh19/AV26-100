@@ -27,3 +27,52 @@ apiClient.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+// --- Phantom: Request Coalescing ---
+// Deduplicate identical concurrent GET requests
+const inFlightRequests = new Map<string, Promise<unknown>>();
+
+const getCacheKey = (url: string, config?: Record<string, unknown>) => {
+  if (!config?.params || typeof config.params !== 'object') return url;
+
+  let paramsObj: Record<string, unknown> = {};
+  if (config.params instanceof URLSearchParams) {
+    for (const [key, value] of config.params.entries()) {
+      paramsObj[key] = value;
+    }
+  } else {
+    paramsObj = config.params as Record<string, unknown>;
+  }
+
+  // Sort params for consistent cache key
+  const sortedParams = Object.keys(paramsObj)
+    .sort()
+    .reduce((acc: Record<string, unknown>, key) => {
+      acc[key] = paramsObj[key];
+      return acc;
+    }, {});
+  return `${url}?${JSON.stringify(sortedParams)}`;
+};
+
+const originalGet = apiClient.get;
+apiClient.get = (async function (url: string, config?: Record<string, unknown>) {
+  const cacheKey = getCacheKey(url, config);
+
+  if (inFlightRequests.has(cacheKey)) {
+    // Wait for the in-flight request to finish
+    const response = await inFlightRequests.get(cacheKey);
+    // Clone ONLY the data, not the whole AxiosResponse, to avoid DataCloneError
+    return {
+      ...(response as Record<string, unknown>),
+      data: structuredClone((response as { data: unknown }).data)
+    };
+  }
+
+  const promise = originalGet.call(this, url, config)
+    .finally(() => {
+      inFlightRequests.delete(cacheKey);
+    });
+
+  inFlightRequests.set(cacheKey, promise);
+  return promise;
+}) as typeof originalGet;
