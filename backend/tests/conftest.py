@@ -1,10 +1,16 @@
 import pytest
 import pytest_asyncio
+import sys
+from unittest.mock import MagicMock
+# Mock integrations so we don't need real keys
+sys.modules['app.api.integrations'] = MagicMock()
+
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 
 from app.core.database import Base
 from app.core.config import settings
+import app.models
 
 # Use the dedicated test database created in the previous step
 TEST_DATABASE_URL = str(settings.DATABASE_URL) + "_test"
