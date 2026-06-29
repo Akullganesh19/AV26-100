@@ -64,7 +64,7 @@ async def test_simulation_concurrent_advance_day(db_session):
 
     # Check current day
     # Close previous session's connection and get a fresh connection for assert
-    await db_session.close()
+    await db_session.commit()
 
     async with async_session() as check_session:
         query = select(SimulationState).where(SimulationState.id == sim_id)
