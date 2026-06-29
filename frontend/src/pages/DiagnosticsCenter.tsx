@@ -11,7 +11,7 @@ import {
   Info,
   Download
 } from 'lucide-react';
-import axios from 'axios';
+import { apiClient } from '../api/client';
 import { toast } from 'sonner';
 import { useSearchParams } from 'react-router-dom';
 
@@ -26,12 +26,43 @@ const DiagnosticsCenter: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [prediction, setPrediction] = useState<any>(null);
 
+  // Oracle: Prefetch state for zero-latency downloads
+  const [prefetchedReportUrl, setPrefetchedReportUrl] = useState<string | null>(null);
+
+  const prefetchReport = async (predictionData: any, currentTab: DiseaseType) => {
+    try {
+      // Background fetch without blocking the UI
+      const response = await apiClient.post(
+        `/clinical/report`,
+        [predictionData],
+        { responseType: 'blob' }
+      );
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      setPrefetchedReportUrl(url);
+    } catch (error) {
+      console.error('Oracle: Report prefetch failed (graceful degradation)', error);
+    }
+  };
+
   const handleDiagnose = async (formData: any) => {
     setLoading(true);
     setPrediction(null);
+
+    // Clear previously prefetched report
+    if (prefetchedReportUrl) {
+      window.URL.revokeObjectURL(prefetchedReportUrl);
+      setPrefetchedReportUrl(null);
+    }
+
     try {
-      const response = await axios.post(`${import.meta.env.VITE_API_URL}/clinical/${activeTab}`, formData);
-      setPrediction(response.data);
+      const response = await apiClient.post(`/clinical/${activeTab}`, formData);
+      const predictionData = response.data;
+      setPrediction(predictionData);
+
+      // Oracle: Predict that after diagnosing, users often download the report.
+      // Kick off prefetch immediately to make perceived latency 0ms.
+      prefetchReport(predictionData, activeTab);
+
       if (response.data.risk) {
         toast.error(`High risk detected for ${activeTab.toUpperCase()}`, {
           description: response.data.advice
@@ -53,14 +84,20 @@ const DiagnosticsCenter: React.FC = () => {
 
   const handleDownloadReport = async () => {
     if (!prediction) return;
+
     try {
-      const response = await axios.post(
-        `${import.meta.env.VITE_API_URL}/clinical/report`,
-        [prediction], // Send current prediction in a list
-        { responseType: 'blob' }
-      );
+      let url = prefetchedReportUrl;
+
+      // Graceful degradation: if user clicks too fast or prefetch failed, fetch on demand
+      if (!url) {
+        const response = await apiClient.post(
+          `/clinical/report`,
+          [prediction], // Send current prediction in a list
+          { responseType: 'blob' }
+        );
+        url = window.URL.createObjectURL(new Blob([response.data]));
+      }
       
-      const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute('download', `EpiSense_Tactical_Report_${activeTab.toUpperCase()}.pdf`);
