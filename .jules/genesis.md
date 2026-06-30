@@ -1,0 +1,6 @@
+## 2024-06-25 — Unprotected Third-Party Integrations Added Resilience
+**Failure point found:** Third-party integration calls (Algolia search index sync, SendGrid health alert emails, Cloudinary report uploads) in `backend/app/api/integrations.py` were unprotected.
+**Why it existed:** Initially built as raw async/await I/O wrappers without fault tolerance, assuming network stability.
+**Recovery built:** Implemented a new `resilience.py` module with `@with_retry` (exponential backoff) and `@with_circuit_breaker` (in-memory state machine with time.monotonic). Wrapped the external integrations to retry 3 times, then trip the circuit breaker and safely fallback to returning `None`. Also offloaded synchronous `cloudinary.uploader.upload` blocking calls to `asyncio.to_thread`.
+**Blast radius before:** Any transient failure in these services could crash the event loop or raise an HTTP 500 error back to the user, potentially failing critical disease outbreak alerts or search indexing tasks entirely.
+**Watch for:** Other third-party integrations or microservices added in the future that do not inherit from these new resilience decorators. Check webhook receivers for missing idempotency next.
