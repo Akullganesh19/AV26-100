@@ -7,7 +7,11 @@ from app.core.database import Base
 from app.core.config import settings
 
 # Use the dedicated test database created in the previous step
-TEST_DATABASE_URL = str(settings.DATABASE_URL) + "_test"
+# In CI, DATABASE_URL might already be configured to point to 'episense_test'.
+# Appending '_test' unconditionally results in 'episense_test_test', which causes InvalidCatalogNameError.
+TEST_DATABASE_URL = str(settings.DATABASE_URL)
+if not TEST_DATABASE_URL.endswith("_test"):
+    TEST_DATABASE_URL += "_test"
 
 @pytest_asyncio.fixture
 async def db_session():
