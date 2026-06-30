@@ -26,6 +26,7 @@ class Scenario(Base):
 
 
 class ScenarioEvent(Base):
+    district: Mapped["District"] = relationship(back_populates="scenarios")
     __tablename__ = "scenario_events"
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
@@ -53,7 +54,7 @@ class SimulationState(Base):
 
     # Relationships
     scenario: Mapped["Scenario"] = relationship(back_populates="active_simulations")
-    user: Mapped["User"] = relationship(back_populates="simulations")
+    user: Mapped["User"] = relationship(back_populates="scenarios")
 
 if TYPE_CHECKING:
     from .user import User

@@ -159,6 +159,19 @@ class PredictionService:
             )
             delta = round(raw_score - baseline_score, 2)
 
+        # Helper to sanitize data for JSON encoding
+        from decimal import Decimal
+        def sanitize_for_json(data):
+            sanitized = {}
+            for k, v in data.items():
+                if isinstance(v, (Decimal, np.number)):
+                    sanitized[k] = float(v)
+                elif isinstance(v, np.ndarray):
+                    sanitized[k] = v.tolist()
+                else:
+                    sanitized[k] = v
+            return sanitized
+
         # Step 6: persist to DB (idempotent)
         async with self._db_lock:
             prediction_id = await self._persist(
@@ -167,8 +180,8 @@ class PredictionService:
                 prediction_date=as_of_date,
                 risk_score=raw_score,
                 risk_tier=risk_tier,
-                feature_snapshot=X_sim.iloc[0].to_dict(),
-                shap_values=shap_dict,
+                feature_snapshot=sanitize_for_json(X_sim.iloc[0].to_dict()),
+                shap_values=sanitize_for_json(shap_dict),
                 extrapolation_warning=extrapolation_warning,
             )
 
@@ -217,12 +230,17 @@ class PredictionService:
         Optimized batch inference using asyncio.gather for concurrency.
         Uses a semaphore to prevent overwhelming the database connection pool or CPU.
         """
+        from app.core.database import SessionLocal
         semaphore = asyncio.Semaphore(concurrency)
 
         async def _predict_with_sem(d_id: UUID):
             async with semaphore:
                 try:
-                    return await self.predict_single(d_id, disease, as_of_date)
+                    # Using a separate session per task is mandatory for concurrent
+                    # db access with asyncpg, avoiding InterfaceError.
+                    async with SessionLocal() as session:
+                        isolated_service = PredictionService(session)
+                        return await isolated_service.predict_single(d_id, disease, as_of_date)
                 except ValueError as exc:
                     logger.warning(f"Skipping district {d_id}: {exc}")
                     return None
@@ -301,7 +319,7 @@ class PredictionService:
                 pipeline_run_id=None,  # set by scheduled pipeline, None for on-demand
             )
             .on_conflict_do_nothing(
-                index_elements=["district_id", "disease", "prediction_date", "model_version"]
+                index_elements=["district_id", "disease", "prediction_date"]
             )
             .returning(Prediction.id)
         )
@@ -315,7 +333,6 @@ class PredictionService:
                     Prediction.district_id == district_id,
                     Prediction.disease == disease,
                     Prediction.prediction_date == prediction_date,
-                    Prediction.model_version == self.manifest["version"],
                 )
             )
             existing_row = existing.fetchone()

@@ -14,6 +14,7 @@ from app.models.model_metric import ModelMetric
 from app.models.password_reset_token import PasswordResetToken
 from app.models.audit_log import PredictionAuditLog
 
+from app.models.user_district import user_district_association
 __all__ = [
     "Base",
     "User",
@@ -27,6 +28,7 @@ __all__ = [
     "PipelineRun",
     "PasswordResetToken",
     "PredictionAuditLog",
+    "user_district_association",
 ]
 
 if TYPE_CHECKING:
