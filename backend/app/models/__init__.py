@@ -9,6 +9,7 @@ from app.models.environmental_data import EnvironmentalData
 from app.models.vaccination_coverage import VaccinationCoverage
 from app.models.prediction import Prediction
 from app.models.alert import Alert
+from app.models.scenario import Scenario, SimulationState, ScenarioEvent
 from app.models.pipeline_run import PipelineRun
 from app.models.model_metric import ModelMetric
 from app.models.password_reset_token import PasswordResetToken
@@ -24,9 +25,12 @@ __all__ = [
     "Prediction",
     "Alert",
     "Scenario",
+    "SimulationState",
+    "ScenarioEvent",
     "PipelineRun",
     "PasswordResetToken",
     "PredictionAuditLog",
+    "user_district_association",
 ]
 
 if TYPE_CHECKING:
