@@ -94,8 +94,10 @@ const LoginPage: React.FC = () => {
                   placeholder="••••••••••••"
                   className="w-full bg-white/[0.03] border border-white/10 rounded-xl py-3 pl-12 pr-12 text-white placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-brand-primary/50 focus:border-brand-primary transition-all"
                 />
+                {/* 🎨 UX Concern: Icon-only buttons lack context for screen readers. Add aria-label. */}
                 <button
                   type="button"
+                  aria-label="Toggle password visibility"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors"
                 >
@@ -105,13 +107,15 @@ const LoginPage: React.FC = () => {
               {errors.password && <p className="text-xs text-rose-500 font-medium ml-1">{errors.password.message}</p>}
             </div>
 
+            {/* 🎨 UX Concern: Async action loading states should report aria-busy to assistive technologies. */}
             <button
               disabled={isLoading}
+              aria-busy={isLoading}
               type="submit"
               className="w-full btn-tactical btn-primary py-4 flex items-center justify-center gap-3 mt-4"
             >
               {isLoading ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
+                <Loader2 aria-hidden="true" className="w-5 h-5 animate-spin" />
               ) : (
                 <>
                   <span className="uppercase tracking-widest text-xs font-bold">Initiate Authentication</span>
