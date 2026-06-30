@@ -2,12 +2,13 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 import uuid
 import enum
-from sqlalchemy import String, Numeric, Integer, ForeignKey, DateTime, Index, Enum
+from sqlalchemy import String, Numeric, Integer, ForeignKey, DateTime, Index, Enum, event
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 from datetime import datetime
 
 from app.core.database import Base
+from app.core.events import event_bus
 
 
 class AlertStatus(str, enum.Enum):
@@ -55,11 +56,20 @@ class Alert(Base):
         Index("ix_alert_acknowledged_by", acknowledged_by, postgres_where=(acknowledged_by != None)),
     )
 
+@event.listens_for(Alert, 'after_insert')
+def alert_after_insert(mapper, connection, target: Alert):
+    event_bus.publish(
+        'alert.triggered',
+        alert_id=str(target.id),
+        district_id=str(target.district_id),
+        disease=target.disease,
+        risk_score=float(target.risk_score)
+    )
+
 if TYPE_CHECKING:
     from .user import User
     from .district import District
     from .prediction import Prediction
-    from .alert import Alert
     from .raw_data import RawData
     from .environmental_data import EnvironmentalData
     from .vaccination_coverage import VaccinationCoverage
