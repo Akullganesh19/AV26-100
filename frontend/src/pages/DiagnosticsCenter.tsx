@@ -11,7 +11,7 @@ import {
   Info,
   Download
 } from 'lucide-react';
-import axios from 'axios';
+import { apiClient } from '../api/client';
 import { toast } from 'sonner';
 import { useSearchParams } from 'react-router-dom';
 
@@ -25,13 +25,35 @@ const DiagnosticsCenter: React.FC = () => {
   const [selectedDistrict, setSelectedDistrict] = useState<string>(districtIdFromUrl || '');
   const [loading, setLoading] = useState(false);
   const [prediction, setPrediction] = useState<any>(null);
+  const [prefetchedPdfUrl, setPrefetchedPdfUrl] = useState<string | null>(null);
 
   const handleDiagnose = async (formData: any) => {
     setLoading(true);
     setPrediction(null);
+    if (prefetchedPdfUrl) {
+      window.URL.revokeObjectURL(prefetchedPdfUrl);
+      setPrefetchedPdfUrl(null);
+    }
+
     try {
-      const response = await axios.post(`${import.meta.env.VITE_API_URL}/clinical/${activeTab}`, formData);
-      setPrediction(response.data);
+      const response = await apiClient.post(`/clinical/${activeTab}`, formData);
+      const newPrediction = response.data;
+      setPrediction(newPrediction);
+
+      // Oracle: Predictive Intelligence
+      // User has just received a diagnosis. They are highly likely to download the tactical report next.
+      // Pre-fetch the binary PDF asset in the background while they read the result to achieve zero-latency download.
+      apiClient.post(
+        `/clinical/report`,
+        [newPrediction],
+        { responseType: 'blob' }
+      ).then((pdfRes) => {
+        const url = window.URL.createObjectURL(new Blob([pdfRes.data]));
+        setPrefetchedPdfUrl(url);
+      }).catch((err) => {
+        console.error('Failed to prefetch tactical report PDF', err);
+      });
+
       if (response.data.risk) {
         toast.error(`High risk detected for ${activeTab.toUpperCase()}`, {
           description: response.data.advice
@@ -53,9 +75,23 @@ const DiagnosticsCenter: React.FC = () => {
 
   const handleDownloadReport = async () => {
     if (!prediction) return;
+
+    // Oracle: Use pre-fetched PDF if available for zero-latency download
+    if (prefetchedPdfUrl) {
+      const link = document.createElement('a');
+      link.href = prefetchedPdfUrl;
+      link.setAttribute('download', `EpiSense_Tactical_Report_${activeTab.toUpperCase()}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      toast.success('Report generated successfully');
+      return;
+    }
+
+    // Fallback if prediction hasn't finished pre-fetching yet
     try {
-      const response = await axios.post(
-        `${import.meta.env.VITE_API_URL}/clinical/report`,
+      const response = await apiClient.post(
+        `/clinical/report`,
         [prediction], // Send current prediction in a list
         { responseType: 'blob' }
       );
@@ -67,6 +103,8 @@ const DiagnosticsCenter: React.FC = () => {
       document.body.appendChild(link);
       link.click();
       link.remove();
+      // Clean up fallback url after download
+      setTimeout(() => window.URL.revokeObjectURL(url), 1000);
       toast.success('Report generated successfully');
     } catch (error) {
       console.error('Report generation failed:', error);

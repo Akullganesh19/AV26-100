@@ -1,5 +1,7 @@
 import React from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
+import { apiClient } from '../api/client';
 import { 
   LayoutDashboard, 
   AlertTriangle, 
@@ -8,7 +10,7 @@ import {
   LogOut,
   ShieldAlert,
   Menu,
-  X,
+
   Stethoscope,
   Map as MapIcon
 } from 'lucide-react';
@@ -17,6 +19,7 @@ import { useAuthStore } from '../store/authStore';
 const MainLayout: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { logout, user } = useAuthStore();
   const [isSidebarOpen, setSidebarOpen] = React.useState(true);
 
@@ -29,6 +32,27 @@ const MainLayout: React.FC = () => {
     { path: '/simulations', label: 'Scenario Lab', icon: AlertTriangle },
     { path: '/settings', label: 'System Config', icon: Settings },
   ];
+
+  const handlePrefetch = (path: string) => {
+    // Oracle: Predictive Intelligence
+    // Pre-fetch route data when user hovers over navigation links to achieve zero-latency route transitions
+    if (path === '/alerts') {
+      queryClient.prefetchQuery({
+        queryKey: ['tactical-alerts', false, null],
+        queryFn: () => apiClient.get('/alerts').then(res => res.data)
+      });
+    } else if (path === '/map') {
+      queryClient.prefetchQuery({
+        queryKey: ['choropleth-data', false, null],
+        queryFn: () => apiClient.get('/districts').then(res => res.data)
+      });
+    } else if (path === '/') {
+      queryClient.prefetchQuery({
+        queryKey: ['dashboard-stats'],
+        queryFn: () => apiClient.get('/districts/stats').then(res => res.data)
+      });
+    }
+  };
 
   const handleLogout = () => {
     logout();
@@ -62,6 +86,7 @@ const MainLayout: React.FC = () => {
               <Link
                 key={item.path}
                 to={item.path}
+                onMouseEnter={() => handlePrefetch(item.path)}
                 className={`flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-200 group ${
                   isActive 
                     ? 'bg-brand-primary/10 text-brand-primary border border-brand-primary/20 shadow-[0_0_15px_rgba(30,144,255,0.1)]' 
