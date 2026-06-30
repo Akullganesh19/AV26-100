@@ -38,6 +38,7 @@ class ScenarioEvent(Base):
 
     # Relationships
     scenario: Mapped["Scenario"] = relationship(back_populates="events")
+    district: Mapped["District"] = relationship(back_populates="scenarios")
 
 
 class SimulationState(Base):
