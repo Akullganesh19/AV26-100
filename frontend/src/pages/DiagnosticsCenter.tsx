@@ -193,6 +193,7 @@ const DiagnosticsCenter: React.FC = () => {
 };
 
 // Form Components
+// 🎨 UX Concern: Forms lacking associated labels hinder screen reader accessibility. Add `id` to inputs and `htmlFor` to labels.
 const HeartForm = ({ onSubmit, loading }: { onSubmit: (data: any) => void, loading: boolean }) => {
   const [data, setData] = useState({
     age: 50, sex: 1, cp: 0, trestbps: 120, chol: 200, fbs: 0, 
@@ -201,18 +202,20 @@ const HeartForm = ({ onSubmit, loading }: { onSubmit: (data: any) => void, loadi
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      <Input label="Age" type="number" value={data.age} onChange={(v) => setData({...data, age: parseInt(v)})} />
-      <Select label="Sex" value={data.sex} options={[{v: 1, l: 'Male'}, {v: 0, l: 'Female'}]} onChange={(v) => setData({...data, sex: parseInt(v)})} />
-      <Select label="Chest Pain (0-3)" value={data.cp} options={[0,1,2,3].map(i => ({v:i, l:`Type ${i}`}))} onChange={(v) => setData({...data, cp: parseInt(v)})} />
-      <Input label="Resting BP" type="number" value={data.trestbps} onChange={(v) => setData({...data, trestbps: parseInt(v)})} />
-      <Input label="Cholesterol" type="number" value={data.chol} onChange={(v) => setData({...data, chol: parseInt(v)})} />
-      <Select label="Fasting Sugar > 120" value={data.fbs} options={[{v: 1, l: 'True'}, {v: 0, l: 'False'}]} onChange={(v) => setData({...data, fbs: parseInt(v)})} />
-      <Input label="Max HR" type="number" value={data.thalach} onChange={(v) => setData({...data, thalach: parseInt(v)})} />
-      <Input label="ST Depression" type="number" step="0.1" value={data.oldpeak} onChange={(v) => setData({...data, oldpeak: parseFloat(v)})} />
+      <Input id="heart-age" label="Age" type="number" value={data.age} onChange={(v: any) => setData({...data, age: parseInt(v)})} />
+      <Select id="heart-sex" label="Sex" value={data.sex} options={[{v: 1, l: 'Male'}, {v: 0, l: 'Female'}]} onChange={(v: any) => setData({...data, sex: parseInt(v)})} />
+      <Select id="heart-cp" label="Chest Pain (0-3)" value={data.cp} options={[0,1,2,3].map(i => ({v:i, l:`Type ${i}`}))} onChange={(v: any) => setData({...data, cp: parseInt(v)})} />
+      <Input id="heart-trestbps" label="Resting BP" type="number" value={data.trestbps} onChange={(v: any) => setData({...data, trestbps: parseInt(v)})} />
+      <Input id="heart-chol" label="Cholesterol" type="number" value={data.chol} onChange={(v: any) => setData({...data, chol: parseInt(v)})} />
+      <Select id="heart-fbs" label="Fasting Sugar > 120" value={data.fbs} options={[{v: 1, l: 'True'}, {v: 0, l: 'False'}]} onChange={(v: any) => setData({...data, fbs: parseInt(v)})} />
+      <Input id="heart-thalach" label="Max HR" type="number" value={data.thalach} onChange={(v: any) => setData({...data, thalach: parseInt(v)})} />
+      <Input id="heart-oldpeak" label="ST Depression" type="number" step="0.1" value={data.oldpeak} onChange={(v: any) => setData({...data, oldpeak: parseFloat(v)})} />
       <div className="col-span-full mt-4">
+        {/* 🎨 UX Concern: Loading states should communicate to assistive technologies using aria-busy. */}
         <button 
           onClick={() => onSubmit(data)}
           disabled={loading}
+          aria-busy={loading}
           className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-lg shadow-emerald-600/20 transition-all flex items-center justify-center gap-2"
         >
           {loading ? 'Analyzing...' : <><Activity size={20}/> RUN MISSION DIAGNOSIS</>}
@@ -230,16 +233,18 @@ const DiabetesForm = ({ onSubmit, loading }: { onSubmit: (data: any) => void, lo
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      <Input label="Pregnancies" type="number" value={data.pregnancies} onChange={(v) => setData({...data, pregnancies: parseInt(v)})} />
-      <Input label="Glucose" type="number" value={data.glucose} onChange={(v) => setData({...data, glucose: parseInt(v)})} />
-      <Input label="Blood Pressure" type="number" value={data.blood_pressure} onChange={(v) => setData({...data, blood_pressure: parseInt(v)})} />
-      <Input label="Insulin" type="number" value={data.insulin} onChange={(v) => setData({...data, insulin: parseInt(v)})} />
-      <Input label="BMI" type="number" step="0.1" value={data.bmi} onChange={(v) => setData({...data, bmi: parseFloat(v)})} />
-      <Input label="Age" type="number" value={data.age} onChange={(v) => setData({...data, age: parseInt(v)})} />
+      <Input id="diabetes-pregnancies" label="Pregnancies" type="number" value={data.pregnancies} onChange={(v: any) => setData({...data, pregnancies: parseInt(v)})} />
+      <Input id="diabetes-glucose" label="Glucose" type="number" value={data.glucose} onChange={(v: any) => setData({...data, glucose: parseInt(v)})} />
+      <Input id="diabetes-bp" label="Blood Pressure" type="number" value={data.blood_pressure} onChange={(v: any) => setData({...data, blood_pressure: parseInt(v)})} />
+      <Input id="diabetes-insulin" label="Insulin" type="number" value={data.insulin} onChange={(v: any) => setData({...data, insulin: parseInt(v)})} />
+      <Input id="diabetes-bmi" label="BMI" type="number" step="0.1" value={data.bmi} onChange={(v: any) => setData({...data, bmi: parseFloat(v)})} />
+      <Input id="diabetes-age" label="Age" type="number" value={data.age} onChange={(v: any) => setData({...data, age: parseInt(v)})} />
       <div className="col-span-full mt-4">
+        {/* 🎨 UX Concern: Loading states should communicate to assistive technologies using aria-busy. */}
         <button 
           onClick={() => onSubmit(data)}
           disabled={loading}
+          aria-busy={loading}
           className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-lg shadow-emerald-600/20 transition-all flex items-center justify-center gap-2"
         >
           {loading ? 'Analyzing...' : <><Droplet size={20}/> ANALYZE METABOLIC LOAD</>}
@@ -277,8 +282,11 @@ const ParkinsonsForm = ({ onSubmit, loading }: { onSubmit: (data: any) => void, 
         <div className="flex flex-wrap gap-2">
           {vocalMetrics.map((v, i) => (
             <div key={i} className="flex flex-col gap-1 w-20">
-              <span className="text-[10px] text-slate-500 font-mono">#{i+1}</span>
+              <label htmlFor={`parkinsons-metric-${i}`} className="text-[10px] text-slate-500 font-mono">
+                #{i+1}
+              </label>
               <input 
+                id={`parkinsons-metric-${i}`}
                 type="number" 
                 step="0.0001"
                 className="bg-slate-900 border border-slate-700 rounded px-1 py-0.5 text-xs text-white"
@@ -294,9 +302,11 @@ const ParkinsonsForm = ({ onSubmit, loading }: { onSubmit: (data: any) => void, 
         </div>
       </div>
 
+      {/* 🎨 UX Concern: Loading states should communicate to assistive technologies using aria-busy. */}
       <button 
         onClick={() => onSubmit({ vocal_metrics: vocalMetrics })}
         disabled={loading}
+        aria-busy={loading}
         className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-lg shadow-emerald-600/20 transition-all flex items-center justify-center gap-2"
       >
         {loading ? 'Analyzing...' : <><Brain size={20}/> ANALYZE NEURO-SIGNALS</>}
@@ -306,10 +316,11 @@ const ParkinsonsForm = ({ onSubmit, loading }: { onSubmit: (data: any) => void, 
 };
 
 // UI Helpers
-const Input = ({ label, type, value, onChange, step }: any) => (
+const Input = ({ id, label, type, value, onChange, step }: any) => (
   <div className="flex flex-col gap-1.5">
-    <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{label}</label>
+    <label htmlFor={id} className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{label}</label>
     <input 
+      id={id}
       type={type} 
       step={step}
       value={value}
@@ -319,10 +330,11 @@ const Input = ({ label, type, value, onChange, step }: any) => (
   </div>
 );
 
-const Select = ({ label, value, options, onChange }: any) => (
+const Select = ({ id, label, value, options, onChange }: any) => (
   <div className="flex flex-col gap-1.5">
-    <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{label}</label>
+    <label htmlFor={id} className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{label}</label>
     <select 
+      id={id}
       value={value}
       onChange={(e) => onChange(e.target.value)}
       className="bg-slate-900/80 border border-slate-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all"
