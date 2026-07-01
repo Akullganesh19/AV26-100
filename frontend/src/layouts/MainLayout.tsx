@@ -1,5 +1,7 @@
 import React from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
+import { apiClient } from '../api/client';
 import { 
   LayoutDashboard, 
   AlertTriangle, 
@@ -19,6 +21,7 @@ const MainLayout: React.FC = () => {
   const navigate = useNavigate();
   const { logout, user } = useAuthStore();
   const [isSidebarOpen, setSidebarOpen] = React.useState(true);
+  const queryClient = useQueryClient();
 
   const navItems = [
     { path: '/', label: 'Command Center', icon: LayoutDashboard },
@@ -33,6 +36,36 @@ const MainLayout: React.FC = () => {
   const handleLogout = () => {
     logout();
     navigate('/login');
+  };
+
+  const prefetchRouteData = (path: string) => {
+    switch(path) {
+      case '/':
+        queryClient.prefetchQuery({
+          queryKey: ['dashboard-stats'],
+          queryFn: () => apiClient.get('/districts/stats').then(res => res.data)
+        });
+        break;
+      case '/map':
+        queryClient.prefetchQuery({
+          queryKey: ['choropleth-data', false, null], // default simulation state
+          queryFn: () => apiClient.get('/districts').then(res => res.data)
+        });
+        break;
+      case '/alerts':
+        queryClient.prefetchQuery({
+          queryKey: ['tactical-alerts', false, null], // default simulation state
+          queryFn: () => apiClient.get('/alerts').then(res => res.data)
+        });
+        break;
+      case '/simulations':
+        queryClient.prefetchQuery({
+          queryKey: ['sim-scenarios'],
+          queryFn: () => apiClient.get('/scenarios/').then(res => res.data)
+        });
+        break;
+      // Other routes don't have immediate heavy data needs or aren't implemented yet
+    }
   };
 
   return (
@@ -62,6 +95,7 @@ const MainLayout: React.FC = () => {
               <Link
                 key={item.path}
                 to={item.path}
+                onMouseEnter={() => prefetchRouteData(item.path)}
                 className={`flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-200 group ${
                   isActive 
                     ? 'bg-brand-primary/10 text-brand-primary border border-brand-primary/20 shadow-[0_0_15px_rgba(30,144,255,0.1)]' 
