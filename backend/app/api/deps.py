@@ -5,6 +5,7 @@ from cachetools import TTLCache
 from fastapi import Depends, HTTPException, status, Query, Request
 from fastapi.security import OAuth2PasswordBearer
 from jose import jwt
+import redis
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -76,8 +77,14 @@ async def get_current_user(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Token has been revoked",
             )
-    except Exception:
-        pass # Fall through to standard verification
+    except jwt.JWTError:
+        pass # Fall through to standard verification if token format is invalid
+    except redis.RedisError:
+        # Fail closed on infrastructure errors
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Authentication infrastructure unavailable",
+        )
     finally:
         await r.aclose()
 
