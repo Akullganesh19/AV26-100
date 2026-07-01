@@ -7,6 +7,7 @@ from app.models.raw_data import RawData
 from app.models.environmental_data import EnvironmentalData
 from app.models.vaccination_coverage import VaccinationCoverage
 from app.models.prediction import Prediction
+from app.models.user_district import user_district_association
 from app.models.alert import Alert
 from app.models.scenario import Scenario
 from app.models.pipeline_run import PipelineRun
@@ -27,6 +28,7 @@ __all__ = [
     "PipelineRun",
     "PasswordResetToken",
     "PredictionAuditLog",
+    "user_district_association",
 ]
 
 if TYPE_CHECKING:

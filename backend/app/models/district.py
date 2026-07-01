@@ -38,7 +38,7 @@ class District(Base):
     vaccination_coverage: Mapped[List["VaccinationCoverage"]] = relationship(back_populates="district")
     predictions: Mapped[List["Prediction"]] = relationship(back_populates="district")
     alerts: Mapped[List["Alert"]] = relationship(back_populates="district")
-    scenarios: Mapped[List["Scenario"]] = relationship(back_populates="district")
+    #scenarios: Mapped[List["Scenario"]] = relationship(back_populates="district")
 
     __table_args__ = (
         UniqueConstraint("name", "state", name="uix_district_name_state"),
