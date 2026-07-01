@@ -1,0 +1,6 @@
+## 2024-07-01 — External API Integration Resilience
+**Failure point found:** Unprotected third-party integrations (Algolia, SendGrid, Cloudinary, GetStream) inside `backend/app/api/integrations.py`. These HTTP calls lacked retry mechanisms for transient errors and had no circuit breakers, meaning external outages could trigger cascading failures across the system. Furthermore, synchronous I/O from Cloudinary was blocking the asyncio event loop.
+**Why it existed:** Initially built for speed, assuming perfectly reliable external services.
+**Recovery built:** Created `@with_retry` (exponential backoff) and `@with_circuit_breaker` state-tracking decorators in `backend/app/core/resilience.py`. Applied these to all external communication points in `IntegrationService`. Wrapped Cloudinary's synchronous call inside `asyncio.to_thread()`. Supported safe Pydantic field access.
+**Blast radius before:** Any temporary API hiccup could fail district saving or email delivery, directly dropping user requests. A sustained Cloudinary outage would block the event loop, taking down the entire backend application.
+**Watch for:** Other areas in the application utilizing synchronous requests or directly accessing un-validated settings, as well as missing idempotency guards in payment/emailing logic.
