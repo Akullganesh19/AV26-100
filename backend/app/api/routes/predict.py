@@ -38,5 +38,5 @@ async def create_prediction(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
-            detail=f"Inference engine failure: {str(e)}"
+            detail=f"Inference engine failure: {type(e).__name__}"
         )
