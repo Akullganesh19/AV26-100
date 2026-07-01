@@ -35,7 +35,7 @@ class AlertService:
             result = await db.execute(query)
             count = result.scalar() or 0
             
-            if count >= settings.CLINICAL_CLUSTER_THRESHOLD:
+            if count >= getattr(settings, "CLINICAL_CLUSTER_THRESHOLD", 5):
                 # Check for existing open alert to avoid spam
                 existing_query = select(Alert).where(
                     and_(

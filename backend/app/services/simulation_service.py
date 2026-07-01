@@ -27,7 +27,8 @@ class SimulationService:
     @staticmethod
     async def advance_day(db: AsyncSession, simulation_id: str) -> Optional[SimulationState]:
         """Snapshot playback engine: Advances one mission day and triggers all day-offset events."""
-        query = select(SimulationState).where(SimulationState.id == simulation_id)
+        # Use with_for_update to atomically lock the row and prevent concurrent increment race conditions
+        query = select(SimulationState).where(SimulationState.id == simulation_id).with_for_update()
         result = await db.execute(query)
         sim = result.scalar_one_or_none()
         
@@ -44,7 +45,7 @@ class SimulationService:
             await db.commit()
             return sim
 
-        # Advance Day
+        # Advance Day atomically since we hold the lock
         sim.current_day += 1
         
         # Process Events for the new day
