@@ -6,14 +6,16 @@ import { toast } from 'sonner';
 const Slider = ({ value, min, max, step, onChange }: any) => {
   return (
     <div className="relative w-full h-6 flex items-center group">
+      {/* UX Concern: Native range input was missing accessible label and clear focus state */}
       <input
         type="range"
         min={min}
         max={max}
         step={step}
         value={value}
+        aria-label="Number of pages"
         onChange={(e) => onChange(parseInt(e.target.value))}
-        className="w-full h-1.5 bg-[#1E1E1E] rounded-lg appearance-none cursor-pointer accent-[#FF5656]"
+        className="w-full h-1.5 bg-[#1E1E1E] rounded-lg appearance-none cursor-pointer accent-[#FF5656] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#0D0D0D]"
       />
     </div>
   );
@@ -78,26 +80,34 @@ export const CalculatorSection = () => {
           <div className="bg-[#0D0D0D] p-8 lg:p-12 flex flex-col gap-10 divide-y divide-[#1E1E1E]">
             
             {/* Service Type */}
-            <div className="space-y-6">
-              <h3 className="text-lg font-medium opacity-80">What kind of service do you need?</h3>
+            <div className="space-y-6" role="radiogroup" aria-labelledby="service-type-label">
+              {/* UX Concern: Custom radios using buttons broke keyboard navigation. Now using visually hidden inputs that remain focusable. */}
+              <h3 id="service-type-label" className="text-lg font-medium opacity-80">What kind of service do you need?</h3>
               <div className="flex flex-wrap gap-4">
                 {[
                   { id: 'design', label: 'Only Design' },
                   { id: 'development', label: 'Only Development' },
                   { id: 'both', label: 'Design + Development' }
                 ].map((opt) => (
-                  <button
+                  <label
                     key={opt.id}
-                    onClick={() => setServiceType(opt.id as any)}
-                    className="flex items-center gap-3 group cursor-pointer"
+                    className="flex items-center gap-3 group cursor-pointer relative"
                   >
-                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${serviceType === opt.id ? 'border-[#FF5656]' : 'border-[#333]'}`}>
+                    <input
+                      type="radio"
+                      name="serviceType"
+                      value={opt.id}
+                      checked={serviceType === opt.id}
+                      onChange={() => setServiceType(opt.id as any)}
+                      className="sr-only peer"
+                    />
+                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-white peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-[#0D0D0D] ${serviceType === opt.id ? 'border-[#FF5656]' : 'border-[#333]'}`}>
                       {serviceType === opt.id && <div className="w-2 h-2 rounded-full bg-[#FF5656]" />}
                     </div>
                     <span className={`text-sm transition-colors ${serviceType === opt.id ? 'text-white' : 'text-[#666]'}`}>
                       {opt.label}
                     </span>
-                  </button>
+                  </label>
                 ))}
               </div>
             </div>
@@ -118,24 +128,25 @@ export const CalculatorSection = () => {
             </div>
 
             {/* Add-ons */}
-            <div className="pt-10 space-y-6">
-              <h3 className="text-lg font-medium opacity-80">Add-ons</h3>
+            <div className="pt-10 space-y-6" role="group" aria-labelledby="addons-label">
+              {/* UX Concern: Using hidden class on checkbox broke screen reader and keyboard access. Replaced with sr-only and added focus-visible ring. */}
+              <h3 id="addons-label" className="text-lg font-medium opacity-80">Add-ons</h3>
               <div className="grid gap-4">
                 {[
                   { id: 'content', label: 'I will need help with content', price: '+$50/page', state: needContent, set: setNeedContent },
                   { id: 'seo', label: 'I want to optimize my website for SEO', price: '+$50/page', state: needSEO, set: setNeedSEO }
                 ].map((addon) => (
-                  <label key={addon.id} className="flex items-center justify-between group cursor-pointer">
+                  <label key={addon.id} className="flex items-center justify-between group cursor-pointer relative">
                     <div className="flex items-center gap-3">
-                      <div className={`w-5 h-5 border-2 rounded flex items-center justify-center transition-all ${addon.state ? 'bg-[#FF5656] border-[#FF5656]' : 'border-[#333]'}`}>
-                        {addon.state && <Check size={14} strokeWidth={4} className="text-white" />}
-                      </div>
                       <input 
                         type="checkbox" 
-                        className="hidden" 
+                        className="sr-only peer"
                         checked={addon.state} 
                         onChange={() => addon.set(!addon.state)} 
                       />
+                      <div className={`w-5 h-5 border-2 rounded flex items-center justify-center transition-all peer-focus-visible:ring-2 peer-focus-visible:ring-white peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-[#0D0D0D] ${addon.state ? 'bg-[#FF5656] border-[#FF5656]' : 'border-[#333]'}`}>
+                        {addon.state && <Check size={14} strokeWidth={4} className="text-white" />}
+                      </div>
                       <span className={`text-sm transition-colors ${addon.state ? 'text-white' : 'text-[#666]'}`}>{addon.label}</span>
                     </div>
                     <span className="text-xs font-bold text-[#FF5656]">{addon.price}</span>
@@ -145,21 +156,29 @@ export const CalculatorSection = () => {
             </div>
 
             {/* Timeline */}
-            <div className="pt-10 space-y-6">
-              <h3 className="text-lg font-medium opacity-80">How fast do you need this?</h3>
+            <div className="pt-10 space-y-6" role="radiogroup" aria-labelledby="timeline-label">
+              {/* UX Concern: Custom radios using buttons broke keyboard navigation. Now using visually hidden inputs that remain focusable. */}
+              <h3 id="timeline-label" className="text-lg font-medium opacity-80">How fast do you need this?</h3>
               <div className="grid gap-4">
                 {[
                   { id: 'rush', label: 'Within 7 Days', price: '+$100/page' },
                   { id: 'fast', label: 'Within 14 Days', price: '+$25/page' },
                   { id: 'regular', label: 'Regular Speed', price: 'No extra cost' }
                 ].map((opt) => (
-                  <button
+                  <label
                     key={opt.id}
-                    onClick={() => setTimeline(opt.id as any)}
-                    className="flex items-center justify-between group cursor-pointer w-full text-left"
+                    className="flex items-center justify-between group cursor-pointer w-full text-left relative"
                   >
+                    <input
+                      type="radio"
+                      name="timeline"
+                      value={opt.id}
+                      checked={timeline === opt.id}
+                      onChange={() => setTimeline(opt.id as any)}
+                      className="sr-only peer"
+                    />
                     <div className="flex items-center gap-3">
-                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${timeline === opt.id ? 'border-[#FF5656]' : 'border-[#333]'}`}>
+                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-white peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-[#0D0D0D] ${timeline === opt.id ? 'border-[#FF5656]' : 'border-[#333]'}`}>
                         {timeline === opt.id && <div className="w-2 h-2 rounded-full bg-[#FF5656]" />}
                       </div>
                       <span className={`text-sm transition-colors ${timeline === opt.id ? 'text-white' : 'text-[#666]'}`}>
@@ -167,7 +186,7 @@ export const CalculatorSection = () => {
                       </span>
                     </div>
                     <span className={`text-xs font-bold ${opt.id === 'regular' ? 'text-[#444]' : 'text-[#FF5656]'}`}>{opt.price}</span>
-                  </button>
+                  </label>
                 ))}
               </div>
             </div>
@@ -207,7 +226,7 @@ export const CalculatorSection = () => {
 
             <button 
               onClick={() => toast.success("Consultation Request Sent. Transmission Received.")}
-              className="w-full mt-10 py-4 bg-white text-black font-bold rounded-xl hover:scale-[1.02] active:scale-[0.98] transition-all"
+              className="w-full mt-10 py-4 bg-white text-black font-bold rounded-xl hover:scale-[1.02] active:scale-[0.98] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF5656] focus-visible:ring-offset-2 focus-visible:ring-offset-[#050505]"
             >
               Book Your Free Consultation
             </button>
