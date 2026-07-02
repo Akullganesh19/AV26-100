@@ -27,3 +27,45 @@ apiClient.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+const originalGet = apiClient.get;
+const inFlightRequests = new Map<string, Promise<unknown>>();
+
+function generateCacheKey(url: string, config?: Record<string, unknown>): string {
+  if (!config || !config.params) return url;
+
+  let paramsObj: Record<string, unknown> = {};
+  const params = config.params;
+
+  if (params instanceof URLSearchParams) {
+    for (const [key, value] of params.entries()) {
+      paramsObj[key] = value;
+    }
+  } else if (typeof params === 'object' && params !== null) {
+    paramsObj = { ...(params as Record<string, unknown>) };
+  }
+
+  const sortedKeys = Object.keys(paramsObj).sort();
+  const sortedParams = sortedKeys.map(key => {
+    const v = paramsObj[key];
+    const stringified = typeof v === 'object' && v !== null ? JSON.stringify(v) : String(v);
+    return `${key}=${stringified}`;
+  }).join('&');
+
+  return sortedParams ? `${url}?${sortedParams}` : url;
+}
+
+apiClient.get = function(url: string, config?: Record<string, unknown>) {
+  const key = generateCacheKey(url, config);
+
+  if (inFlightRequests.has(key)) {
+    return inFlightRequests.get(key)!;
+  }
+
+  const promise = originalGet.call(this, url, config as Record<string, unknown>).finally(() => {
+    inFlightRequests.delete(key);
+  });
+
+  inFlightRequests.set(key, promise);
+  return promise;
+} as typeof originalGet;
