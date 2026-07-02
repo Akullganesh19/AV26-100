@@ -33,10 +33,10 @@ async def create_prediction(
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={"code": "INSUFFICIENT_HISTORY", "message": str(e)},
+            detail={"code": "INSUFFICIENT_HISTORY", "message": "Insufficient history for prediction"},
         )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
-            detail=f"Inference engine failure: {str(e)}"
+            detail="An error occurred during inference"
         )
