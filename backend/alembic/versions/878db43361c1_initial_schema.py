@@ -166,7 +166,7 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['prediction_id'], ['predictions.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
-    op.create_index('ix_alert_acknowledged_by', 'alerts', ['acknowledged_by'], unique=False, postgres_where=sa.text('acknowledged_by IS NOT NULL'))
+    op.create_index('ix_alert_acknowledged_by', 'alerts', ['acknowledged_by'], unique=False, postgresql_where=sa.text('acknowledged_by IS NOT NULL'))
     op.create_index('ix_alert_status_triggered_at', 'alerts', ['status', sa.text('triggered_at DESC')], unique=False)
     op.create_index(op.f('ix_alerts_district_id'), 'alerts', ['district_id'], unique=False)
     op.create_index(op.f('ix_alerts_triggered_at'), 'alerts', ['triggered_at'], unique=False)
@@ -178,7 +178,7 @@ def downgrade() -> None:
     op.drop_index(op.f('ix_alerts_triggered_at'), table_name='alerts')
     op.drop_index(op.f('ix_alerts_district_id'), table_name='alerts')
     op.drop_index('ix_alert_status_triggered_at', table_name='alerts')
-    op.drop_index('ix_alert_acknowledged_by', table_name='alerts', postgres_where=sa.text('acknowledged_by IS NOT NULL'))
+    op.drop_index('ix_alert_acknowledged_by', table_name='alerts', postgresql_where=sa.text('acknowledged_by IS NOT NULL'))
     op.drop_table('alerts')
     op.drop_index(op.f('ix_vaccination_coverage_district_id'), table_name='vaccination_coverage')
     op.drop_table('vaccination_coverage')
