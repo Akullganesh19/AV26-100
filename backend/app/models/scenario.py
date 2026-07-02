@@ -53,7 +53,7 @@ class SimulationState(Base):
 
     # Relationships
     scenario: Mapped["Scenario"] = relationship(back_populates="active_simulations")
-    user: Mapped["User"] = relationship(back_populates="simulations")
+
 
 if TYPE_CHECKING:
     from .user import User
