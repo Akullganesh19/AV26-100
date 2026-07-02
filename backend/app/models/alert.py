@@ -6,8 +6,10 @@ from sqlalchemy import String, Numeric, Integer, ForeignKey, DateTime, Index, En
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 from datetime import datetime
+from sqlalchemy import event
 
 from app.core.database import Base
+from app.core.events import event_bus
 
 
 class AlertStatus(str, enum.Enum):
@@ -52,8 +54,18 @@ class Alert(Base):
     __table_args__ = (
         Index("ix_alert_status_triggered_at", status, triggered_at.desc()),
         # Partial index for acknowledged_by to avoid indexing NULLs
-        Index("ix_alert_acknowledged_by", acknowledged_by, postgres_where=(acknowledged_by != None)),
+        Index("ix_alert_acknowledged_by", acknowledged_by, postgresql_where=(acknowledged_by != None)),
     )
+
+@event.listens_for(Alert, 'after_insert')
+def receive_after_insert(mapper, connection, target):
+    event_bus.publish("alert.created", {
+        "id": target.id,
+        "district_id": target.district_id,
+        "disease": target.disease,
+        "risk_score": target.risk_score,
+        "alert_type": target.alert_type
+    })
 
 if TYPE_CHECKING:
     from .user import User
