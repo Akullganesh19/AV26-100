@@ -1,0 +1,6 @@
+## 2025-02-12 — JWT Implementation Migration
+**Risk identified:** The backend uses `python-jose` for JWT validation, which is an abandoned library that fails to receive security patches. Furthermore, relying on unmaintained cryptographic libraries poses a serious long-term risk.
+**Migration target:** Modernization toward `PyJWT` with the `[crypto]` extra, which is the current ecosystem standard, actively maintained, and handles validation rules in a cleaner and more standardized way.
+**Migrated this session:** Migrated dependencies in `backend/requirements.txt` from `python-jose` to `PyJWT`. Updated `backend/app/api/deps.py` and `backend/app/core/security.py` to use `import jwt` directly from `PyJWT`, refactored unverified claims decoding from `jwt.get_unverified_claims` to `jwt.decode(..., options={"verify_signature": False, ...})`, and replaced generic `Exception` handling for token errors with specific `jwt.PyJWTError` catching.
+**Remaining:** Complete testing across the entire system handling JWT tokens. Potentially clean up Clerk integration pieces further if any custom logic relied on jose idiosyncrasies.
+**Next session:** Ensure the frontend/backend JWT handshake doesn't contain any regressions, run a full integration test with Clerk, and verify token refresh logic still works under `PyJWT`.
