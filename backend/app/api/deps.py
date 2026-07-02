@@ -76,8 +76,14 @@ async def get_current_user(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Token has been revoked",
             )
-    except Exception:
-        pass # Fall through to standard verification
+    except HTTPException:
+        raise
+    except (redis.RedisError, jwt.JWTError):
+        # Log error in production, but fail closed on critical infrastructure failure
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Authentication infrastructure unavailable"
+        )
     finally:
         await r.aclose()
 

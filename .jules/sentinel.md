@@ -1,0 +1,6 @@
+## 2024-07-02 — Broad Exception Handling & Information Leakage Fix
+**Found:** Broad `except Exception: pass` block in token revocation logic swallowed actual HTTPExceptions intended to block revoked tokens. Also found `str(e)` used in error details across multiple API routes (predict, clinical, districts).
+**Why it existed:** The `get_current_user` dependency likely used `Exception: pass` to safely fall back to standard validation if Redis was unavailable, but inadvertently swallowed the explicit `HTTPException`. Using `str(e)` in error messages was a convenient but insecure way to provide client feedback.
+**Fix:** Refactored the auth try-except block to specifically re-raise `HTTPException` and catch `redis.RedisError` and `jwt.JWTError` to fail securely. Replaced `str(e)` in API responses with generic error messages like `"An error occurred during screening"`, and used `type(e).__name__` for audit logs.
+**Learning:** Always catch specific exceptions for infrastructure and authentication. Broad exception handlers in security-critical paths can lead to bypasses. Never pass raw exception strings (`str(e)`) to the client to avoid leaking Pydantic validation errors or tracebacks.
+**Watch for:** Other areas where `Exception` is caught globally or where variables from `except Exception as e:` are fed into user-facing output.
