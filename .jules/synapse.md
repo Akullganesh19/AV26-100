@@ -1,0 +1,6 @@
+## 2023-10-27 — [Alerts to Targeted Notifications]
+**Systems connected:** [Alerts ↔ Auth (Users)]
+**Intelligence emerged:** [The system now automatically correlates critical health alerts with the users responsible for those specific jurisdictions, and routes notifications only to those whose risk thresholds are exceeded.]
+**Data flows:** [Alert data (id, district, disease, risk score) flows from the Alerts model to an Event Bus, which is then picked up by the Notification system querying Auth (Users) data (district assignments, email preferences, risk thresholds) to dispatch targeted communications.]
+**Coupling approach:** [Event-driven architecture via a new `EventBus`. The `Alert` model simply emits a generic `alert.created` event on insert via SQLAlchemy hooks, entirely oblivious to who receives it. The subscriber in `app.core.subscribers` independently listens to the event, queries the user model, and dispatches the task. No direct imports between `models/alert.py` and `tasks/alerts.py` or `models/user.py`.]
+**Next connection:** [Connect Auth (User Behavior) to Analytics to correlate login frequency with tactical map engagement.]

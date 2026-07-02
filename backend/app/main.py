@@ -16,6 +16,8 @@ from app.services.prediction_service import load_artifacts, ml_state
 from app.core.scheduler import start_scheduler, stop_scheduler
 from app.core.logging import setup_logging
 
+import app.core.subscribers  # Register event subscribers
+
 # Initialize Structured Logging
 setup_logging()
 logger = logging.getLogger(__name__)
