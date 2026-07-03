@@ -31,12 +31,18 @@ async def create_prediction(
         )
         return result
     except ValueError as e:
+        # Sentinel: Avoid leaking system internals in error messages
+        import logging
+        logging.getLogger(__name__).warning("Prediction insufficient history", extra={"error_type": type(e).__name__}, exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={"code": "INSUFFICIENT_HISTORY", "message": str(e)},
+            detail={"code": "INSUFFICIENT_HISTORY", "message": "Insufficient data history for prediction"},
         )
     except Exception as e:
+        # Sentinel: Avoid leaking system internals in error messages
+        import logging
+        logging.getLogger(__name__).error("Prediction inference engine failure", extra={"error_type": type(e).__name__}, exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
-            detail=f"Inference engine failure: {str(e)}"
+            detail="Inference engine failure"
         )
