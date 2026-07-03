@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { MapContainer, TileLayer, GeoJSON, Tooltip, ZoomControl } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useQuery } from '@tanstack/react-query';
-import axios from 'axios';
+import { apiClient } from '../api/client';
 import { ShieldAlert, Activity, Users, Map as MapIcon } from 'lucide-react';
 import indiaDistricts from '../assets/india_districts.json';
 
@@ -22,10 +22,8 @@ const StrategicMap: React.FC = () => {
   const { data: districtData, isLoading } = useQuery({
     queryKey: ['choropleth-data', isSimulating, activeSimId],
     queryFn: async () => {
-      const url = isSimulating 
-        ? `${import.meta.env.VITE_API_URL}/districts` // Simulation could have its own mapping
-        : `${import.meta.env.VITE_API_URL}/districts`;
-      const response = await axios.get(url);
+      const urlPath = isSimulating ? `/districts/?simulation_id=${activeSimId}` : '/districts/';
+      const response = await apiClient.get(urlPath);
       return response.data;
     }
   });
