@@ -27,3 +27,41 @@ apiClient.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+// Invisible Infrastructure: Request Coalescing
+const inFlightGets = new Map<string, Promise<unknown>>();
+const originalGet = apiClient.get;
+
+apiClient.get = function (url: string, config?: Record<string, unknown>) {
+  let cacheKey = url;
+  if (config?.params) {
+    let paramsObj: Record<string, unknown> = {};
+
+    if (config.params instanceof URLSearchParams) {
+      for (const [key, value] of config.params.entries()) {
+        paramsObj[key] = value;
+      }
+    } else {
+      paramsObj = { ...config.params };
+    }
+
+    const sortedKeys = Object.keys(paramsObj).sort();
+    const sortedParams: Record<string, string> = {};
+    for (const key of sortedKeys) {
+      const v = paramsObj[key];
+      sortedParams[key] = typeof v === 'object' && v !== null ? JSON.stringify(v) : String(v);
+    }
+    cacheKey = `${url}?${JSON.stringify(sortedParams)}`;
+  }
+
+  if (inFlightGets.has(cacheKey)) {
+    return inFlightGets.get(cacheKey)!;
+  }
+
+  const promise = originalGet.call(this, url, config).finally(() => {
+    inFlightGets.delete(cacheKey);
+  });
+
+  inFlightGets.set(cacheKey, promise);
+  return promise;
+} as typeof originalGet;
