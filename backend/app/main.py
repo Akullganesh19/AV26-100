@@ -134,8 +134,9 @@ async def readiness_probe(db: AsyncSession = Depends(get_db)):
                 detail=f"Service partially available: {checks}",
             )
     except Exception as e:
-        logger.error("Readiness check failed", extra={"checks": checks}, exc_info=True)
+        # Sentinel: Avoid leaking system internals in error messages
+        logger.error("Readiness check failed", extra={"checks": checks, "error_type": type(e).__name__}, exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"Service not ready: {str(e)}",
+            detail="Service not ready",
         )

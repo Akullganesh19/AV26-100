@@ -70,8 +70,11 @@ async def diagnose_heart(
             
         return result
     except Exception as e:
-        await log_prediction(db, current_user.id, "clinical/heart", data.dict(), status="FAIL", error=str(e), district_id=data.district_id)
-        raise HTTPException(status_code=500, detail=str(e))
+        # Sentinel: Avoid leaking system internals in error messages
+        import logging
+        logging.getLogger(__name__).error("Heart diagnosis failed", extra={"error_type": type(e).__name__}, exc_info=True)
+        await log_prediction(db, current_user.id, "clinical/heart", data.dict(), status="FAIL", error=type(e).__name__, district_id=data.district_id)
+        raise HTTPException(status_code=500, detail="Heart diagnosis failed")
 
 @router.post("/diabetes", response_model=Dict[str, Any])
 @limiter.limit("5/minute")
@@ -99,8 +102,11 @@ async def diagnose_diabetes(
 
         return result
     except Exception as e:
-        await log_prediction(db, current_user.id, "clinical/diabetes", data.dict(), status="FAIL", error=str(e), district_id=data.district_id)
-        raise HTTPException(status_code=500, detail=str(e))
+        # Sentinel: Avoid leaking system internals in error messages
+        import logging
+        logging.getLogger(__name__).error("Diabetes diagnosis failed", extra={"error_type": type(e).__name__}, exc_info=True)
+        await log_prediction(db, current_user.id, "clinical/diabetes", data.dict(), status="FAIL", error=type(e).__name__, district_id=data.district_id)
+        raise HTTPException(status_code=500, detail="Diabetes diagnosis failed")
 
 @router.post("/parkinsons", response_model=Dict[str, Any])
 @limiter.limit("5/minute")
@@ -124,8 +130,11 @@ async def diagnose_parkinsons(
 
         return result
     except Exception as e:
-        await log_prediction(db, current_user.id, "clinical/parkinsons", data.dict(), status="FAIL", error=str(e), district_id=data.district_id)
-        raise HTTPException(status_code=500, detail=str(e))
+        # Sentinel: Avoid leaking system internals in error messages
+        import logging
+        logging.getLogger(__name__).error("Parkinson's diagnosis failed", extra={"error_type": type(e).__name__}, exc_info=True)
+        await log_prediction(db, current_user.id, "clinical/parkinsons", data.dict(), status="FAIL", error=type(e).__name__, district_id=data.district_id)
+        raise HTTPException(status_code=500, detail="Parkinson's diagnosis failed")
 
 from fastapi.responses import StreamingResponse
 import io
@@ -150,4 +159,7 @@ async def generate_screening_report(
             headers={"Content-Disposition": f"attachment; filename=EpiSense_Screening_{datetime.now():%Y%m%d}.pdf"}
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"PDF generation failed: {str(e)}")
+        # Sentinel: Avoid leaking system internals in error messages
+        import logging
+        logging.getLogger(__name__).error("PDF generation failed", extra={"error_type": type(e).__name__}, exc_info=True)
+        raise HTTPException(status_code=500, detail="PDF generation failed")
