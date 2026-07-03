@@ -1,10 +1,11 @@
 import logging
 import time
 from uuid import UUID
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
-async def send_alert_notification(alert_id: str, district_name: str, disease: str, risk_score: float):
+async def send_alert_notification(alert_id: str, district_name: str, disease: str, risk_score: float, user_email: Optional[str] = None):
     """
     Asynchronous task to deliver critical alerts to health officials.
     """
@@ -13,14 +14,18 @@ async def send_alert_notification(alert_id: str, district_name: str, disease: st
         extra={
             "district": district_name,
             "disease": disease,
-            "risk_score": risk_score
+            "risk_score": risk_score,
+            "user_email": user_email
         }
     )
     
     try:
         # Simulate third-party integration (e.g., SendGrid/Twilio)
         # Using settings.SENDGRID_API_KEY
-        logger.info(f"CRITICAL ALERT: Outbreak risk detected in {district_name} ({disease}). Score: {risk_score}")
+        if user_email:
+            logger.info(f"CRITICAL ALERT TO {user_email}: Outbreak risk detected in {district_name} ({disease}). Score: {risk_score}")
+        else:
+            logger.info(f"CRITICAL ALERT: Outbreak risk detected in {district_name} ({disease}). Score: {risk_score}")
         
         # Here you would implement real SendGrid logic
         # if settings.SENDGRID_API_KEY:

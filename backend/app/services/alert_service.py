@@ -5,6 +5,7 @@ from typing import Optional, List
 from sqlalchemy import select, func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.alert import Alert, AlertStatus, AlertType
+from app.core.events import event_bus
 from app.models.audit_log import PredictionAuditLog
 from app.models.prediction import Prediction
 from app.core.config import settings
@@ -62,6 +63,14 @@ class AlertService:
                     db.add(new_alert)
                     await db.commit()
                     logger.info(f"TACTICAL ALERT: Clinical cluster detected in {district_id} ({disease})")
+                    event_bus.publish(
+                        "alert.triggered",
+                        alert_id=str(new_alert.id),
+                        district_id=str(district_id),
+                        disease=disease,
+                        risk_score=0.88,
+                        district_name="Jurisdiction Monitor"
+                    )
         
         except Exception as e:
             logger.error(
