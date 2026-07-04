@@ -4,7 +4,7 @@ import httpx
 from cachetools import TTLCache
 from fastapi import Depends, HTTPException, status, Query, Request
 from fastapi.security import OAuth2PasswordBearer
-from jose import jwt
+import jwt
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -24,7 +24,7 @@ def get_user_id(request: Request) -> str:
             return f"ip:{get_remote_address(request)}"
         
         token = auth_header.split(" ")[1]
-        payload = jwt.get_unverified_claims(token)
+        payload = jwt.decode(token, options={"verify_signature": False, "verify_aud": False, "verify_iss": False, "verify_exp": False})
         user_id = payload.get("sub")
         return f"user:{user_id}" if user_id else f"ip:{get_remote_address(request)}"
     except Exception:
@@ -69,7 +69,7 @@ async def get_current_user(
     
     try:
         # Extract JTI (Unique Token ID)
-        payload_unverified = jwt.get_unverified_claims(token)
+        payload_unverified = jwt.decode(token, options={"verify_signature": False, "verify_aud": False, "verify_iss": False, "verify_exp": False})
         jti = payload_unverified.get("jti")
         if jti and await r.get(f"revoked_token:{jti}"):
             raise HTTPException(
@@ -82,9 +82,16 @@ async def get_current_user(
         await r.aclose()
 
     try:
+                # Convert the dictionary (or PEM string) to a format PyJWT supports if necessary
+        # Our local logic treats it as PEM strings by default, but if it happens to be a JWK dict in the future
+        if isinstance(public_key, dict):
+            key_to_use = jwt.PyJWK(public_key).key
+        else:
+            key_to_use = public_key
+
         payload = jwt.decode(
             token, 
-            public_key, 
+            key_to_use,
             algorithms=["RS256"],
             issuer=settings.CLERK_ISSUER,
             audience=settings.CLERK_AUDIENCE,
