@@ -27,3 +27,39 @@ apiClient.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+// Request Coalescing Middleware
+// Identical in-flight GET requests are deduplicated into a single network call.
+const inFlightGets = new Map<string, Promise<unknown>>();
+
+const originalGet = apiClient.get;
+apiClient.get = (async (url: string, config?: Record<string, unknown>) => {
+  // Generate deterministic cache key based on URL and sorted query params
+  let cacheKey = url;
+  if (config && config.params) {
+    const paramsObj: Record<string, unknown> = config.params instanceof URLSearchParams
+      ? Object.fromEntries(config.params.entries())
+      : config.params as Record<string, unknown>;
+
+    // Sort keys to ensure consistent JSON stringification
+    const sortedKeys = Object.keys(paramsObj).sort();
+    const sortedParams: Record<string, unknown> = {};
+    for (const key of sortedKeys) {
+      const v = paramsObj[key];
+      // Properly serialize nested objects to avoid "[object Object]"
+      sortedParams[key] = typeof v === 'object' && v !== null ? JSON.stringify(v) : String(v);
+    }
+    cacheKey = `${url}?${JSON.stringify(sortedParams)}`;
+  }
+
+  if (inFlightGets.has(cacheKey)) {
+    return inFlightGets.get(cacheKey);
+  }
+
+  const promise = originalGet(url, config).finally(() => {
+    inFlightGets.delete(cacheKey);
+  });
+
+  inFlightGets.set(cacheKey, promise);
+  return promise;
+}) as typeof originalGet;
