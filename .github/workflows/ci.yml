@@ -25,12 +25,12 @@ jobs:
           --health-retries 5
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v4.2.2
       with:
         fetch-depth: 0
     
     - name: Set up Python
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v5.4.0
       with:
         python-version: '3.9'
         cache: 'pip'
@@ -53,7 +53,7 @@ jobs:
 
     - name: Run Tests
       env:
-        DATABASE_URL: postgresql+asyncpg://episense:episense@localhost:5432/episense_test
+        DATABASE_URL: postgresql+asyncpg://episense:episense@localhost:5432/episense
         SECRET_KEY: test_secret_key_for_ci
         REDIS_HOST: localhost
       run: |
