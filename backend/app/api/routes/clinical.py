@@ -9,9 +9,11 @@ from app.services.clinical_service import ClinicalService
 from app.schemas.clinical import HeartScreeningInput, DiabetesScreeningInput, ParkinsonsScreeningInput
 from app.api.deps import limiter, get_db
 from app.models.audit_log import PredictionAuditLog
+import logging
 
 router = APIRouter()
 clinical_service = ClinicalService()
+logger = logging.getLogger(__name__)
 
 from fastapi import BackgroundTasks
 from app.services.alert_service import AlertService
@@ -70,8 +72,9 @@ async def diagnose_heart(
             
         return result
     except Exception as e:
-        await log_prediction(db, current_user.id, "clinical/heart", data.dict(), status="FAIL", error=str(e), district_id=data.district_id)
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.exception("Failed to diagnose heart")
+        await log_prediction(db, current_user.id, "clinical/heart", data.dict(), status="FAIL", error=type(e).__name__, district_id=data.district_id)
+        raise HTTPException(status_code=500, detail="Internal server error during heart screening.")
 
 @router.post("/diabetes", response_model=Dict[str, Any])
 @limiter.limit("5/minute")
@@ -99,8 +102,9 @@ async def diagnose_diabetes(
 
         return result
     except Exception as e:
-        await log_prediction(db, current_user.id, "clinical/diabetes", data.dict(), status="FAIL", error=str(e), district_id=data.district_id)
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.exception("Failed to diagnose diabetes")
+        await log_prediction(db, current_user.id, "clinical/diabetes", data.dict(), status="FAIL", error=type(e).__name__, district_id=data.district_id)
+        raise HTTPException(status_code=500, detail="Internal server error during diabetes screening.")
 
 @router.post("/parkinsons", response_model=Dict[str, Any])
 @limiter.limit("5/minute")
@@ -124,8 +128,9 @@ async def diagnose_parkinsons(
 
         return result
     except Exception as e:
-        await log_prediction(db, current_user.id, "clinical/parkinsons", data.dict(), status="FAIL", error=str(e), district_id=data.district_id)
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.exception("Failed to diagnose parkinsons")
+        await log_prediction(db, current_user.id, "clinical/parkinsons", data.dict(), status="FAIL", error=type(e).__name__, district_id=data.district_id)
+        raise HTTPException(status_code=500, detail="Internal server error during Parkinson's screening.")
 
 from fastapi.responses import StreamingResponse
 import io
@@ -150,4 +155,5 @@ async def generate_screening_report(
             headers={"Content-Disposition": f"attachment; filename=EpiSense_Screening_{datetime.now():%Y%m%d}.pdf"}
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"PDF generation failed: {str(e)}")
+        logger.exception("PDF generation failed")
+        raise HTTPException(status_code=500, detail="PDF generation failed due to an internal error.")

@@ -1,0 +1,6 @@
+## 2024-07-26 — [Mass Assignment, Fail-Open Auth, and Information Leakage]
+**Found:** User roles could be explicitly passed and set via mass assignment in `POST /register`, Token revocation checks swallowed all exceptions (failing open if Redis was down), and several endpoints exposed internal errors via `str(e)`.
+**Why it existed:** Quick scaffolding of API functionality without strict attribute whitelisting, generic exception handling during auth flow, and unscrubbed error responses for easier debugging.
+**Fix:** Hardcoded `UserRole.OFFICER` for new registrations, explicitly handled specific token/Redis errors (failing closed) in `deps.py`, and replaced `str(e)` with generic client-safe messages while logging the exception class name internally.
+**Learning:** Always explicitly whitelist attributes or assign roles server-side during object creation. Security infrastructure dependencies (like Redis for token revocation) must fail closed. Error responses must never leak stack traces or internal exception details.
+**Watch for:** Other creation/update endpoints blindly accepting JSON payloads, other dependencies silently failing (using `pass` on generic exceptions), and instances where `str(e)` or `.stack` is piped back to the user.

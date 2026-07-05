@@ -1,6 +1,7 @@
 from typing import Generator, List, Optional
 import uuid
 import httpx
+import logging
 from cachetools import TTLCache
 from fastapi import Depends, HTTPException, status, Query, Request
 from fastapi.security import OAuth2PasswordBearer
@@ -15,6 +16,8 @@ from app.schemas.auth import TokenPayload
 
 from slowapi import Limiter
 from slowapi.util import get_remote_address
+
+logger = logging.getLogger(__name__)
 
 def get_user_id(request: Request) -> str:
     """Extracts user ID from JWT or falls back to IP for unauthenticated requests."""
@@ -64,6 +67,7 @@ async def get_current_user(
 ) -> User:
     # 1. Check Redis Revocation List
     import redis.asyncio as redis
+    from redis.exceptions import RedisError
     from app.core.config import settings
     r = redis.from_url(settings.CELERY_BROKER_URL) # Reuse Redis host
     
@@ -76,7 +80,18 @@ async def get_current_user(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Token has been revoked",
             )
-    except Exception:
+    except HTTPException:
+        # Re-raise explicit HTTP exceptions (like revoked token)
+        raise
+    except RedisError as e:
+        # Fail closed on infrastructure errors
+        logger.exception("Redis connection error during token revocation check")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Authentication service unavailable",
+        )
+    except Exception as e:
+        logger.exception("Unexpected error checking token revocation")
         pass # Fall through to standard verification
     finally:
         await r.aclose()
@@ -91,7 +106,14 @@ async def get_current_user(
             options={"verify_aud": True, "verify_iss": True}
         )
         clerk_id = payload.get("sub")
-    except Exception:
+    except jwt.JWTError as e:
+        logger.exception("JWT verification failed")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Could not validate credentials",
+        )
+    except Exception as e:
+        logger.exception("Unexpected error during token decoding")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Could not validate credentials",
