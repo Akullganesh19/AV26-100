@@ -8,6 +8,7 @@ from app.models.alert import Alert, AlertStatus, AlertType
 from app.models.audit_log import PredictionAuditLog
 from app.models.prediction import Prediction
 from app.core.config import settings
+from app.core.events import event_bus
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +63,14 @@ class AlertService:
                     db.add(new_alert)
                     await db.commit()
                     logger.info(f"TACTICAL ALERT: Clinical cluster detected in {district_id} ({disease})")
+                    event_bus.emit(
+                        "alert.triggered",
+                        alert_id=str(new_alert.id),
+                        district_id=str(new_alert.district_id),
+                        district_name="Jurisdiction Monitor", # Consider fetching actual district name in the event subscriber
+                        disease=new_alert.disease,
+                        risk_score=float(new_alert.risk_score)
+                    )
         
         except Exception as e:
             logger.error(
@@ -87,6 +96,14 @@ class AlertService:
             )
             db.add(new_alert)
             await db.commit()
+            event_bus.emit(
+                "alert.triggered",
+                alert_id=str(new_alert.id),
+                district_id=str(new_alert.district_id),
+                district_name="Jurisdiction Monitor",
+                disease=new_alert.disease,
+                risk_score=float(new_alert.risk_score)
+            )
 
     @staticmethod
     async def acknowledge_alert(db: AsyncSession, alert_id: str, user_id: str):
