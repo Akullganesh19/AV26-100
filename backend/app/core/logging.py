@@ -7,9 +7,10 @@ SENSITIVE_KEYS = {"email", "password", "password_hash", "ssn", "clerk_id", "toke
 EMAIL_REGEX = re.compile(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+")
 
 def _redact_value(key: str, value: any, seen_ids: set) -> any:
+    if isinstance(key, str) and key.lower() in SENSITIVE_KEYS:
+        return "***REDACTED***"
+
     if isinstance(value, str):
-        if isinstance(key, str) and key.lower() in SENSITIVE_KEYS:
-            return "***REDACTED***"
         if EMAIL_REGEX.search(value):
             return EMAIL_REGEX.sub(lambda m: m.group(0)[0] + "***" + m.group(0)[m.group(0).find("@"):], value)
         return value
