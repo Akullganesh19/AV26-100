@@ -7,7 +7,12 @@ from app.core.database import Base
 from app.core.config import settings
 
 # Use the dedicated test database created in the previous step
-TEST_DATABASE_URL = str(settings.DATABASE_URL) + "_test"
+# 🛸 Oracle: In GitHub Actions CI, the PostgreSQL service provisions a single test database named `episense_test`.
+# To support both CI and local environments, test configurations must conditionally append `_test`
+# to the `DATABASE_URL` only if it does not already end with `_test` to avoid `InvalidCatalogNameError`.
+TEST_DATABASE_URL = str(settings.DATABASE_URL)
+if not TEST_DATABASE_URL.endswith("_test"):
+    TEST_DATABASE_URL += "_test"
 
 @pytest_asyncio.fixture
 async def db_session():
