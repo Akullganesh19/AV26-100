@@ -3,11 +3,13 @@ from uuid import UUID
 from datetime import date, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_
+from sqlalchemy import select, and_, func
 
 from app.api import deps
 from app.models.district import District
+from app.models.alert import Alert
 from app.services.prediction_service import PredictionService
+from app.core.cache import get_cache, set_cache
 
 router = APIRouter()
 
@@ -22,6 +24,12 @@ async def list_districts(
     """
     List districts with their baseline risk scores for a specific disease.
     """
+    # Check cache first
+    cache_key = f"districts:list:{disease}:{state}:{time_window}"
+    cached_data = await get_cache(cache_key)
+    if cached_data:
+        return cached_data
+
     service = PredictionService(db)
     try:
         query = select(District)
@@ -65,9 +73,50 @@ async def list_districts(
                     "extrapolation_warning": False
                 })
             
+        # Cache for 1 hour (predictions generally change daily at most)
+        from app.core.background import fire_and_forget
+        fire_and_forget(set_cache(cache_key, output, 3600))
+
         return output
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to retrieve jurisdiction matrix: {str(e)}")
+
+@router.get("/stats", response_model=Dict[str, Any])
+async def get_district_stats(
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: Any = Depends(deps.get_current_user)
+) -> Any:
+    """
+    Get aggregated mission statistics for the dashboard.
+    """
+    cache_key = "districts:stats"
+    cached_data = await get_cache(cache_key)
+    if cached_data:
+        return cached_data
+
+    # Total Districts
+    q_total = await db.execute(select(func.count(District.id)))
+    total = q_total.scalar() or 0
+
+    # Population
+    q_pop = await db.execute(select(func.sum(District.population)))
+    pop = q_pop.scalar() or 0
+
+    # Active Alerts
+    q_alerts = await db.execute(select(func.count(Alert.id)).where(Alert.is_resolved == False))
+    alerts = q_alerts.scalar() or 0
+
+    output = {
+        "total_districts": total,
+        "population_covered": f"{pop/1000000:.1f}M",
+        "active_alerts": alerts,
+        "avg_risk": 42.8 # Baseline
+    }
+
+    from app.core.background import fire_and_forget
+    fire_and_forget(set_cache(cache_key, output, 60)) # 1 minute TTL for stats
+
+    return output
 
 @router.get("/{district_id}", response_model=Dict[str, Any])
 async def get_district_detail(
@@ -79,6 +128,11 @@ async def get_district_detail(
     """
     Fetch full detail for a single district including latest prediction.
     """
+    cache_key = f"districts:detail:{district_id}:{disease}"
+    cached_data = await get_cache(cache_key)
+    if cached_data:
+        return cached_data
+
     result = await db.execute(select(District).where(District.id == district_id))
     district = result.scalar_one_or_none()
     if not district:
@@ -87,7 +141,7 @@ async def get_district_detail(
     service = PredictionService(db)
     try:
         pred = await service.predict_single(district.id, disease, date.today())
-        return {
+        output = {
             "id": str(district.id),
             "name": district.name,
             "state": district.state,
@@ -97,6 +151,11 @@ async def get_district_detail(
             "shap_values": pred.shap_values,
             "feature_snapshot": pred.feature_snapshot
         }
+
+        from app.core.background import fire_and_forget
+        fire_and_forget(set_cache(cache_key, output, 3600))
+
+        return output
     except Exception as e:
         return {
             "id": str(district.id),
@@ -106,34 +165,3 @@ async def get_district_detail(
             "risk_tier": "unknown",
             "error": str(e)
         }
-
-@router.get("/stats", response_model=Dict[str, Any])
-async def get_district_stats(
-    db: AsyncSession = Depends(deps.get_db),
-    current_user: Any = Depends(deps.get_current_user)
-) -> Any:
-    """
-    Get aggregated mission statistics for the dashboard.
-    """
-    from sqlalchemy import func
-    from app.models.district import District
-    from app.models.alert import Alert
-    
-    # Total Districts
-    q_total = await db.execute(select(func.count(District.id)))
-    total = q_total.scalar() or 0
-    
-    # Population
-    q_pop = await db.execute(select(func.sum(District.population)))
-    pop = q_pop.scalar() or 0
-    
-    # Active Alerts
-    q_alerts = await db.execute(select(func.count(Alert.id)).where(Alert.is_resolved == False))
-    alerts = q_alerts.scalar() or 0
-    
-    return {
-        "total_districts": total,
-        "population_covered": f"{pop/1000000:.1f}M",
-        "active_alerts": alerts,
-        "avg_risk": 42.8 # Baseline
-    }
