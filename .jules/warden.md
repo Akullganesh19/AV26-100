@@ -1,0 +1,6 @@
+## 2024-05-24 — Active Exposure of PII in Logs
+**Data traced:** User identifiers (email, password, ssn, clerk_id, token, access_token).
+**Exposure found:** Standard library loggers outputted events and `extra` contexts in plaintext directly to stdout. If unhandled exceptions occurred or log calls deliberately included user information (like `clerk_id`), this data leaked to aggregators without redaction.
+**Fix:** Created a recursive `redact_pii_processor` for structured logging, matching exact keys (`email`, `clerk_id`) for masking, alongside regex replacement for emails inside strings (e.g. exception tracebacks). Reconfigured `setup_logging` to route standard library logs via `structlog.stdlib.ProcessorFormatter` with an `ExtraAdder()` pipeline, guaranteeing full redaction even for unstructured calls.
+**Coverage confirmed:** Tested string logs, dictionary `extra={}` additions, embedded emails within `ValueError` string traces, and handled cyclical object reference edge cases properly.
+**Still exposed elsewhere:** Audit logs (`PredictionAuditLog`) and third-party integrations (e.g., Algolia user syncing, GetStream payloads) weren't evaluated for potential edge-case leaking but should be looked into next session.
