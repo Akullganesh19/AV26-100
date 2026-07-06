@@ -27,3 +27,39 @@ apiClient.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+// ⚡ Bolt: Request Coalescing Optimization
+// Prevents identical concurrent GET requests by returning the same promise.
+const activeRequests = new Map<string, Promise<any>>();
+const originalGet = apiClient.get;
+
+apiClient.get = (async (url: string, config?: any) => {
+  let cacheKey = url;
+  if (config?.params) {
+    let paramsStr = '';
+    if (config.params instanceof URLSearchParams) {
+      const entries = Array.from(config.params.entries()).sort(([a], [b]) => a.localeCompare(b));
+      paramsStr = new URLSearchParams(entries).toString();
+    } else {
+      const sortedKeys = Object.keys(config.params).sort();
+      const parts = sortedKeys.map(k => {
+        const v = config.params[k];
+        const stringified = typeof v === 'object' && v !== null ? JSON.stringify(v) : String(v);
+        return `${encodeURIComponent(k)}=${encodeURIComponent(stringified)}`;
+      });
+      paramsStr = parts.join('&');
+    }
+    cacheKey += `?${paramsStr}`;
+  }
+
+  if (activeRequests.has(cacheKey)) {
+    return activeRequests.get(cacheKey);
+  }
+
+  const promise = originalGet(url, config).finally(() => {
+    activeRequests.delete(cacheKey);
+  });
+
+  activeRequests.set(cacheKey, promise);
+  return promise;
+}) as typeof originalGet;
