@@ -23,13 +23,14 @@ import {
 import DistrictMatrix from '../components/DistrictMatrix';
 
 import { useQuery } from '@tanstack/react-query';
-import axios from 'axios';
+import { apiClient } from '../api/client';
 
 const Dashboard: React.FC = () => {
   const { data: dashboardStats } = useQuery({
     queryKey: ['dashboard-stats'],
     queryFn: async () => {
-      const response = await axios.get(`${import.meta.env.VITE_API_URL}/districts/stats`);
+      // ⚡ Bolt: Using apiClient for request coalescing and auth interceptors
+      const response = await apiClient.get('/districts/stats');
       return response.data;
     }
   });
