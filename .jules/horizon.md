@@ -1,0 +1,6 @@
+## 2025-05-15 — PyJWT and Bcrypt Migration
+**Risk identified:** The backend authentication heavily relied on `python-jose` and `passlib`. Both libraries are deprecated, largely unmaintained, and represent a security and compatibility risk over time, particularly with modern cryptography and Python 3.12+ (which removes the `crypt` module `passlib` relies on by default).
+**Migration target:** The ecosystem standard `PyJWT` for JWT generation/validation and native `bcrypt` for secure password hashing.
+**Migrated this session:** Updated `backend/requirements.txt` to replace `python-jose` and `passlib` with `PyJWT[crypto]` and `bcrypt`. Updated `backend/app/core/security.py` to use `bcrypt` for hashing passwords and `PyJWT` for token encoding/decoding. Updated `backend/app/api/deps.py` to use `PyJWT` options for unverified claims decoding.
+**Remaining:** No remaining auth token dependencies to migrate. We will keep an eye on dependency updates to ensure future compatibility.
+**Next session:** Look for other deprecated libraries or obsolete Python syntax usages across the backend.
