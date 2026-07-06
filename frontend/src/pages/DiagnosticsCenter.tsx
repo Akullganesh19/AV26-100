@@ -4,7 +4,6 @@ import {
   Droplet, 
   Brain, 
   FileText, 
-  ChevronRight, 
   AlertTriangle, 
   CheckCircle2,
   Stethoscope,
@@ -22,13 +21,15 @@ const DiagnosticsCenter: React.FC = () => {
   const districtIdFromUrl = searchParams.get('district_id');
   
   const [activeTab, setActiveTab] = useState<DiseaseType>('heart');
-  const [selectedDistrict, setSelectedDistrict] = useState<string>(districtIdFromUrl || '');
+  const [_selectedDistrict, _setSelectedDistrict] = useState<string>(districtIdFromUrl || '');
   const [loading, setLoading] = useState(false);
   const [prediction, setPrediction] = useState<any>(null);
+  const [prefetchedReportUrl, setPrefetchedReportUrl] = useState<string | null>(null);
 
-  const handleDiagnose = async (formData: any) => {
+  const handleDiagnose = async (formData: Record<string, unknown>) => {
     setLoading(true);
     setPrediction(null);
+    setPrefetchedReportUrl(null);
     try {
       const response = await axios.post(`${import.meta.env.VITE_API_URL}/clinical/${activeTab}`, formData);
       setPrediction(response.data);
@@ -36,10 +37,26 @@ const DiagnosticsCenter: React.FC = () => {
         toast.error(`High risk detected for ${activeTab.toUpperCase()}`, {
           description: response.data.advice
         });
+
+        // 🛸 ORACLE: PREDICTIVE PREFETCH
+        // High risk implies the officer will almost certainly need the tactical PDF report next.
+        // We fetch it in the background right now so it's instantly available when clicked.
+        axios.post(
+          `${import.meta.env.VITE_API_URL}/clinical/report`,
+          [response.data],
+          { responseType: 'blob' }
+        ).then(reportRes => {
+          const url = window.URL.createObjectURL(new Blob([reportRes.data]));
+          setPrefetchedReportUrl(url);
+        }).catch(err => {
+          console.warn("Oracle prefetch failed (non-fatal):", err);
+        });
+
       } else {
         toast.success(`Low risk for ${activeTab.toUpperCase()}`, {
           description: response.data.advice
         });
+        setPrefetchedReportUrl(null); // Clear previous
       }
     } catch (error) {
       console.error('Diagnosis failed:', error);
@@ -54,13 +71,18 @@ const DiagnosticsCenter: React.FC = () => {
   const handleDownloadReport = async () => {
     if (!prediction) return;
     try {
-      const response = await axios.post(
-        `${import.meta.env.VITE_API_URL}/clinical/report`,
-        [prediction], // Send current prediction in a list
-        { responseType: 'blob' }
-      );
+      let url = prefetchedReportUrl;
       
-      const url = window.URL.createObjectURL(new Blob([response.data]));
+      if (!url) {
+        // Fallback if Oracle prefetch isn't ready or failed
+        const response = await axios.post(
+          `${import.meta.env.VITE_API_URL}/clinical/report`,
+          [prediction], // Send current prediction in a list
+          { responseType: 'blob' }
+        );
+        url = window.URL.createObjectURL(new Blob([response.data]));
+      }
+
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute('download', `EpiSense_Tactical_Report_${activeTab.toUpperCase()}.pdf`);
@@ -90,7 +112,7 @@ const DiagnosticsCenter: React.FC = () => {
         {/* Navigation Sidebar */}
         <div className="lg:col-span-3 space-y-2">
           <button
-            onClick={() => setActiveTab('heart')}
+            onClick={() => { setActiveTab('heart'); setPrediction(null); setPrefetchedReportUrl(null); }}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all border ${
               activeTab === 'heart' 
               ? 'bg-emerald-500/10 border-emerald-500/50 text-white shadow-lg shadow-emerald-500/10' 
@@ -101,7 +123,7 @@ const DiagnosticsCenter: React.FC = () => {
             <span className="font-medium">Heart Disease</span>
           </button>
           <button
-            onClick={() => setActiveTab('diabetes')}
+            onClick={() => { setActiveTab('diabetes'); setPrediction(null); setPrefetchedReportUrl(null); }}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all border ${
               activeTab === 'diabetes' 
               ? 'bg-emerald-500/10 border-emerald-500/50 text-white shadow-lg shadow-emerald-500/10' 
@@ -112,7 +134,7 @@ const DiagnosticsCenter: React.FC = () => {
             <span className="font-medium">Diabetes</span>
           </button>
           <button
-            onClick={() => setActiveTab('parkinsons')}
+            onClick={() => { setActiveTab('parkinsons'); setPrediction(null); setPrefetchedReportUrl(null); }}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all border ${
               activeTab === 'parkinsons' 
               ? 'bg-emerald-500/10 border-emerald-500/50 text-white shadow-lg shadow-emerald-500/10' 
@@ -193,7 +215,7 @@ const DiagnosticsCenter: React.FC = () => {
 };
 
 // Form Components
-const HeartForm = ({ onSubmit, loading }: { onSubmit: (data: any) => void, loading: boolean }) => {
+const HeartForm = ({ onSubmit, loading }: { onSubmit: (data: Record<string, unknown>) => void, loading: boolean }) => {
   const [data, setData] = useState({
     age: 50, sex: 1, cp: 0, trestbps: 120, chol: 200, fbs: 0, 
     restecg: 0, thalach: 150, exang: 0, oldpeak: 0.0, slope: 1, ca: 0, thal: 2
@@ -222,7 +244,7 @@ const HeartForm = ({ onSubmit, loading }: { onSubmit: (data: any) => void, loadi
   );
 };
 
-const DiabetesForm = ({ onSubmit, loading }: { onSubmit: (data: any) => void, loading: boolean }) => {
+const DiabetesForm = ({ onSubmit, loading }: { onSubmit: (data: Record<string, unknown>) => void, loading: boolean }) => {
   const [data, setData] = useState({
     pregnancies: 0, glucose: 100, blood_pressure: 70, skin_thickness: 20, 
     insulin: 80, bmi: 25.0, dpf: 0.5, age: 30
@@ -249,7 +271,7 @@ const DiabetesForm = ({ onSubmit, loading }: { onSubmit: (data: any) => void, lo
   );
 };
 
-const ParkinsonsForm = ({ onSubmit, loading }: { onSubmit: (data: any) => void, loading: boolean }) => {
+const ParkinsonsForm = ({ onSubmit, loading }: { onSubmit: (data: Record<string, unknown>) => void, loading: boolean }) => {
   const [vocalMetrics, setVocalMetrics] = useState<number[]>(new Array(22).fill(0));
 
   const handleRandomize = () => {
