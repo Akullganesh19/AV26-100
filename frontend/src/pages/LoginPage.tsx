@@ -70,11 +70,13 @@ const LoginPage: React.FC = () => {
 
         <div className="glass-panel p-8 rounded-3xl">
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+            {/* UX Concern: Inputs lacked IDs and htmlFor linking, breaking screen reader association. Toggle button lacked aria-label. */}
             <div className="space-y-2">
-              <label className="tactical-header">Operational Identity</label>
+              <label htmlFor="email" className="tactical-header">Operational Identity</label>
               <div className="relative group">
                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 group-focus-within:text-brand-primary transition-colors" />
                 <input
+                  id="email"
                   {...register('email')}
                   type="email"
                   placeholder="name@agency.gov"
@@ -85,10 +87,11 @@ const LoginPage: React.FC = () => {
             </div>
 
             <div className="space-y-2">
-              <label className="tactical-header">Access Protocol</label>
+              <label htmlFor="password" className="tactical-header">Access Protocol</label>
               <div className="relative group">
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 group-focus-within:text-brand-primary transition-colors" />
                 <input
+                  id="password"
                   {...register('password')}
                   type={showPassword ? 'text' : 'password'}
                   placeholder="••••••••••••"
@@ -96,17 +99,20 @@ const LoginPage: React.FC = () => {
                 />
                 <button
                   type="button"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors"
                 >
-                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  {showPassword ? <EyeOff className="w-5 h-5" aria-hidden="true" /> : <Eye className="w-5 h-5" aria-hidden="true" />}
                 </button>
               </div>
               {errors.password && <p className="text-xs text-rose-500 font-medium ml-1">{errors.password.message}</p>}
             </div>
 
+            {/* UX Concern: Submit button lacked aria-busy to indicate loading state. */}
             <button
               disabled={isLoading}
+              aria-busy={isLoading}
               type="submit"
               className="w-full btn-tactical btn-primary py-4 flex items-center justify-center gap-3 mt-4"
             >

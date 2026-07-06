@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useId } from 'react';
 import { 
   Activity, 
   Droplet, 
@@ -210,9 +210,11 @@ const HeartForm = ({ onSubmit, loading }: { onSubmit: (data: any) => void, loadi
       <Input label="Max HR" type="number" value={data.thalach} onChange={(v) => setData({...data, thalach: parseInt(v)})} />
       <Input label="ST Depression" type="number" step="0.1" value={data.oldpeak} onChange={(v) => setData({...data, oldpeak: parseFloat(v)})} />
       <div className="col-span-full mt-4">
+        {/* UX Concern: Submit button lacked aria-busy to convey loading state asynchronously. */}
         <button 
           onClick={() => onSubmit(data)}
           disabled={loading}
+          aria-busy={loading}
           className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-lg shadow-emerald-600/20 transition-all flex items-center justify-center gap-2"
         >
           {loading ? 'Analyzing...' : <><Activity size={20}/> RUN MISSION DIAGNOSIS</>}
@@ -237,9 +239,11 @@ const DiabetesForm = ({ onSubmit, loading }: { onSubmit: (data: any) => void, lo
       <Input label="BMI" type="number" step="0.1" value={data.bmi} onChange={(v) => setData({...data, bmi: parseFloat(v)})} />
       <Input label="Age" type="number" value={data.age} onChange={(v) => setData({...data, age: parseInt(v)})} />
       <div className="col-span-full mt-4">
+        {/* UX Concern: Submit button lacked aria-busy to convey loading state asynchronously. */}
         <button 
           onClick={() => onSubmit(data)}
           disabled={loading}
+          aria-busy={loading}
           className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-lg shadow-emerald-600/20 transition-all flex items-center justify-center gap-2"
         >
           {loading ? 'Analyzing...' : <><Droplet size={20}/> ANALYZE METABOLIC LOAD</>}
@@ -294,9 +298,11 @@ const ParkinsonsForm = ({ onSubmit, loading }: { onSubmit: (data: any) => void, 
         </div>
       </div>
 
+      {/* UX Concern: Submit button lacked aria-busy to convey loading state asynchronously. */}
       <button 
         onClick={() => onSubmit({ vocal_metrics: vocalMetrics })}
         disabled={loading}
+        aria-busy={loading}
         className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-lg shadow-emerald-600/20 transition-all flex items-center justify-center gap-2"
       >
         {loading ? 'Analyzing...' : <><Brain size={20}/> ANALYZE NEURO-SIGNALS</>}
@@ -306,34 +312,44 @@ const ParkinsonsForm = ({ onSubmit, loading }: { onSubmit: (data: any) => void, 
 };
 
 // UI Helpers
-const Input = ({ label, type, value, onChange, step }: any) => (
-  <div className="flex flex-col gap-1.5">
-    <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{label}</label>
-    <input 
-      type={type} 
-      step={step}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="bg-slate-900/80 border border-slate-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all"
-    />
-  </div>
-);
+const Input = ({ label, type, value, onChange, step }: any) => {
+  const id = useId();
+  return (
+    // UX Concern: Custom Input component lacked an ID linked to its label for proper accessibility support.
+    <div className="flex flex-col gap-1.5">
+      <label htmlFor={id} className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{label}</label>
+      <input
+        id={id}
+        type={type}
+        step={step}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="bg-slate-900/80 border border-slate-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all"
+      />
+    </div>
+  );
+};
 
-const Select = ({ label, value, options, onChange }: any) => (
-  <div className="flex flex-col gap-1.5">
-    <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{label}</label>
-    <select 
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="bg-slate-900/80 border border-slate-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all"
-    >
-      {options.map((o: any) => (
-        <option key={typeof o === 'object' ? o.v : o} value={typeof o === 'object' ? o.v : o}>
-          {typeof o === 'object' ? o.l : o}
-        </option>
-      ))}
-    </select>
-  </div>
-);
+const Select = ({ label, value, options, onChange }: any) => {
+  const id = useId();
+  return (
+    // UX Concern: Custom Select component lacked an ID linked to its label for proper accessibility support.
+    <div className="flex flex-col gap-1.5">
+      <label htmlFor={id} className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{label}</label>
+      <select
+        id={id}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="bg-slate-900/80 border border-slate-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all"
+      >
+        {options.map((o: any) => (
+          <option key={typeof o === 'object' ? o.v : o} value={typeof o === 'object' ? o.v : o}>
+            {typeof o === 'object' ? o.l : o}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+};
 
 export default DiagnosticsCenter;
