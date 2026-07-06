@@ -1,9 +1,12 @@
 import logging
 import time
 from uuid import UUID
+from app.core.resilience import with_retry, with_circuit_breaker
 
 logger = logging.getLogger(__name__)
 
+@with_circuit_breaker(failure_threshold=3, recovery_timeout=60.0)
+@with_retry(max_attempts=3, initial_backoff=0.5)
 async def send_alert_notification(alert_id: str, district_name: str, disease: str, risk_score: float):
     """
     Asynchronous task to deliver critical alerts to health officials.
@@ -30,4 +33,4 @@ async def send_alert_notification(alert_id: str, district_name: str, disease: st
         
     except Exception as exc:
         logger.error(f"Dispatch failed for {alert_id}: {str(exc)}")
-        return {"status": "failed", "error": str(exc)}
+        raise exc
