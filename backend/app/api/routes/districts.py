@@ -1,7 +1,10 @@
 from typing import List, Any, Dict, Optional
 from uuid import UUID
 from datetime import date, timedelta
+import logging
 from fastapi import APIRouter, Depends, HTTPException, Query
+
+logger = logging.getLogger(__name__)
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
 
@@ -67,7 +70,9 @@ async def list_districts(
             
         return output
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to retrieve jurisdiction matrix: {str(e)}")
+        # SECURITY FIX: Do not leak stack traces or internal errors to client
+        logger.exception("Failed to retrieve jurisdiction matrix")
+        raise HTTPException(status_code=500, detail="Failed to retrieve jurisdiction matrix")
 
 @router.get("/{district_id}", response_model=Dict[str, Any])
 async def get_district_detail(
@@ -98,13 +103,15 @@ async def get_district_detail(
             "feature_snapshot": pred.feature_snapshot
         }
     except Exception as e:
+        # SECURITY FIX: Do not leak stack traces or internal errors to client
+        logger.exception(f"Failed to predict district {district_id} details")
         return {
             "id": str(district.id),
             "name": district.name,
             "state": district.state,
             "risk_score": 0,
             "risk_tier": "unknown",
-            "error": str(e)
+            "error": "Failed to predict district risk score"
         }
 
 @router.get("/stats", response_model=Dict[str, Any])
