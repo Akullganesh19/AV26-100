@@ -94,24 +94,28 @@ const LoginPage: React.FC = () => {
                   placeholder="••••••••••••"
                   className="w-full bg-white/[0.03] border border-white/10 rounded-xl py-3 pl-12 pr-12 text-white placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-brand-primary/50 focus:border-brand-primary transition-all"
                 />
+                {/* 🎨 UX Improvement: Added missing aria-label to icon-only toggle button */}
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
                 >
-                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  {showPassword ? <EyeOff aria-hidden="true" className="w-5 h-5" /> : <Eye aria-hidden="true" className="w-5 h-5" />}
                 </button>
               </div>
               {errors.password && <p className="text-xs text-rose-500 font-medium ml-1">{errors.password.message}</p>}
             </div>
 
+            {/* 🎨 UX Improvement: Added aria-busy and aria-hidden to async elements */}
             <button
               disabled={isLoading}
+              aria-busy={isLoading}
               type="submit"
               className="w-full btn-tactical btn-primary py-4 flex items-center justify-center gap-3 mt-4"
             >
               {isLoading ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
+                <Loader2 aria-hidden="true" className="w-5 h-5 animate-spin" />
               ) : (
                 <>
                   <span className="uppercase tracking-widest text-xs font-bold">Initiate Authentication</span>
