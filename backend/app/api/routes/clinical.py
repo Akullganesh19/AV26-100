@@ -1,8 +1,11 @@
 from typing import List, Dict, Any, Optional
 import hashlib
 import json
+import logging
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status, Request
+
+logger = logging.getLogger(__name__)
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.api import deps
 from app.services.clinical_service import ClinicalService
@@ -70,8 +73,10 @@ async def diagnose_heart(
             
         return result
     except Exception as e:
+        # SECURITY FIX: Do not leak stack traces or internal errors to client
+        logger.exception("Clinical heart screening failed")
         await log_prediction(db, current_user.id, "clinical/heart", data.dict(), status="FAIL", error=str(e), district_id=data.district_id)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Clinical screening failed")
 
 @router.post("/diabetes", response_model=Dict[str, Any])
 @limiter.limit("5/minute")
@@ -99,8 +104,10 @@ async def diagnose_diabetes(
 
         return result
     except Exception as e:
+        # SECURITY FIX: Do not leak stack traces or internal errors to client
+        logger.exception("Clinical diabetes screening failed")
         await log_prediction(db, current_user.id, "clinical/diabetes", data.dict(), status="FAIL", error=str(e), district_id=data.district_id)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Clinical screening failed")
 
 @router.post("/parkinsons", response_model=Dict[str, Any])
 @limiter.limit("5/minute")
@@ -124,8 +131,10 @@ async def diagnose_parkinsons(
 
         return result
     except Exception as e:
+        # SECURITY FIX: Do not leak stack traces or internal errors to client
+        logger.exception("Clinical Parkinson's screening failed")
         await log_prediction(db, current_user.id, "clinical/parkinsons", data.dict(), status="FAIL", error=str(e), district_id=data.district_id)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Clinical screening failed")
 
 from fastapi.responses import StreamingResponse
 import io
@@ -150,4 +159,6 @@ async def generate_screening_report(
             headers={"Content-Disposition": f"attachment; filename=EpiSense_Screening_{datetime.now():%Y%m%d}.pdf"}
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"PDF generation failed: {str(e)}")
+        # SECURITY FIX: Do not leak stack traces or internal errors to client
+        logger.exception("PDF report generation failed")
+        raise HTTPException(status_code=500, detail="PDF generation failed")
