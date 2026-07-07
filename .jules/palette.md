@@ -1,0 +1,6 @@
+## 2025-07-07 — Component Keyboard Accessibility & Semantic Role Alignment
+**Found:** Custom UI elements designed to act as radio buttons and checkboxes (e.g., in `CalculatorSection.tsx`) were using `display: none` (`hidden` class) on native inputs or using arbitrary `div`/`button` elements without semantic roles, breaking screen reader interaction and keyboard focus visibility.
+**Why it existed:** Developers prioritized custom styling using Tailwind over native form element behaviors, opting to completely hide native inputs rather than visually hiding them.
+**Fix:** Restored native focusability by replacing `.hidden` with `.sr-only.peer` on checkbox inputs and applying `peer-focus-visible` styling to adjacent custom UI elements. Added semantic ARIA roles (`role="radiogroup"`, `role="radio"`), `aria-checked`, and `focus-visible` to custom button elements mimicking radios.
+**Learning:** Tailwind's `peer` utilities combined with `.sr-only` represent the most robust pattern for preserving full keyboard and screen reader accessibility on fully customized interactive UI components without sacrificing design fidelity.
+**Watch for:** Other areas where `display: none` or `.hidden` is used on interactive native elements, and places where groups of buttons are visually acting as toggle states but lacking `radiogroup`/`radio` semantic linking.
