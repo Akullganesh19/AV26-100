@@ -67,7 +67,10 @@ async def list_districts(
             
         return output
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to retrieve jurisdiction matrix: {str(e)}")
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.exception("Failed to retrieve jurisdiction matrix")
+        raise HTTPException(status_code=500, detail="Failed to retrieve jurisdiction matrix")
 
 @router.get("/{district_id}", response_model=Dict[str, Any])
 async def get_district_detail(
