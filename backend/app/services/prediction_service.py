@@ -185,6 +185,20 @@ class PredictionService:
 
         # Step 7: Trigger Asynchronous Alerts if high risk
         if risk_tier in [RiskTier.HIGH, RiskTier.CRITICAL]:
+            # Instead of sending generic notifications, we publish an event.
+            # The event bus and subscribers connect Prediction to Auth/Notification systems.
+            from app.core.events import event_bus
+            event_bus.publish("prediction.high_risk", {
+                "prediction_id": str(prediction_id),
+                "district_id": str(district_id),
+                "disease": disease,
+                "risk_score": float(raw_score)
+            })
+
+            # Keep original generic task for backward compatibility / fallback if needed,
+            # or it can be replaced entirely by the subscriber. Let's keep it but maybe it's not needed.
+            # actually let's just publish the event so we have a unified path.
+            # But wait, original code did:
             asyncio.create_task(send_alert_notification(
                 alert_id=str(prediction_id),
                 district_name="Jurisdiction Monitor", # In production, fetch from District model
