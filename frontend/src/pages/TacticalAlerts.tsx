@@ -1,6 +1,6 @@
 import React from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import axios from 'axios';
+import { apiClient } from '../api/client';
 import { 
   ShieldAlert, 
   CheckCircle2, 
@@ -36,7 +36,7 @@ const TacticalAlerts: React.FC = () => {
       const url = isSimulating 
         ? `${import.meta.env.VITE_API_URL}/alerts?simulation_id=${activeSimId}`
         : `${import.meta.env.VITE_API_URL}/alerts`;
-      const response = await axios.get(url);
+      const response = await apiClient.get(url.replace(import.meta.env.VITE_API_URL, ""));
       return response.data;
     },
     refetchInterval: 30000 
@@ -44,7 +44,7 @@ const TacticalAlerts: React.FC = () => {
 
   const acknowledgeMutation = useMutation({
     mutationFn: (alertId: string) => 
-      axios.post(`${import.meta.env.VITE_API_URL}/alerts/${alertId}/acknowledge`),
+      apiClient.post(`/alerts/${alertId}/acknowledge`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tactical-alerts'] });
       toast.success('Mission alert acknowledged');
