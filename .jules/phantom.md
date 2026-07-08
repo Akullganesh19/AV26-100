@@ -1,0 +1,7 @@
+## 2025-02-18 — Request Coalescing Added
+**Gap found:** Multiple React components (e.g. Dashboard, StrategicMap, SimulationLab, TacticalAlerts) load the same data independently when mounted, especially when components share or transition between views without global state caching, resulting in redundant identical GET requests via raw `axios` calls that block or delay rendering and waste network and server resources.
+**Why it existed:** There was no centralized infrastructure to intercept and deduplicate in-flight requests. Components fetched data directly using un-deduplicated `axios` calls or react-query instances that could still trigger concurrent requests before caching.
+**Built:** An in-flight request deduplication layer inside the central API client (`frontend/src/api/client.ts`). The overridden `apiClient.get` method generates deterministic cache keys (by sorting query parameters) and returns a shared promise for any active identical request instead of issuing a new HTTP call, seamlessly removing the promise once resolved or rejected.
+**Hot path affected:** Every read-heavy component initialization across the platform, notably dashboard and tactical map loads.
+**Measurable improvement:** Reduces redundant concurrent HTTP GET requests by routing multiple consumers of identical queries to the exact same promise.
+**Next opportunity:** Investigate implementing stale-while-revalidate for static config or reference data, or background sync queues for non-critical telemetry logs.
