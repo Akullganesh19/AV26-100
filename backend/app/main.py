@@ -137,5 +137,5 @@ async def readiness_probe(db: AsyncSession = Depends(get_db)):
         logger.error("Readiness check failed", extra={"checks": checks}, exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"Service not ready: {str(e)}",
+            detail="Service not ready due to an internal error.",
         )
