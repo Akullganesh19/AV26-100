@@ -1,0 +1,6 @@
+## 2024-05-24 — Form Element Accessibility Fixes
+**Found:** Custom checkboxes and radio buttons in `CalculatorSection.tsx` were built using `hidden` (display: none) or fully div/button-based setups. Native inputs lacked proper labels and ARIA states in `LoginPage.tsx`.
+**Why it existed:** Tailwind UI elements often hide inputs completely and build custom wrappers without restoring keyboard navigation natively.
+**Fix:** Removed `hidden` and replaced with `sr-only peer` on checkboxes/radios, leveraging `peer-focus-visible` to render focus rings. Converted `button`-based radio groups into accessible `role="radiogroup"` structures containing actual radio inputs wrapped in labels. Generated dynamic unique IDs via `React.useId()` for form labels in `LoginPage.tsx`.
+**Learning:** Always preserve the native input using `sr-only` to get free keyboard navigation, focus management, and screen reader announcements instead of rebuilding those mechanics in JS. Never use `npm` during frontend interventions - stick strictly to `pnpm` or build commands will break.
+**Watch for:** Other "custom" interactive elements like toggle switches or sliders that might be missing underlying accessible inputs or ARIA labels.
