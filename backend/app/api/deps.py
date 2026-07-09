@@ -1,3 +1,5 @@
+import logging
+logger = logging.getLogger(__name__)
 from typing import Generator, List, Optional
 import uuid
 import httpx
@@ -76,8 +78,14 @@ async def get_current_user(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Token has been revoked",
             )
-    except Exception:
-        pass # Fall through to standard verification
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Failed to verify token revocation")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error during authentication"
+        )
     finally:
         await r.aclose()
 

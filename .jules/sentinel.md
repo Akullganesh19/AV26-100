@@ -1,0 +1,6 @@
+## 2024-07-09 — Prevent Auth Bypass, Mass Assignment, and Data Leakage
+**Found:** 1. `Exception: pass` in token revocation silently swallowing `HTTPException` resulting in a bypass. 2. `role=user_in.role` allowing privilege escalation via mass assignment on registration. 3. `str(e)` in HTTP 500 responses leaking internal stack traces.
+**Why it existed:** 1. Broad exception handling originally meant to catch Redis connection errors without crashing the app. 2. Direct mapping of client payloads to ORM models for convenience. 3. Quick-and-dirty error handling during development.
+**Fix:** 1. Split exception handling in `deps.py` to explicitly raise `HTTPException` and fail closed for other errors. 2. Hardcoded `role=UserRole.OFFICER` in `auth.py`. 3. Replaced `str(e)` with generic messages and used `logger.exception()` in `clinical.py`, `predict.py`, and `districts.py`.
+**Learning:** Security mechanisms must always fail closed. Never trust client payloads for role assignment. Avoid exposing internal exception details in HTTP responses.
+**Watch for:** Other endpoints mapping client JSON directly to database models or exposing `str(e)`. Check other background task integrations (like Celery/Redis) that might swallow security-critical exceptions.
