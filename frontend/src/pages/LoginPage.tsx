@@ -71,10 +71,12 @@ const LoginPage: React.FC = () => {
         <div className="glass-panel p-8 rounded-3xl">
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             <div className="space-y-2">
-              <label className="tactical-header">Operational Identity</label>
+              {/* Palette: Linked label to input via htmlFor and id */}
+              <label htmlFor="email-input" className="tactical-header">Operational Identity</label>
               <div className="relative group">
-                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 group-focus-within:text-brand-primary transition-colors" />
+                <Mail aria-hidden="true" className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 group-focus-within:text-brand-primary transition-colors" />
                 <input
+                  id="email-input"
                   {...register('email')}
                   type="email"
                   placeholder="name@agency.gov"
@@ -85,17 +87,21 @@ const LoginPage: React.FC = () => {
             </div>
 
             <div className="space-y-2">
-              <label className="tactical-header">Access Protocol</label>
+              {/* Palette: Linked label to input via htmlFor and id */}
+              <label htmlFor="password-input" className="tactical-header">Access Protocol</label>
               <div className="relative group">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 group-focus-within:text-brand-primary transition-colors" />
+                <Lock aria-hidden="true" className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 group-focus-within:text-brand-primary transition-colors" />
                 <input
+                  id="password-input"
                   {...register('password')}
                   type={showPassword ? 'text' : 'password'}
                   placeholder="••••••••••••"
                   className="w-full bg-white/[0.03] border border-white/10 rounded-xl py-3 pl-12 pr-12 text-white placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-brand-primary/50 focus:border-brand-primary transition-all"
                 />
+                {/* Palette: Added aria-label to icon-only button */}
                 <button
                   type="button"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors"
                 >
@@ -107,11 +113,12 @@ const LoginPage: React.FC = () => {
 
             <button
               disabled={isLoading}
+              aria-busy={isLoading}
               type="submit"
               className="w-full btn-tactical btn-primary py-4 flex items-center justify-center gap-3 mt-4"
             >
               {isLoading ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
+                <Loader2 aria-hidden="true" className="w-5 h-5 animate-spin" />
               ) : (
                 <>
                   <span className="uppercase tracking-widest text-xs font-bold">Initiate Authentication</span>
