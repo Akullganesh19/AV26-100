@@ -25,10 +25,51 @@ const DiagnosticsCenter: React.FC = () => {
   const [selectedDistrict, setSelectedDistrict] = useState<string>(districtIdFromUrl || '');
   const [loading, setLoading] = useState(false);
   const [prediction, setPrediction] = useState<any>(null);
+  const [prefetchedReportUrl, setPrefetchedReportUrl] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    // Reset prefetched url whenever prediction changes to prevent downloading an old, revoked url
+    setPrefetchedReportUrl(null);
+
+    if (!prediction) {
+      return;
+    }
+
+    // Predictive Intelligence: Prefetch the tactical report right after a prediction is made,
+    // anticipating the user's high-probability next action.
+    let objectUrl: string | null = null;
+    let isMounted = true;
+
+    const prefetchReport = async () => {
+      try {
+        const response = await axios.post(
+          `${import.meta.env.VITE_API_URL}/clinical/report`,
+          [prediction],
+          { responseType: 'blob' }
+        );
+        if (isMounted) {
+          objectUrl = window.URL.createObjectURL(new Blob([response.data]));
+          setPrefetchedReportUrl(objectUrl);
+        }
+      } catch (e) {
+        console.warn("Oracle: Background prefetch of tactical report failed.", e);
+      }
+    };
+
+    prefetchReport();
+
+    return () => {
+      isMounted = false;
+      if (objectUrl) {
+        window.URL.revokeObjectURL(objectUrl);
+      }
+    };
+  }, [prediction]);
 
   const handleDiagnose = async (formData: any) => {
     setLoading(true);
     setPrediction(null);
+    setPrefetchedReportUrl(null);
     try {
       const response = await axios.post(`${import.meta.env.VITE_API_URL}/clinical/${activeTab}`, formData);
       setPrediction(response.data);
@@ -53,21 +94,33 @@ const DiagnosticsCenter: React.FC = () => {
 
   const handleDownloadReport = async () => {
     if (!prediction) return;
+
     try {
-      const response = await axios.post(
-        `${import.meta.env.VITE_API_URL}/clinical/report`,
-        [prediction], // Send current prediction in a list
-        { responseType: 'blob' }
-      );
+      let urlToDownload = prefetchedReportUrl;
+      let needsCleanup = false;
+
+      // If prediction changed but prefetch hasn't finished, degrade gracefully to on-demand
+      if (!urlToDownload) {
+        const response = await axios.post(
+          `${import.meta.env.VITE_API_URL}/clinical/report`,
+          [prediction], // Send current prediction in a list
+          { responseType: 'blob' }
+        );
+        urlToDownload = window.URL.createObjectURL(new Blob([response.data]));
+        needsCleanup = true;
+      }
       
-      const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
-      link.href = url;
+      link.href = urlToDownload;
       link.setAttribute('download', `EpiSense_Tactical_Report_${activeTab.toUpperCase()}.pdf`);
       document.body.appendChild(link);
       link.click();
       link.remove();
       toast.success('Report generated successfully');
+
+      if (needsCleanup) {
+        window.URL.revokeObjectURL(urlToDownload);
+      }
     } catch (error) {
       console.error('Report generation failed:', error);
       toast.error('Failed to generate PDF report');
