@@ -1,3 +1,5 @@
+import logging
+logger = logging.getLogger(__name__)
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -31,12 +33,16 @@ async def create_prediction(
         )
         return result
     except ValueError as e:
+        # 🛡️ Sentinel: Safe to expose ValueError from our custom checks, but log for context
+        logger.warning(f"Inference validation failed: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail={"code": "INSUFFICIENT_HISTORY", "message": str(e)},
         )
     except Exception as e:
+        # 🛡️ Sentinel: Prevent information leakage
+        logger.exception("Inference engine failure")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
-            detail=f"Inference engine failure: {str(e)}"
+            detail="Inference engine failure. Please try again later."
         )
