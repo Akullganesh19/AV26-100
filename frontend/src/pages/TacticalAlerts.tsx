@@ -145,7 +145,7 @@ const TacticalAlerts: React.FC = () => {
                   </div>
                   
                   {alert.status === 'triggered' && (
-                    {/* Palette: Added aria-busy to reflect async loading state */}
+                                        {/* Palette: Added aria-busy to reflect async loading state */}
                     <button 
                       onClick={() => acknowledgeMutation.mutate(alert.id)}
                       disabled={acknowledgeMutation.isPending}
