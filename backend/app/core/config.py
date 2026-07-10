@@ -74,10 +74,5 @@ class Settings(BaseSettings):
 
 settings = Settings()
 
-# Setup logging
-logging.basicConfig(
-    stream=sys.stdout,
-    level=settings.LOG_LEVEL,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-)
+# Setup logging (handled by structlog in main.py)
 logger = logging.getLogger(settings.PROJECT_NAME)
