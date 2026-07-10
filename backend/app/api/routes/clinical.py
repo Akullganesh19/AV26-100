@@ -14,6 +14,7 @@ router = APIRouter()
 clinical_service = ClinicalService()
 
 from fastapi import BackgroundTasks
+from sqlalchemy import select
 from app.services.alert_service import AlertService
 
 async def log_prediction(
@@ -130,6 +131,34 @@ async def diagnose_parkinsons(
 from fastapi.responses import StreamingResponse
 import io
 from app.services.report_service import ReportService
+
+@router.get("/history", response_model=List[Dict[str, Any]])
+async def get_clinical_history(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: Any = Depends(deps.get_current_user)
+) -> Any:
+    """
+    Retrieve clinical screening history for the current user.
+    """
+    stmt = select(PredictionAuditLog).where(
+        PredictionAuditLog.user_id == current_user.id
+    ).order_by(PredictionAuditLog.timestamp.desc()).limit(50)
+
+    result = await db.execute(stmt)
+    logs = result.scalars().all()
+
+    return [
+        {
+            "id": str(log.id),
+            "endpoint": log.endpoint,
+            "risk_score": log.risk_score,
+            "status": log.status,
+            "timestamp": log.timestamp.isoformat(),
+            "district_id": str(log.district_id) if log.district_id else None
+        }
+        for log in logs
+    ]
 
 @router.post("/report", response_class=StreamingResponse)
 @limiter.limit("5/minute")
