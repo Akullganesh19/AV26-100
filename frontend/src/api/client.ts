@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios, { AxiosRequestConfig, AxiosResponse } from 'axios';
 import { useAuthStore } from '../store/authStore';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
@@ -27,3 +27,44 @@ apiClient.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+// --- Request Coalescing (Phantom) ---
+// Deduplicate identical simultaneous GET requests
+
+const inFlightRequests = new Map<string, Promise<unknown>>();
+
+function generateCacheKey(url: string, config?: AxiosRequestConfig): string {
+  let key = url;
+  if (config?.params) {
+    if (config.params instanceof URLSearchParams) {
+      key += `?${config.params.toString()}`;
+    } else {
+      const paramsObj = config.params as Record<string, unknown>;
+      const sortedKeys = Object.keys(paramsObj).sort();
+      const paramsString = sortedKeys.map(k => {
+        const v = paramsObj[k];
+        return `${k}=${typeof v === 'object' && v !== null ? JSON.stringify(v) : String(v)}`;
+      }).join('&');
+      if (paramsString) {
+        key += `?${paramsString}`;
+      }
+    }
+  }
+  return key;
+}
+
+const originalGet = apiClient.get;
+apiClient.get = function <T = unknown, R = AxiosResponse<T>, D = unknown>(url: string, config?: AxiosRequestConfig<D>): Promise<R> {
+  const key = generateCacheKey(url, config);
+
+  if (inFlightRequests.has(key)) {
+    return inFlightRequests.get(key) as Promise<R>;
+  }
+
+  const promise = originalGet.call(this, url, config).finally(() => {
+    inFlightRequests.delete(key);
+  });
+
+  inFlightRequests.set(key, promise);
+  return promise as Promise<R>;
+};
