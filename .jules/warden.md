@@ -1,0 +1,7 @@
+## 2026-07-11 — Centralized PII Redaction in Logging
+
+**Data traced:** User emails, passwords, SSNs, and other sensitive tokens (e.g. clerk_id).
+**Exposure found:** PII and credentials were being inadvertently exposed in plaintext when passed via `extra={...}` dictionary arguments into standard `logging.getLogger` and structlog events, which printed directly to stdout/JSON formatter without any redaction layer filtering out sensitive values.
+**Fix:** Created a recursive `redact_pii_processor` structlog processor in `backend/app/core/logging.py` that accurately captures and masks `password`/`ssn` to `[REDACTED]`, and partially masks `email` patterns to `j***@domain.com`. Also consolidated `logging.basicConfig()` to pipe through structlog's `ProcessorFormatter`.
+**Coverage confirmed:** Ran local verification script demonstrating that nested structures, basic dictionaries, cyclic referenced dictionaries, direct strings, and standard `logging` events all successfully parse, trap, and redact target keys seamlessly while ensuring standard backend tests still run correctly without failure.
+**Still exposed elsewhere:** This redaction is heavily focused on explicitly recognized keys in the logging dictionary (like "email", "password", "ssn"). Unrecognized metadata keys containing nested sensitive data might still pass through. PII might also still be exposed in database crash dumps or external third-party tools if they capture raw API parameters over the network.
