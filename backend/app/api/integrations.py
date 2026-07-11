@@ -1,10 +1,25 @@
 import asyncio
+import logging
 import cloudinary.uploader
 from algoliasearch.search_client import SearchClient
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
 from stream_chat import StreamChat
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
+
+async def with_retry(func, *args, *, max_attempts=3, base_delay=0.2, **kwargs):
+    for attempt in range(1, max_attempts + 1):
+        try:
+            return await func(*args, **kwargs)
+        except Exception as e:
+            if attempt == max_attempts:
+                logger.error(f"Action failed after {max_attempts} attempts. Error: {e}")
+                raise e
+            delay = base_delay * (2 ** (attempt - 1))
+            logger.warning(f"Attempt {attempt} failed: {e}. Retrying in {delay}s...")
+            await asyncio.sleep(delay)
 
 class IntegrationService:
     def __init__(self):
@@ -22,7 +37,7 @@ class IntegrationService:
         """Indexes district for world-class search performance."""
         district_data["objectID"] = str(district_data["id"])
         # Offload sync I/O to a separate thread
-        await asyncio.to_thread(self.index.save_object, district_data)
+        await with_retry(asyncio.to_thread, self.index.save_object, district_data)
 
     async def send_health_alert_email(self, to_email: str, district_name: str, disease: str, risk_score: float):
         """Sends high-priority alerts via SendGrid."""
@@ -33,11 +48,14 @@ class IntegrationService:
             plain_text_content=f"High risk detected for {disease}. Score: {risk_score}"
         )
         # Offload sync I/O to a separate thread
-        await asyncio.to_thread(self.sg.send, message)
+        await with_retry(asyncio.to_thread, self.sg.send, message)
 
     async def upload_report_to_cloudinary(self, file_bytes: bytes, district_id: str):
         """Uploads generated PDF reports to Cloudinary CDN."""
-        upload_result = cloudinary.uploader.upload(
+        # Offload sync I/O to a separate thread and add retry protection
+        upload_result = await with_retry(
+            asyncio.to_thread,
+            cloudinary.uploader.upload,
             file_bytes,
             resource_type="raw",
             public_id=f"reports/district_{district_id}",
