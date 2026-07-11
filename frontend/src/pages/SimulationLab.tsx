@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import axios from 'axios';
+import { apiClient } from '../api/client';
 import { 
   Play, 
   FastForward, 
@@ -27,7 +27,7 @@ const SimulationLab: React.FC = () => {
   const { data: scenarios, isLoading: loadingScenarios } = useQuery({
     queryKey: ['sim-scenarios'],
     queryFn: async () => {
-      const response = await axios.get(`${import.meta.env.VITE_API_URL}/scenarios/`);
+      const response = await apiClient.get('/scenarios/');
       return response.data;
     }
   });
@@ -37,7 +37,7 @@ const SimulationLab: React.FC = () => {
     queryKey: ['active-sim', activeSimId],
     queryFn: async () => {
       if (!activeSimId) return null;
-      const response = await axios.get(`${import.meta.env.VITE_API_URL}/scenarios/active`);
+      const response = await apiClient.get('/scenarios/active');
       return response.data;
     },
     enabled: !!isSimulating
@@ -46,7 +46,7 @@ const SimulationLab: React.FC = () => {
   // Mutations
   const startMutation = useMutation({
     mutationFn: async (scenarioId: string) => {
-      const response = await axios.post(`${import.meta.env.VITE_API_URL}/scenarios/${scenarioId}/start`);
+      const response = await apiClient.post(`/scenarios/${scenarioId}/start`);
       return response.data;
     },
     onSuccess: (data) => {
@@ -58,7 +58,7 @@ const SimulationLab: React.FC = () => {
 
   const advanceMutation = useMutation({
     mutationFn: async () => {
-      const response = await axios.post(`${import.meta.env.VITE_API_URL}/scenarios/active/advance`);
+      const response = await apiClient.post('/scenarios/active/advance');
       return response.data;
     },
     onSuccess: (data) => {
