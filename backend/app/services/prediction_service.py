@@ -20,6 +20,7 @@ from app.ml.features import FeatureBuilder, FEATURE_NAMES
 from app.models.prediction import Prediction, RiskTier
 from app.schemas.prediction import PredictionResponse
 from app.tasks.alerts import send_alert_notification
+from app.core.events import event_bus
 
 logger = logging.getLogger(__name__)
 
@@ -185,7 +186,16 @@ class PredictionService:
 
         # Step 7: Trigger Asynchronous Alerts if high risk
         if risk_tier in [RiskTier.HIGH, RiskTier.CRITICAL]:
-            asyncio.create_task(send_alert_notification(
+            # Emit event to route targeted user notifications via EventBus (System A ↔ System B)
+            event_bus.emit(
+                "prediction.high_risk",
+                prediction_id=str(prediction_id),
+                district_id=district_id,
+                disease=disease,
+                risk_score=float(raw_score)
+            )
+            # Maintain original generic dispatch as a fail-safe fallback using event_bus.create_task
+            event_bus.create_task(send_alert_notification(
                 alert_id=str(prediction_id),
                 district_name="Jurisdiction Monitor", # In production, fetch from District model
                 disease=disease,
