@@ -27,3 +27,46 @@ apiClient.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+
+// Request Coalescing Infrastructure
+const inFlightRequests = new Map<string, Promise<any>>();
+
+// Cache key generator that deterministically handles URLSearchParams and objects
+const generateCacheKey = (url: string, config?: Record<string, unknown>): string => {
+  if (!config || !config.params) return url;
+
+  let paramsString = '';
+  if (config.params instanceof URLSearchParams) {
+    paramsString = config.params.toString();
+  } else {
+    // Sort keys for deterministic cache keys
+    const sortedParams = Object.keys(config.params as Record<string, unknown>)
+      .sort()
+      .reduce((acc: Record<string, string>, key) => {
+        const val = (config.params as Record<string, unknown>)[key];
+        acc[key] = typeof val === 'object' ? JSON.stringify(val) : String(val);
+        return acc;
+      }, {});
+    paramsString = new URLSearchParams(sortedParams).toString();
+  }
+
+  return paramsString ? `${url}?${paramsString}` : url;
+};
+
+// Wrap the get method to coalescing identical in-flight requests
+const originalGet = apiClient.get;
+apiClient.get = function (url: string, config?: Record<string, unknown>) {
+  const cacheKey = generateCacheKey(url, config);
+
+  if (inFlightRequests.has(cacheKey)) {
+    return inFlightRequests.get(cacheKey)!;
+  }
+
+  const promise = originalGet.call(this, url, config as any).finally(() => {
+    inFlightRequests.delete(cacheKey);
+  });
+
+  inFlightRequests.set(cacheKey, promise);
+  return promise;
+};
