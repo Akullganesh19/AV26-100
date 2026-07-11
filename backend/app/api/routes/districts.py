@@ -5,6 +5,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
 
+import logging
+
+logger = logging.getLogger(__name__)
 from app.api import deps
 from app.models.district import District
 from app.services.prediction_service import PredictionService
@@ -67,7 +70,8 @@ async def list_districts(
             
         return output
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to retrieve jurisdiction matrix: {str(e)}")
+        logger.exception("Failed to retrieve jurisdiction matrix")
+        raise HTTPException(status_code=500, detail="Failed to retrieve jurisdiction matrix")
 
 @router.get("/{district_id}", response_model=Dict[str, Any])
 async def get_district_detail(
@@ -98,13 +102,14 @@ async def get_district_detail(
             "feature_snapshot": pred.feature_snapshot
         }
     except Exception as e:
+        logger.exception(f"Failed to predict single for district {district.id}")
         return {
             "id": str(district.id),
             "name": district.name,
             "state": district.state,
             "risk_score": 0,
             "risk_tier": "unknown",
-            "error": str(e)
+            "error": "Failed to retrieve risk detail"
         }
 
 @router.get("/stats", response_model=Dict[str, Any])
