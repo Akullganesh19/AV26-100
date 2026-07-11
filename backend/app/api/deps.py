@@ -1,3 +1,4 @@
+import jose.exceptions
 from typing import Generator, List, Optional
 import uuid
 import httpx
@@ -64,6 +65,7 @@ async def get_current_user(
 ) -> User:
     # 1. Check Redis Revocation List
     import redis.asyncio as redis
+    from redis.exceptions import RedisError
     from app.core.config import settings
     r = redis.from_url(settings.CELERY_BROKER_URL) # Reuse Redis host
     
@@ -76,8 +78,14 @@ async def get_current_user(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Token has been revoked",
             )
-    except Exception:
-        pass # Fall through to standard verification
+    except HTTPException:
+        raise
+    except Exception as e:
+        # If Redis fails, we must fail closed
+        if isinstance(e, RedisError):
+            raise HTTPException(status_code=500, detail="Authentication service unavailable")
+        # For JWT parsing errors on unverified claims, we can fall through
+        pass
     finally:
         await r.aclose()
 
@@ -91,7 +99,14 @@ async def get_current_user(
             options={"verify_aud": True, "verify_iss": True}
         )
         clerk_id = payload.get("sub")
-    except Exception:
+    except jose.exceptions.JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Could not validate credentials",
+        )
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).exception("Authentication error")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Could not validate credentials",

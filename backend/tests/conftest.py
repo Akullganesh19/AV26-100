@@ -7,7 +7,9 @@ from app.core.database import Base
 from app.core.config import settings
 
 # Use the dedicated test database created in the previous step
-TEST_DATABASE_URL = str(settings.DATABASE_URL) + "_test"
+TEST_DATABASE_URL = str(settings.DATABASE_URL)
+if not TEST_DATABASE_URL.endswith("_test"):
+    TEST_DATABASE_URL += "_test"
 
 @pytest_asyncio.fixture
 async def db_session():
@@ -19,7 +21,10 @@ async def db_session():
     
     async with engine.begin() as conn:
         # Reset schema for each test run
-        await conn.run_sync(Base.metadata.drop_all)
+        # Manually drop cascading before Base.metadata.drop_all since asyncpg lacks drop cascade support for metadata natively
+        from sqlalchemy import text
+        await conn.execute(text("DROP SCHEMA public CASCADE;"))
+        await conn.execute(text("CREATE SCHEMA public;"))
         await conn.run_sync(Base.metadata.create_all)
     
     async_session = sessionmaker(
