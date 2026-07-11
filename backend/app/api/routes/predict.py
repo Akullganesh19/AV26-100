@@ -1,6 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
+import logging
+logger = logging.getLogger(__name__)
+
 from app.api import deps
 from app.api.deps import get_db, get_current_user, limiter
 from app.schemas.prediction import PredictionRequest, PredictionResponse
@@ -31,12 +34,14 @@ async def create_prediction(
         )
         return result
     except ValueError as e:
+        logger.warning(f"Inference validation failed: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={"code": "INSUFFICIENT_HISTORY", "message": str(e)},
+            detail={"code": "INSUFFICIENT_HISTORY", "message": "Insufficient history for prediction"},
         )
     except Exception as e:
+        logger.exception("Inference engine failure")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
-            detail=f"Inference engine failure: {str(e)}"
+            detail="Inference engine failure"
         )
