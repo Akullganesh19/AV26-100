@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Activity, 
   Droplet, 
@@ -25,6 +25,41 @@ const DiagnosticsCenter: React.FC = () => {
   const [selectedDistrict, setSelectedDistrict] = useState<string>(districtIdFromUrl || '');
   const [loading, setLoading] = useState(false);
   const [prediction, setPrediction] = useState<any>(null);
+  const [prefetchedReportUrl, setPrefetchedReportUrl] = useState<string | null>(null);
+
+  // 🛸 ORACLE PREDICTION ENGINE: Behavioral Prefetch
+  // User completed a clinical screening. We predict they will likely want
+  // the PDF Tactical Report next. We pre-generate it in the background now,
+  // making the download instant instead of a multi-second wait.
+  useEffect(() => {
+    let active = true;
+    let localBlobUrl: string | null = null;
+
+    if (prediction) {
+      axios.post(
+        `${import.meta.env.VITE_API_URL}/clinical/report`,
+        [prediction],
+        { responseType: 'blob' }
+      )
+      .then(response => {
+        if (active) {
+          localBlobUrl = window.URL.createObjectURL(new Blob([response.data]));
+          setPrefetchedReportUrl(localBlobUrl);
+        }
+      })
+      .catch(error => {
+        console.warn('Oracle background prefetch failed. Gracefully degrading.', error);
+      });
+    }
+
+    return () => {
+      active = false;
+      if (localBlobUrl) {
+        window.URL.revokeObjectURL(localBlobUrl);
+      }
+      setPrefetchedReportUrl(null);
+    };
+  }, [prediction]);
 
   const handleDiagnose = async (formData: any) => {
     setLoading(true);
@@ -53,6 +88,20 @@ const DiagnosticsCenter: React.FC = () => {
 
   const handleDownloadReport = async () => {
     if (!prediction) return;
+
+    // Use pre-fetched URL if available (instant download)
+    if (prefetchedReportUrl) {
+      const link = document.createElement('a');
+      link.href = prefetchedReportUrl;
+      link.setAttribute('download', `EpiSense_Tactical_Report_${activeTab.toUpperCase()}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      toast.success('Report downloaded instantly');
+      return;
+    }
+
+    // Graceful fallback: If prefetch failed or hasn't finished yet, fetch normally
     try {
       const response = await axios.post(
         `${import.meta.env.VITE_API_URL}/clinical/report`,
