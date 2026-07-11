@@ -15,6 +15,8 @@ from app.api.deps import get_db, limiter
 from app.services.prediction_service import load_artifacts, ml_state
 from app.core.scheduler import start_scheduler, stop_scheduler
 from app.core.logging import setup_logging
+from app.core.events import event_bus
+from app.events.alert_routing import route_high_risk_alert
 
 # Initialize Structured Logging
 setup_logging()
@@ -36,6 +38,10 @@ async def lifespan(app: FastAPI):
     start_scheduler()
     logger.info("Background scheduler started")
     
+    # 2.5 Register Cross-System Event Listeners
+    event_bus.on("prediction.high_risk", route_high_risk_alert)
+    logger.info("Event listeners registered")
+
     yield
     
     # 3. Shutdown: Clean up state and scheduler
