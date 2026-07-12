@@ -8,7 +8,7 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     services:
       postgres:
         image: postgres:15-alpine
@@ -53,7 +53,7 @@ jobs:
 
     - name: Run Tests
       env:
-        DATABASE_URL: postgresql+asyncpg://episense:episense@localhost:5432/episense_test
+        DATABASE_URL: postgresql+asyncpg://episense:episense@localhost:5432/episense
         SECRET_KEY: test_secret_key_for_ci
         REDIS_HOST: localhost
       run: |
