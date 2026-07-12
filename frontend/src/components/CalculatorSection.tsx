@@ -13,7 +13,8 @@ const Slider = ({ value, min, max, step, onChange }: any) => {
         step={step}
         value={value}
         onChange={(e) => onChange(parseInt(e.target.value))}
-        className="w-full h-1.5 bg-[#1E1E1E] rounded-lg appearance-none cursor-pointer accent-[#FF5656]"
+        aria-label="Pages"
+        className="w-full h-1.5 bg-[#1E1E1E] rounded-lg appearance-none cursor-pointer accent-[#FF5656] focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"
       />
     </div>
   );
@@ -79,8 +80,8 @@ export const CalculatorSection = () => {
             
             {/* Service Type */}
             <div className="space-y-6">
-              <h3 className="text-lg font-medium opacity-80">What kind of service do you need?</h3>
-              <div className="flex flex-wrap gap-4">
+              <h3 id="service-type-label" className="text-lg font-medium opacity-80">What kind of service do you need?</h3>
+              <div className="flex flex-wrap gap-4" role="radiogroup" aria-labelledby="service-type-label">
                 {[
                   { id: 'design', label: 'Only Design' },
                   { id: 'development', label: 'Only Development' },
@@ -88,8 +89,10 @@ export const CalculatorSection = () => {
                 ].map((opt) => (
                   <button
                     key={opt.id}
+                    role="radio"
+                    aria-checked={serviceType === opt.id}
                     onClick={() => setServiceType(opt.id as any)}
-                    className="flex items-center gap-3 group cursor-pointer"
+                    className="flex items-center gap-3 group cursor-pointer focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none rounded"
                   >
                     <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${serviceType === opt.id ? 'border-[#FF5656]' : 'border-[#333]'}`}>
                       {serviceType === opt.id && <div className="w-2 h-2 rounded-full bg-[#FF5656]" />}
@@ -127,15 +130,15 @@ export const CalculatorSection = () => {
                 ].map((addon) => (
                   <label key={addon.id} className="flex items-center justify-between group cursor-pointer">
                     <div className="flex items-center gap-3">
-                      <div className={`w-5 h-5 border-2 rounded flex items-center justify-center transition-all ${addon.state ? 'bg-[#FF5656] border-[#FF5656]' : 'border-[#333]'}`}>
-                        {addon.state && <Check size={14} strokeWidth={4} className="text-white" />}
-                      </div>
                       <input 
                         type="checkbox" 
-                        className="hidden" 
+                        className="sr-only peer"
                         checked={addon.state} 
                         onChange={() => addon.set(!addon.state)} 
                       />
+                      <div className={`w-5 h-5 border-2 rounded flex items-center justify-center transition-all peer-focus-visible:ring-2 peer-focus-visible:ring-white peer-focus-visible:outline-none ${addon.state ? 'bg-[#FF5656] border-[#FF5656]' : 'border-[#333]'}`}>
+                        {addon.state && <Check size={14} strokeWidth={4} className="text-white" />}
+                      </div>
                       <span className={`text-sm transition-colors ${addon.state ? 'text-white' : 'text-[#666]'}`}>{addon.label}</span>
                     </div>
                     <span className="text-xs font-bold text-[#FF5656]">{addon.price}</span>
@@ -146,8 +149,8 @@ export const CalculatorSection = () => {
 
             {/* Timeline */}
             <div className="pt-10 space-y-6">
-              <h3 className="text-lg font-medium opacity-80">How fast do you need this?</h3>
-              <div className="grid gap-4">
+              <h3 id="timeline-label" className="text-lg font-medium opacity-80">How fast do you need this?</h3>
+              <div className="grid gap-4" role="radiogroup" aria-labelledby="timeline-label">
                 {[
                   { id: 'rush', label: 'Within 7 Days', price: '+$100/page' },
                   { id: 'fast', label: 'Within 14 Days', price: '+$25/page' },
@@ -155,8 +158,10 @@ export const CalculatorSection = () => {
                 ].map((opt) => (
                   <button
                     key={opt.id}
+                    role="radio"
+                    aria-checked={timeline === opt.id}
                     onClick={() => setTimeline(opt.id as any)}
-                    className="flex items-center justify-between group cursor-pointer w-full text-left"
+                    className="flex items-center justify-between group cursor-pointer w-full text-left focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none rounded"
                   >
                     <div className="flex items-center gap-3">
                       <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${timeline === opt.id ? 'border-[#FF5656]' : 'border-[#333]'}`}>
