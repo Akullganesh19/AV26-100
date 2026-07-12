@@ -1,0 +1,6 @@
+## 2024-07-12 — Targeted Alert Notifications
+**Systems connected:** Alerts ↔ Users (Auth)
+**Intelligence emerged:** The application can now intelligently route critical outbreak alerts specifically to the health officers assigned to the affected districts whose personal risk thresholds match the severity of the alert, rather than broadcasting generic alerts.
+**Data flows:** Alerts System emits a decoupled `alert.triggered` event containing the district ID and risk score. The Notification System listens for this event, queries the Auth system to find active users mapped to that district, and evaluates their personal `alert_threshold` and `email_alerts` preferences to dispatch targeted logs.
+**Coupling approach:** Event Bridge Pattern. The Alert Service merely emits an event via a new `EventBus` without knowing who is listening. The `notification_dispatcher` listens to the event and executes independently, ensuring neither system imports the other directly. Strong task references are maintained in the `EventBus` to prevent asynchronous execution failure.
+**Next connection:** Correlating performance/error logs with specific user segments (Errors ↔ Users) to proactively notify high-priority users when they encounter known platform bugs.
