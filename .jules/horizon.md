@@ -1,0 +1,6 @@
+## 2024-07-13 — Passlib to Native Bcrypt Migration
+**Risk identified:** The backend authentication system relies on `passlib[bcrypt]`, which is abandoned and depends on the standard library `crypt` module. The `crypt` module is deprecated in Python 3.11 and removed in Python 3.13, meaning the current authentication code will completely break when upgrading to future Python versions.
+**Migration target:** Native `bcrypt` using the official, actively maintained `bcrypt` PyPI package. This provides identical functionality and preserves backward compatibility with existing `$2b$` format hashes stored in the database without relying on deprecated standard library components.
+**Migrated this session:** Updated `backend/requirements.txt` to replace `passlib` with `bcrypt`. Rewrote `get_password_hash` and `verify_password` in `backend/app/core/security.py` to directly utilize `bcrypt` calls, handling string-to-bytes encoding transparently.
+**Remaining:** None. The core password hashing functions have been fully migrated.
+**Next session:** Look for other legacy dependencies or patterns that need modernization, such as older typing practices or deprecated configuration methods in the API layer.
