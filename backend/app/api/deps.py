@@ -76,8 +76,15 @@ async def get_current_user(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Token has been revoked",
             )
+    except HTTPException:
+        raise
+    except redis.RedisError:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Authentication service unavailable",
+        )
     except Exception:
-        pass # Fall through to standard verification
+        pass # Fall through to standard verification if jwt extraction fails
     finally:
         await r.aclose()
 
