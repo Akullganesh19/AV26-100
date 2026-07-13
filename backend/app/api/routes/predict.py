@@ -6,6 +6,9 @@ from app.api.deps import get_db, get_current_user, limiter
 from app.schemas.prediction import PredictionRequest, PredictionResponse
 from app.services.prediction_service import PredictionService
 from app.models.user import User
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -31,12 +34,14 @@ async def create_prediction(
         )
         return result
     except ValueError as e:
+        logger.warning("Insufficient history for prediction: %s", str(e))
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={"code": "INSUFFICIENT_HISTORY", "message": str(e)},
+            detail={"code": "INSUFFICIENT_HISTORY", "message": "Insufficient history for prediction."},
         )
     except Exception as e:
+        logger.exception("Inference engine failure")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
-            detail=f"Inference engine failure: {str(e)}"
+            detail="Inference engine failure."
         )
