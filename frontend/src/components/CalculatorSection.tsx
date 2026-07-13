@@ -1,9 +1,9 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useId } from 'react';
 import { Check } from 'lucide-react';
 import { toast } from 'sonner';
 
 // STYLES FOR THE SLIDER (MANUAL SHADCN-LIKE SLIDER)
-const Slider = ({ value, min, max, step, onChange }: any) => {
+const Slider = ({ value, min, max, step, onChange, ariaLabel }: any) => {
   return (
     <div className="relative w-full h-6 flex items-center group">
       <input
@@ -13,6 +13,7 @@ const Slider = ({ value, min, max, step, onChange }: any) => {
         step={step}
         value={value}
         onChange={(e) => onChange(parseInt(e.target.value))}
+        aria-label={ariaLabel}
         className="w-full h-1.5 bg-[#1E1E1E] rounded-lg appearance-none cursor-pointer accent-[#FF5656]"
       />
     </div>
@@ -109,7 +110,7 @@ export const CalculatorSection = () => {
                 <span className="text-2xl font-bold text-[#FF5656]">{pages}</span>
               </div>
               <div className="space-y-2">
-                <Slider value={pages} min={1} max={30} step={1} onChange={setPages} />
+                <Slider value={pages} min={1} max={30} step={1} onChange={setPages} ariaLabel="Number of pages" />
                 <div className="flex justify-between text-[10px] uppercase font-mono text-[#444] tracking-widest pt-1">
                   <span>1 Page</span>
                   <span>30 Pages</span>
@@ -127,14 +128,15 @@ export const CalculatorSection = () => {
                 ].map((addon) => (
                   <label key={addon.id} className="flex items-center justify-between group cursor-pointer">
                     <div className="flex items-center gap-3">
-                      <div className={`w-5 h-5 border-2 rounded flex items-center justify-center transition-all ${addon.state ? 'bg-[#FF5656] border-[#FF5656]' : 'border-[#333]'}`}>
-                        {addon.state && <Check size={14} strokeWidth={4} className="text-white" />}
+                      <div className={`w-5 h-5 border-2 rounded flex items-center justify-center transition-all peer-focus-visible:ring-2 peer-focus-visible:ring-[#FF5656] peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-[#0D0D0D] ${addon.state ? 'bg-[#FF5656] border-[#FF5656]' : 'border-[#333]'}`}>
+                        {addon.state && <Check size={14} strokeWidth={4} aria-hidden="true" className="text-white" />}
                       </div>
                       <input 
                         type="checkbox" 
-                        className="hidden" 
+                        className="sr-only peer"
                         checked={addon.state} 
                         onChange={() => addon.set(!addon.state)} 
+                        aria-label={addon.label}
                       />
                       <span className={`text-sm transition-colors ${addon.state ? 'text-white' : 'text-[#666]'}`}>{addon.label}</span>
                     </div>
