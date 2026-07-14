@@ -9,7 +9,7 @@ from app.api import deps
 from app.core import security
 from app.core.config import settings
 from app.core.limiter import limiter
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.schemas.auth import Token
 from app.schemas.user import UserCreate, UserResponse
 
@@ -34,11 +34,14 @@ async def register(
         )
     
     # Create new user
+    # 🛡️ Sentinel: Enforce safe defaults to prevent mass assignment privilege escalation.
+    # We ignore user_in.role and user_in.is_active as a malicious client could pass {"role": "admin"}.
     new_user = User(
         email=user_in.email,
         name=user_in.name,
         password_hash=security.get_password_hash(user_in.password),
-        role=user_in.role,
+        role=UserRole.OFFICER,
+        is_active=True,
         alert_threshold=user_in.alert_threshold,
         email_alerts=user_in.email_alerts,
     )

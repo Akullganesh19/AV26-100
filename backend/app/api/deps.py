@@ -68,7 +68,9 @@ async def get_current_user(
     r = redis.from_url(settings.CELERY_BROKER_URL) # Reuse Redis host
     
     try:
-        # Extract JTI (Unique Token ID)
+        # 🛡️ Sentinel: Catch specific exceptions. A broad `except Exception:` swallows
+        # the explicit `raise HTTPException` (failing open on revoked tokens)
+        # and infrastructure errors (Redis connection failures).
         payload_unverified = jwt.get_unverified_claims(token)
         jti = payload_unverified.get("jti")
         if jti and await r.get(f"revoked_token:{jti}"):
@@ -76,8 +78,18 @@ async def get_current_user(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Token has been revoked",
             )
-    except Exception:
-        pass # Fall through to standard verification
+    except HTTPException:
+        # Re-raise the HTTP exception for revoked tokens
+        raise
+    except jwt.JWTError:
+        # Unverifiable token payload, fail through to standard verification which will catch it
+        pass
+    except redis.RedisError:
+        # Fail closed on infrastructure errors
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Authentication service unavailable",
+        )
     finally:
         await r.aclose()
 
