@@ -18,6 +18,9 @@ from app.core.logging import setup_logging
 
 # Initialize Structured Logging
 setup_logging()
+
+# Import EventBus subscribers to ensure they are registered at startup
+import app.subscribers.notification_dispatcher
 logger = logging.getLogger(__name__)
 
 @asynccontextmanager
