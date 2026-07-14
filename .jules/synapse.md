@@ -1,0 +1,7 @@
+## 2024-07-28 — Targeted Event-Driven Notifications for Predictions
+
+**Systems connected:** Analytics/Predictions ↔ Auth/User Notifications
+**Intelligence emerged:** Right now, prediction service sends an untargeted generic notification when risk tier is HIGH or CRITICAL. Users are also assigned to specific `District`s via `user_districts` relationship and they have personal `alert_threshold`s. But this mapping isn't used. The missing connection is to take the *High Risk Prediction Event* and map it back to the specific Users responsible for that district whose alert threshold is crossed. This closes the gap between raw prediction triggers and intelligent routing based on user profiles and territory assignments.
+**Data flows:** When `prediction_service` generates a high-risk prediction, it emits an event (`prediction.high_risk`) to an `EventBus`. A subscriber (`notification_dispatcher`) receives this event, queries the database for users assigned to the affected `district_id` with `email_alerts=True` and `alert_threshold` lower than the prediction's `risk_score`. It then routes specific notifications (alerts) to those targeted users. The original generic notification is maintained as a fallback.
+**Coupling approach:** A lightweight, loosely coupled `EventBus` added to `backend/app/core/events.py`. `prediction_service` emits the event; `notification_dispatcher` listens for it and makes the database queries to resolve target users.
+**Next connection:** Errors ↔ Monitoring
