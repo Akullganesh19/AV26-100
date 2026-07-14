@@ -1,0 +1,7 @@
+## 2026-07-14 — Structural PII Redaction in Logging
+
+**Data traced:** User emails passed to logs (e.g. `extra={"email": ...}`).
+**Exposure found:** Default `structlog` and `logging.basicConfig` wrote out all context dicts natively without redacting any passed PII, causing sensitive email addresses to be leaked in plain text into internal error/info logs everywhere the standard Python logger or `structlog` was invoked.
+**Fix:** Removed redundant overriding `logging.basicConfig(...)` in `app/core/config.py` to ensure only the central logging setup governs standard logging output. Built a robust data traverser (`redact_data`) safely creating new `dict` and `list` instances, avoiding cyclic reference recursion via an object ID tracker, and securely injected it as `redact_pii_processor` into the `structlog` configuration within `backend/app/core/logging.py`. Emails are selectively and partially masked (`j***@example.com`), while fully retaining standard logic.
+**Coverage confirmed:** Actively built a test runner to send test cases containing cyclic dictionary references and nested lists of emails, verifying output was masked accurately as `<cyclic-reference>` and correctly redacted. Confirmed memory state corruption is avoided.
+**Still exposed elsewhere:** This session primarily targets `email`. Other identifiers like IPs or implicit PHI embedded deeply in model predictions may not be specifically covered yet.
