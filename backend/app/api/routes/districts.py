@@ -117,19 +117,23 @@ async def get_district_stats(
     """
     from sqlalchemy import func
     from app.models.district import District
-    from app.models.alert import Alert
+    from app.models.alert import Alert, AlertStatus
     
-    # Total Districts
-    q_total = await db.execute(select(func.count(District.id)))
-    total = q_total.scalar() or 0
+    # ⚡ Bolt Optimization:
+    # Previously, this endpoint executed 3 sequential db.execute() calls, causing unnecessary latency.
+    # We now merge them into a single query using scalar subqueries to eliminate N+1 roundtrips.
+    # Additionally fixed `Alert.is_resolved` to correctly check `Alert.status != AlertStatus.RESOLVED`.
+    query = select(
+        select(func.count(District.id)).scalar_subquery().label("total_districts"),
+        select(func.sum(District.population)).scalar_subquery().label("population_covered"),
+        select(func.count(Alert.id)).where(Alert.status != AlertStatus.RESOLVED).scalar_subquery().label("active_alerts")
+    )
+    result = await db.execute(query)
+    row = result.first()
     
-    # Population
-    q_pop = await db.execute(select(func.sum(District.population)))
-    pop = q_pop.scalar() or 0
-    
-    # Active Alerts
-    q_alerts = await db.execute(select(func.count(Alert.id)).where(Alert.is_resolved == False))
-    alerts = q_alerts.scalar() or 0
+    total = getattr(row, "total_districts", 0) or 0
+    pop = getattr(row, "population_covered", 0) or 0
+    alerts = getattr(row, "active_alerts", 0) or 0
     
     return {
         "total_districts": total,
