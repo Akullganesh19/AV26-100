@@ -27,3 +27,34 @@ apiClient.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+
+// --- Request Coalescing Infrastructure ---
+const inFlightRequests = new Map<string, Promise<any>>();
+
+function generateCacheKey(url: string, config?: import('axios').AxiosRequestConfig): string {
+  if (!config?.params) return url;
+
+  let paramsString = '';
+  if (config.params instanceof URLSearchParams) {
+    paramsString = config.params.toString();
+  } else {
+    const sortedKeys = Object.keys(config.params).sort();
+    const serializedParams = sortedKeys.map(key => {
+      const val = config.params[key];
+      const serializedVal = typeof val === 'object' && val !== null ? JSON.stringify(val) : String(val);
+      return `${key}=${serializedVal}`;
+    }).join('&');
+    paramsString = serializedParams;
+  }
+  return paramsString ? `${url}?${paramsString}` : url;
+}
+
+const originalGet = apiClient.get.bind(apiClient);
+apiClient.get = <T = any, R = import('axios').AxiosResponse<T, any>, D = any>(url: string, config?: import('axios').AxiosRequestConfig<D>): Promise<R> => {
+  const cacheKey = generateCacheKey(url, config);
+  if (inFlightRequests.has(cacheKey)) return inFlightRequests.get(cacheKey) as Promise<R>;
+  const promise = originalGet<T, R, D>(url, config).finally(() => inFlightRequests.delete(cacheKey));
+  inFlightRequests.set(cacheKey, promise);
+  return promise;
+};
