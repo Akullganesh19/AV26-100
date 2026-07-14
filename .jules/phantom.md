@@ -1,0 +1,7 @@
+## 2024-07-28 — Request Coalescing and API Client Centralization
+**Gap found:** The frontend components were making naive, direct API calls using raw `axios` rather than the centralized `apiClient`. Furthermore, there was no request deduplication/coalescing in place, meaning multiple components fetching the same reference data simultaneously would result in multiple identical network requests.
+**Why it existed:** Historical usage of raw `axios` across different components instead of adopting the central `apiClient` as a standard pattern. Lack of proactive deduplication logic in the central API client.
+**Built:** An invisible request coalescing layer in `frontend/src/api/client.ts` that intercepts outgoing GET requests. In-flight requests are cached and subsequent identical requests share the same promise rather than hitting the network again. All components were refactored to use the central `apiClient` instance.
+**Hot path affected:** Data fetching across all primary dashboards (Tactical Alerts, Strategic Map, Simulation Lab, Diagnostics Center), significantly reducing network traffic when multiple components fetch shared state (like `/districts` or reference data).
+**Measurable improvement:** Reduction in redundant API calls on initial page loads and rapid navigation.
+**Next opportunity:** Implement a stale-while-revalidate client-side caching layer or intelligent pre-fetching based on navigation intent.
