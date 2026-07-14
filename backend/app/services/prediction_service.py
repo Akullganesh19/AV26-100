@@ -8,6 +8,8 @@ import asyncio
 import logging
 from datetime import date
 from pathlib import Path
+
+_background_tasks = set()
 from typing import Any, Dict, Optional
 from uuid import UUID
 
@@ -185,12 +187,14 @@ class PredictionService:
 
         # Step 7: Trigger Asynchronous Alerts if high risk
         if risk_tier in [RiskTier.HIGH, RiskTier.CRITICAL]:
-            asyncio.create_task(send_alert_notification(
+            task = asyncio.create_task(send_alert_notification(
                 alert_id=str(prediction_id),
                 district_name="Jurisdiction Monitor", # In production, fetch from District model
                 disease=disease,
                 risk_score=float(raw_score)
             ))
+            _background_tasks.add(task)
+            task.add_done_callback(_background_tasks.discard)
 
         return PredictionResponse(
             prediction_id=prediction_id,
