@@ -34,11 +34,15 @@ async def register(
         )
     
     # Create new user
+    from app.models.user import UserRole
+    # Security concern: Prevent privilege escalation via mass assignment.
+    # Force default role and active status regardless of what the user passes in.
     new_user = User(
         email=user_in.email,
         name=user_in.name,
         password_hash=security.get_password_hash(user_in.password),
-        role=user_in.role,
+        role=UserRole.OFFICER,
+        is_active=True,
         alert_threshold=user_in.alert_threshold,
         email_alerts=user_in.email_alerts,
     )
