@@ -1,7 +1,7 @@
 import json
 from datetime import datetime
 from typing import Optional, List
-from sqlalchemy import select, and_
+from sqlalchemy import select, and_, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.scenario import Scenario, ScenarioEvent, SimulationState
 from app.models.audit_log import PredictionAuditLog
@@ -44,8 +44,16 @@ class SimulationService:
             await db.commit()
             return sim
 
-        # Advance Day
-        sim.current_day += 1
+        # Advance Day atomically
+        stmt = update(SimulationState).where(
+            SimulationState.id == sim.id
+        ).values(
+            current_day=SimulationState.current_day + 1
+        ).returning(SimulationState.current_day)
+
+        result = await db.execute(stmt)
+        new_day = result.scalar_one()
+        sim.current_day = new_day
         
         # Process Events for the new day
         event_query = select(ScenarioEvent).where(
