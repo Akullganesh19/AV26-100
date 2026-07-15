@@ -22,7 +22,7 @@ from app.services.simulation_service import SimulationService
 from app.core.database import Base
 from app.core.config import settings
 
-TEST_DATABASE_URL = str(settings.DATABASE_URL) + "_test"
+TEST_DATABASE_URL = str(settings.DATABASE_URL) if str(settings.DATABASE_URL).endswith("_test") else str(settings.DATABASE_URL) + "_test"
 
 @pytest.fixture(scope="session")
 def event_loop():
