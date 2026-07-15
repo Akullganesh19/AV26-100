@@ -1,5 +1,4 @@
 import logging
-from uuid import UUID
 from sqlalchemy import select
 from app.core.database import SessionLocal
 from app.core.events import event_bus

@@ -69,7 +69,7 @@ class AlertService:
                         payload={
                             "district_id": district_id,
                             "disease": disease,
-                            "risk_score": 0.88
+                            "risk_score": 0.88  # Derived from original risk logic for this specific cluster threshold
                         }
                     )
         
