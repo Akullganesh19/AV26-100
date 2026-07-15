@@ -16,6 +16,9 @@ from app.services.prediction_service import load_artifacts, ml_state
 from app.core.scheduler import start_scheduler, stop_scheduler
 from app.core.logging import setup_logging
 
+# Register EventBus listeners at startup
+import app.services.notification_dispatcher  # noqa: F401
+
 # Initialize Structured Logging
 setup_logging()
 logger = logging.getLogger(__name__)
