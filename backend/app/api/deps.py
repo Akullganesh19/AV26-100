@@ -76,11 +76,24 @@ async def get_current_user(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Token has been revoked",
             )
-    except Exception:
-        pass # Fall through to standard verification
+    except jwt.JWTError:
+        pass # Fall through to standard verification if token format is invalid (caught by verify later)
+    except redis.RedisError as e:
+        # SEC-FIX: Fail closed on infrastructure errors during auth checks
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Authentication service unavailable"
+        )
+    except Exception as e:
+        # Catch unexpected errors to prevent failing open
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal authentication error"
+        )
     finally:
         await r.aclose()
 
+    # Try decoding as Clerk token first (RS256)
     try:
         payload = jwt.decode(
             token, 
@@ -90,15 +103,31 @@ async def get_current_user(
             audience=settings.CLERK_AUDIENCE,
             options={"verify_aud": True, "verify_iss": True}
         )
-        clerk_id = payload.get("sub")
+        user_id_val = payload.get("sub")
+        # For clerk tokens, the sub is the clerk_id
+        result = await db.execute(select(User).where(User.clerk_id == user_id_val))
+        user = result.scalar_one_or_none()
     except Exception:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Could not validate credentials",
-        )
-    
-    result = await db.execute(select(User).where(User.clerk_id == clerk_id))
-    user = result.scalar_one_or_none()
+        # Fallback to local token verification (HS256)
+        try:
+            payload = jwt.decode(
+                token,
+                settings.SECRET_KEY,
+                algorithms=[settings.ALGORITHM]
+            )
+            user_id_val = payload.get("sub")
+            import uuid
+            try:
+                uid = uuid.UUID(user_id_val)
+                result = await db.execute(select(User).where(User.id == uid))
+                user = result.scalar_one_or_none()
+            except ValueError:
+                user = None
+        except Exception:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Could not validate credentials",
+            )
     
     if not user:
         raise HTTPException(status_code=404, detail="User not found")

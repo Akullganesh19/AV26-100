@@ -33,12 +33,15 @@ async def register(
             detail="A user with this email already exists.",
         )
     
+    from app.models.user import UserRole
     # Create new user
+    # SEC-FIX: Prevent privilege escalation via mass assignment
     new_user = User(
         email=user_in.email,
         name=user_in.name,
         password_hash=security.get_password_hash(user_in.password),
-        role=user_in.role,
+        role=UserRole.OFFICER, # Hardcode default safe role
+        is_active=True,        # Hardcode active state
         alert_threshold=user_in.alert_threshold,
         email_alerts=user_in.email_alerts,
     )
