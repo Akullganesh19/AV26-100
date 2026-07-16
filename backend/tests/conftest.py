@@ -8,7 +8,9 @@ from app.core.config import settings
 import app.models # make sure tables are registered
 
 # Use the dedicated test database created in the previous step
-TEST_DATABASE_URL = str(settings.DATABASE_URL) + "_test"
+TEST_DATABASE_URL = str(settings.DATABASE_URL)
+if not TEST_DATABASE_URL.endswith("_test"):
+    TEST_DATABASE_URL += "_test"
 
 @pytest_asyncio.fixture
 async def db_session():
