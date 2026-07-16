@@ -1,7 +1,7 @@
 import json
 from datetime import datetime
 from typing import Optional, List
-from sqlalchemy import select, and_
+from sqlalchemy import select, and_, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.scenario import Scenario, ScenarioEvent, SimulationState
 from app.models.audit_log import PredictionAuditLog
@@ -44,14 +44,28 @@ class SimulationService:
             await db.commit()
             return sim
 
-        # Advance Day
-        sim.current_day += 1
+        # Advance Day Atomically
+        update_stmt = (
+            update(SimulationState)
+            .where(SimulationState.id == simulation_id)
+            .where(SimulationState.current_day < scenario.total_days)
+            .values(current_day=SimulationState.current_day + 1)
+            .returning(SimulationState.current_day)
+        )
+        update_result = await db.execute(update_stmt)
+        new_day = update_result.scalar_one_or_none()
         
+        if new_day is None:
+            # Another request already pushed it past the limit
+            return sim
+
+        sim.current_day = new_day
+
         # Process Events for the new day
         event_query = select(ScenarioEvent).where(
             and_(
                 ScenarioEvent.scenario_id == sim.scenario_id,
-                ScenarioEvent.day_offset == sim.current_day
+                ScenarioEvent.day_offset == new_day
             )
         )
         events_res = await db.execute(event_query)
@@ -65,7 +79,7 @@ class SimulationService:
                         user_id=sim.user_id,
                         district_id=event.district_id,
                         endpoint=f"clinical/{event.disease}",
-                        input_hash=f"sim_{sim.id}_{sim.current_day}_{i}",
+                        input_hash=f"sim_{sim.id}_{new_day}_{i}",
                         risk_score=event.data_json.get("risk_score", 0.85),
                         status="SUCCESS",
                         model_version="sim-v1",
@@ -84,7 +98,7 @@ class SimulationService:
                     risk_score=event.data_json.get("risk_score", 0.92),
                     alert_type="autonomous",
                     status="triggered",
-                    metadata_json=json.dumps({"source": "simulation", "day": sim.current_day})
+                    metadata_json=json.dumps({"source": "simulation", "day": new_day})
                 )
                 db.add(new_alert)
 
