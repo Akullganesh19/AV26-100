@@ -22,9 +22,9 @@ async def db_session():
     
     async with engine.begin() as conn:
         # Avoid foreign key constraint issues when dropping tables
-        await conn.execute(pytest.importorskip("sqlalchemy").text("DROP SCHEMA public CASCADE;"))
+        await conn.execute(pytest.importorskip("sqlalchemy").text("DROP SCHEMA IF EXISTS public CASCADE;"))
         await conn.execute(pytest.importorskip("sqlalchemy").text("CREATE SCHEMA public;"))
-        await conn.execute(pytest.importorskip("sqlalchemy").text("GRANT ALL ON SCHEMA public TO postgres;"))
+        # In github actions CI, user might not be 'postgres'. Grant to public instead.
         await conn.execute(pytest.importorskip("sqlalchemy").text("GRANT ALL ON SCHEMA public TO public;"))
         await conn.run_sync(Base.metadata.create_all)
     
