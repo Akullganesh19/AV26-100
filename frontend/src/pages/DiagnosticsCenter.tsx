@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Activity, 
   Droplet, 
@@ -11,9 +11,9 @@ import {
   Info,
   Download
 } from 'lucide-react';
-import axios from 'axios';
 import { toast } from 'sonner';
 import { useSearchParams } from 'react-router-dom';
+import { apiClient } from '../api/client';
 
 type DiseaseType = 'heart' | 'diabetes' | 'parkinsons';
 
@@ -25,12 +25,53 @@ const DiagnosticsCenter: React.FC = () => {
   const [selectedDistrict, setSelectedDistrict] = useState<string>(districtIdFromUrl || '');
   const [loading, setLoading] = useState(false);
   const [prediction, setPrediction] = useState<any>(null);
+  const [prefetchedReportUrl, setPrefetchedReportUrl] = useState<string | null>(null);
+
+  // 🛸 ORACLE PREDICTION: Behavioral Prefetch
+  // Users who run clinical diagnostics (especially those resulting in high risk)
+  // almost always download the tactical report PDF next.
+  // Instead of waiting for them to click and incur a 2-5s generation delay,
+  // we preemptively generate and cache the Blob URL immediately after prediction completes.
+  useEffect(() => {
+    let localBlobUrl: string | null = null;
+    let isActive = true;
+
+    const prefetchReport = async () => {
+      if (!prediction) return;
+      try {
+        const response = await apiClient.post(
+          `/clinical/report`,
+          [prediction],
+          { responseType: 'blob' }
+        );
+
+        if (!isActive) return; // Prevent setting state if unmounted or if new prediction started
+
+        localBlobUrl = window.URL.createObjectURL(new Blob([response.data]));
+        setPrefetchedReportUrl(localBlobUrl);
+      } catch (error) {
+        if (isActive) {
+           console.error('Prefetch report failed, graceful degradation to on-demand', error);
+        }
+      }
+    };
+
+    prefetchReport();
+
+    return () => {
+      isActive = false;
+      if (localBlobUrl) {
+        window.URL.revokeObjectURL(localBlobUrl);
+      }
+    };
+  }, [prediction]);
 
   const handleDiagnose = async (formData: any) => {
     setLoading(true);
     setPrediction(null);
+    setPrefetchedReportUrl(null); // Reset prefetch state
     try {
-      const response = await axios.post(`${import.meta.env.VITE_API_URL}/clinical/${activeTab}`, formData);
+      const response = await apiClient.post(`/clinical/${activeTab}`, formData);
       setPrediction(response.data);
       if (response.data.risk) {
         toast.error(`High risk detected for ${activeTab.toUpperCase()}`, {
@@ -53,9 +94,24 @@ const DiagnosticsCenter: React.FC = () => {
 
   const handleDownloadReport = async () => {
     if (!prediction) return;
+
+    // 🛸 Oracle: Use pre-computed report if available, zero perceived latency
+    if (prefetchedReportUrl) {
+      const link = document.createElement('a');
+      link.href = prefetchedReportUrl;
+      link.setAttribute('download', `EpiSense_Tactical_Report_${activeTab.toUpperCase()}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      toast.success('Report served instantly');
+      return;
+    }
+
+    // Graceful fallback to on-demand generation
     try {
-      const response = await axios.post(
-        `${import.meta.env.VITE_API_URL}/clinical/report`,
+      toast.info('Generating report...');
+      const response = await apiClient.post(
+        `/clinical/report`,
         [prediction], // Send current prediction in a list
         { responseType: 'blob' }
       );
@@ -67,6 +123,7 @@ const DiagnosticsCenter: React.FC = () => {
       document.body.appendChild(link);
       link.click();
       link.remove();
+      window.URL.revokeObjectURL(url);
       toast.success('Report generated successfully');
     } catch (error) {
       console.error('Report generation failed:', error);
