@@ -5,6 +5,7 @@ from cachetools import TTLCache
 from fastapi import Depends, HTTPException, status, Query, Request
 from fastapi.security import OAuth2PasswordBearer
 from jose import jwt
+from jose.exceptions import JWTError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -64,6 +65,7 @@ async def get_current_user(
 ) -> User:
     # 1. Check Redis Revocation List
     import redis.asyncio as redis
+    from redis.exceptions import RedisError
     from app.core.config import settings
     r = redis.from_url(settings.CELERY_BROKER_URL) # Reuse Redis host
     
@@ -76,11 +78,20 @@ async def get_current_user(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Token has been revoked",
             )
-    except Exception:
+    except HTTPException:
+        raise
+    except RedisError as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Token validation service unavailable",
+        )
+    except JWTError:
         pass # Fall through to standard verification
     finally:
         await r.aclose()
 
+    user_id = None
+    clerk_id = None
     try:
         payload = jwt.decode(
             token, 
@@ -91,13 +102,40 @@ async def get_current_user(
             options={"verify_aud": True, "verify_iss": True}
         )
         clerk_id = payload.get("sub")
+    except JWTError:
+        try:
+            # Fallback to local authentication for locally generated tokens
+            payload = jwt.decode(
+                token,
+                settings.SECRET_KEY,
+                algorithms=[settings.ALGORITHM]
+            )
+            user_id = payload.get("sub")
+        except JWTError:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Could not validate credentials",
+            )
     except Exception:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Could not validate credentials",
         )
     
-    result = await db.execute(select(User).where(User.clerk_id == clerk_id))
+    if clerk_id:
+        result = await db.execute(select(User).where(User.clerk_id == clerk_id))
+    elif user_id:
+        try:
+            user_uuid = uuid.UUID(user_id)
+            result = await db.execute(select(User).where(User.id == user_uuid))
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Invalid user ID format",
+            )
+    else:
+        raise HTTPException(status_code=403, detail="Could not validate credentials")
+
     user = result.scalar_one_or_none()
     
     if not user:
