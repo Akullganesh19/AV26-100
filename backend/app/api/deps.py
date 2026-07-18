@@ -64,8 +64,10 @@ async def get_current_user(
 ) -> User:
     # 1. Check Redis Revocation List
     import redis.asyncio as redis
+    from jose.exceptions import JWTError
+    from redis.exceptions import RedisError
     from app.core.config import settings
-    r = redis.from_url(settings.CELERY_BROKER_URL) # Reuse Redis host
+    r = redis.from_url(str(settings.CELERY_BROKER_URL)) # Reuse Redis host
     
     try:
         # Extract JTI (Unique Token ID)
@@ -76,8 +78,18 @@ async def get_current_user(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Token has been revoked",
             )
-    except Exception:
-        pass # Fall through to standard verification
+    except HTTPException:
+        raise
+    except RedisError as e:
+        # Fail closed on Redis error to prevent bypassed revocation list
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Authentication infrastructure unavailable"
+        ) from e
+    except JWTError:
+        pass # Fall through to standard verification which will fail cleanly
+    except KeyError:
+        pass
     finally:
         await r.aclose()
 
