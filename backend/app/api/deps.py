@@ -65,6 +65,7 @@ async def get_current_user(
     # 1. Check Redis Revocation List
     import redis.asyncio as redis
     from app.core.config import settings
+    from jose.exceptions import JWTError
     r = redis.from_url(settings.CELERY_BROKER_URL) # Reuse Redis host
     
     try:
@@ -76,11 +77,21 @@ async def get_current_user(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Token has been revoked",
             )
-    except Exception:
-        pass # Fall through to standard verification
+    except HTTPException:
+        raise
+    except (JWTError, redis.RedisError) as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error checking token revocation: {e}", exc_info=True)
+        # Fail closed on infrastructure failure
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error during authentication",
+        )
     finally:
         await r.aclose()
 
+    # Try validating via Clerk RS256 first
     try:
         payload = jwt.decode(
             token, 
@@ -91,14 +102,24 @@ async def get_current_user(
             options={"verify_aud": True, "verify_iss": True}
         )
         clerk_id = payload.get("sub")
+        result = await db.execute(select(User).where(User.clerk_id == clerk_id))
+        user = result.scalar_one_or_none()
     except Exception:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Could not validate credentials",
-        )
-    
-    result = await db.execute(select(User).where(User.clerk_id == clerk_id))
-    user = result.scalar_one_or_none()
+        # Fallback to local HS256 validation
+        try:
+            payload = jwt.decode(
+                token,
+                settings.SECRET_KEY,
+                algorithms=[settings.ALGORITHM]
+            )
+            user_id = payload.get("sub")
+            result = await db.execute(select(User).where(User.id == user_id))
+            user = result.scalar_one_or_none()
+        except Exception:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Could not validate credentials",
+            )
     
     if not user:
         raise HTTPException(status_code=404, detail="User not found")

@@ -33,12 +33,14 @@ async def register(
             detail="A user with this email already exists.",
         )
     
+    from app.models.user import UserRole
     # Create new user
     new_user = User(
         email=user_in.email,
         name=user_in.name,
         password_hash=security.get_password_hash(user_in.password),
-        role=user_in.role,
+        role=UserRole.OFFICER, # Force default role to prevent privilege escalation
+        is_active=True,
         alert_threshold=user_in.alert_threshold,
         email_alerts=user_in.email_alerts,
     )
