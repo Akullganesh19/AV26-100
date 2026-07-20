@@ -30,7 +30,7 @@ async def generate_report(
     return StreamingResponse(
         buffer, 
         media_type="application/pdf",
-        headers={"Content-Disposition": f"attachment; filename=report_{report_req.get('district_id')}.pdf"}
+        headers={"Content-Disposition": f"attachment; filename=report_{str(report_req.get('district_id', 'default')).replace('/', '').replace(chr(92), '')}.pdf"}
     )
 
 @router.get("/history", response_model=List[Dict[str, Any]])

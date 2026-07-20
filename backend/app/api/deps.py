@@ -62,11 +62,15 @@ async def get_current_user(
     token: str = Depends(reusable_oauth2),
     public_key: str = Depends(get_clerk_public_key)
 ) -> User:
-    # 1. Check Redis Revocation List
     import redis.asyncio as redis
+    import logging
+    from jose import exceptions as jose_exceptions
     from app.core.config import settings
+
+    logger = logging.getLogger(__name__)
     r = redis.from_url(settings.CELERY_BROKER_URL) # Reuse Redis host
     
+    # 1. Check Redis Revocation List
     try:
         # Extract JTI (Unique Token ID)
         payload_unverified = jwt.get_unverified_claims(token)
@@ -76,11 +80,27 @@ async def get_current_user(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Token has been revoked",
             )
-    except Exception:
+    except HTTPException:
+        raise
+    except redis.RedisError as e:
+        logger.error(f"Redis error during token revocation check: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Authentication infrastructure unavailable"
+        )
+    except jose_exceptions.JWTError:
         pass # Fall through to standard verification
+    except Exception as e:
+        logger.error(f"Unexpected error in revocation check: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Authentication validation failed"
+        )
     finally:
         await r.aclose()
 
+    # 2. JWT Verification (Clerk RS256 first, fallback to local HS256)
+    user = None
     try:
         payload = jwt.decode(
             token, 
@@ -91,14 +111,29 @@ async def get_current_user(
             options={"verify_aud": True, "verify_iss": True}
         )
         clerk_id = payload.get("sub")
-    except Exception:
+        result = await db.execute(select(User).where(User.clerk_id == clerk_id))
+        user = result.scalar_one_or_none()
+    except jose_exceptions.JWTError:
+        try:
+            payload = jwt.decode(
+                token,
+                settings.SECRET_KEY,
+                algorithms=[settings.ALGORITHM]
+            )
+            user_id = payload.get("sub")
+            result = await db.execute(select(User).where(User.id == user_id))
+            user = result.scalar_one_or_none()
+        except jose_exceptions.JWTError:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Could not validate credentials",
+            )
+    except Exception as e:
+        logger.error(f"Unexpected error decoding token: {e}")
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Could not validate credentials",
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Authentication validation failed"
         )
-    
-    result = await db.execute(select(User).where(User.clerk_id == clerk_id))
-    user = result.scalar_one_or_none()
     
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
