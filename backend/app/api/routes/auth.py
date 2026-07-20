@@ -10,6 +10,7 @@ from app.core import security
 from app.core.config import settings
 from app.core.limiter import limiter
 from app.models.user import User
+import app.models.user
 from app.schemas.auth import Token
 from app.schemas.user import UserCreate, UserResponse
 
@@ -38,7 +39,7 @@ async def register(
         email=user_in.email,
         name=user_in.name,
         password_hash=security.get_password_hash(user_in.password),
-        role=user_in.role,
+        role=app.models.user.UserRole.OFFICER,
         alert_threshold=user_in.alert_threshold,
         email_alerts=user_in.email_alerts,
     )

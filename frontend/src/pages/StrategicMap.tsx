@@ -16,6 +16,17 @@ const RISK_COLORS: Record<string, string> = {
 
 import { useSimulation } from '../context/SimulationContext';
 
+function escapeHtml(unsafe: string) {
+    if (typeof unsafe !== 'string') return unsafe;
+    return unsafe
+         .replace(/&/g, "&amp;")
+         .replace(/</g, "&lt;")
+         .replace(/>/g, "&gt;")
+         .replace(/"/g, "&quot;")
+         .replace(/'/g, "&#039;");
+ }
+
+
 const StrategicMap: React.FC = () => {
   const { isSimulating, activeSimId } = useSimulation();
 
@@ -61,15 +72,15 @@ const StrategicMap: React.FC = () => {
     if (d) {
       layer.bindTooltip(`
         <div class="tactical-tooltip p-3">
-          <strong class="text-brand-primary text-base">${d.name}</strong><br/>
+          <strong class="text-brand-primary text-base">${escapeHtml(d.name)}</strong><br/>
           <div class="mt-1 space-y-1">
             <span class="text-[10px] uppercase tracking-widest text-slate-400">Risk Tier:</span>
-            <span class="text-xs font-bold text-white ml-2">${d.risk_tier}</span><br/>
+            <span class="text-xs font-bold text-white ml-2">${escapeHtml(d.risk_tier)}</span><br/>
             <span class="text-[10px] uppercase tracking-widest text-slate-400">Probability:</span>
             <span class="text-xs font-bold text-white ml-2">${(d.risk_score * 100).toFixed(1)}%</span>
           </div>
           <div class="mt-3 pt-2 border-t border-white/10">
-            <a href="/diagnostics?district_id=${districtId}" class="text-[10px] font-black uppercase text-brand-primary hover:underline">
+            <a href="/diagnostics?district_id=${escapeHtml(districtId)}" class="text-[10px] font-black uppercase text-brand-primary hover:underline">
               Initiate Clinical Triage →
             </a>
           </div>
