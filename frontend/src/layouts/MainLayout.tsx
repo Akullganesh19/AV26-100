@@ -13,8 +13,10 @@ import {
   Map as MapIcon
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
+import { useOraclePrefetch } from '../utils/oracle';
 
 const MainLayout: React.FC = () => {
+  useOraclePrefetch();
   const location = useLocation();
   const navigate = useNavigate();
   const { logout, user } = useAuthStore();
