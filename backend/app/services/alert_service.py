@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.alert import Alert, AlertStatus, AlertType
 from app.models.audit_log import PredictionAuditLog
 from app.models.prediction import Prediction
+from app.core.events import event_bus
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -61,6 +62,14 @@ class AlertService:
                     )
                     db.add(new_alert)
                     await db.commit()
+
+                    event_bus.emit(
+                        'alert.triggered',
+                        alert_id=str(new_alert.id),
+                        district_id=str(district_id),
+                        disease=disease,
+                        risk_score=0.88
+                    )
                     logger.info(f"TACTICAL ALERT: Clinical cluster detected in {district_id} ({disease})")
         
         except Exception as e:
@@ -87,6 +96,14 @@ class AlertService:
             )
             db.add(new_alert)
             await db.commit()
+
+            event_bus.emit(
+                'alert.triggered',
+                alert_id=str(new_alert.id),
+                district_id=str(prediction.district_id),
+                disease=prediction.disease,
+                risk_score=float(prediction.risk_score)
+            )
 
     @staticmethod
     async def acknowledge_alert(db: AsyncSession, alert_id: str, user_id: str):
