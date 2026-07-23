@@ -7,7 +7,12 @@ from app.core.database import Base
 from app.core.config import settings
 
 # Use the dedicated test database created in the previous step
-TEST_DATABASE_URL = str(settings.DATABASE_URL) + "_test"
+TEST_DATABASE_URL = str(settings.DATABASE_URL)
+if not TEST_DATABASE_URL.endswith("_test"):
+    TEST_DATABASE_URL += "_test"
+# In CI environment where DATABASE_URL already has _test, we might get _test_test
+if TEST_DATABASE_URL.endswith("_test_test"):
+    TEST_DATABASE_URL = TEST_DATABASE_URL[:-5]
 
 @pytest_asyncio.fixture
 async def db_session():
