@@ -48,6 +48,18 @@ const TacticalAlerts: React.FC = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tactical-alerts'] });
       toast.success('Mission alert acknowledged');
+
+      // 🛸 Oracle: Predict user will view map next to see updated status
+      queryClient.prefetchQuery({
+        queryKey: ['choropleth-data', isSimulating, activeSimId],
+        queryFn: async () => {
+          // Fall back to general districts API for simulation due to lack of /simulations/:id/districts
+          const url = `${import.meta.env.VITE_API_URL}/districts`;
+          const response = await axios.get(url);
+          return response.data;
+        },
+        staleTime: 60000
+      });
     }
   });
 

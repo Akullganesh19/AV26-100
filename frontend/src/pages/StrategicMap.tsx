@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { MapContainer, TileLayer, GeoJSON, Tooltip, ZoomControl } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import { ShieldAlert, Activity, Users, Map as MapIcon } from 'lucide-react';
 import indiaDistricts from '../assets/india_districts.json';
@@ -18,6 +18,7 @@ import { useSimulation } from '../context/SimulationContext';
 
 const StrategicMap: React.FC = () => {
   const { isSimulating, activeSimId } = useSimulation();
+  const queryClient = useQueryClient();
 
   const { data: districtData, isLoading } = useQuery({
     queryKey: ['choropleth-data', isSimulating, activeSimId],
@@ -59,6 +60,20 @@ const StrategicMap: React.FC = () => {
     const districtId = feature.properties.district_id;
     const d = riskMap[districtId];
     if (d) {
+      // 🛸 Oracle: Predict user will investigate HIGH/CRITICAL districts if they hover
+      layer.on('mouseover', () => {
+        if (d.risk_tier === 'HIGH' || d.risk_tier === 'CRITICAL') {
+          queryClient.prefetchQuery({
+            queryKey: ['district-detail', districtId],
+            queryFn: async () => {
+              const response = await axios.get(`${import.meta.env.VITE_API_URL}/districts/${districtId}`);
+              return response.data;
+            },
+            staleTime: 60000
+          });
+        }
+      });
+
       layer.bindTooltip(`
         <div class="tactical-tooltip p-3">
           <strong class="text-brand-primary text-base">${d.name}</strong><br/>
