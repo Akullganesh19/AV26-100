@@ -1,0 +1,6 @@
+## 2025-02-26 — Prevent Mass Assignment and Privilege Escalation in Authentication
+**Found:** User registration allowed mass assignment of the `role` field, permitting self-registration as `ADMIN`. Broad `except Exception:` blocks in the Redis revocation checks masked infrastructure errors, failing open instead of failing closed.
+**Why it existed:** The registration endpoint naively copied all fields from the input schema directly to the ORM model, trusting client data. The revocation checks prioritized availability over strict security by defaulting to pass if any error occurred, without distinguishing between parsing errors and actual Redis outages.
+**Fix:** Hardcoded `role=UserRole.OFFICER` in the `auth.py` registration endpoint to ensure safe defaults. Replaced broad exception blocks in `deps.py` with explicit `redis.RedisError` handling that returns HTTP 500 on infrastructure failure.
+**Learning:** Always explicitly set privileged fields in authentication endpoints rather than relying on schema defaults or client-provided objects. Authentication infrastructure failures must fail closed to prevent tokens from being accepted when revocation lists are unavailable.
+**Watch for:** Other endpoints (like update profiles) that might accidentally trust client-provided Pydantic schemas containing `is_active`, `role`, or other internal flags.
