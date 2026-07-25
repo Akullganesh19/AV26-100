@@ -1,0 +1,6 @@
+## $(date +%Y-%m-%d) — Transient External Failure Auto-Retry
+**Failure point found:** Sync operations to Algolia, SendGrid, and Cloudinary inside `IntegrationService` had no retry logic. A transient 500 error or network flake from these third-party providers would instantly fail the request or background job.
+**Why it existed:** The `IntegrationService` methods were built synchronously and quickly wrapped in `asyncio.to_thread` for asynchronous offloading without accounting for third-party instability or rate limit errors.
+**Recovery built:** Added a generic, exponential backoff `with_retry` wrapper utility in `app.core.utils`. Patched `IntegrationService` methods to wrap `asyncio.to_thread` calls in this retry logic (defaults to 3 max attempts). Additionally, the synchronous `cloudinary.uploader.upload` method, which previously blocked the event loop entirely, is now correctly offloaded to a thread using the same robust wrapper.
+**Blast radius before:** Any temporary CDN, search index, or email provider outage directly affected users, resulting in failed PDF uploads, missing search results, and undelivered mission-critical alerts.
+**Watch for:** Other areas of the codebase where `asyncio.to_thread` or raw `requests`/HTTP calls are used without resilience wrappers, particularly data ingestion or external reporting webhooks.
