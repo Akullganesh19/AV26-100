@@ -13,8 +13,7 @@ from app.models.audit_log import PredictionAuditLog
 router = APIRouter()
 clinical_service = ClinicalService()
 
-from fastapi import BackgroundTasks
-from app.services.alert_service import AlertService
+from app.core.events import event_bus
 
 async def log_prediction(
     db: AsyncSession, 
@@ -48,7 +47,6 @@ async def log_prediction(
 async def diagnose_heart(
     request: Request,
     data: HeartScreeningInput,
-    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user: Any = Depends(deps.get_current_user)
 ) -> Any:
@@ -64,9 +62,12 @@ async def diagnose_heart(
         result = clinical_service.predict_heart(features)
         await log_prediction(db, current_user.id, "clinical/heart", data.dict(), result, district_id=data.district_id)
         
-        # Trigger cluster evaluation in background if high risk
         if result["risk_score"] > 0.7 and data.district_id:
-            background_tasks.add_task(AlertService.evaluate_clinical_cluster, db, data.district_id, "heart")
+            await event_bus.emit(
+                "clinical.screening.high_risk",
+                district_id=str(data.district_id),
+                disease="heart"
+            )
             
         return result
     except Exception as e:
@@ -79,7 +80,6 @@ async def diagnose_heart(
 async def diagnose_diabetes(
     request: Request,
     data: DiabetesScreeningInput,
-    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user: Any = Depends(deps.get_current_user)
 ) -> Any:
@@ -95,7 +95,11 @@ async def diagnose_diabetes(
         await log_prediction(db, current_user.id, "clinical/diabetes", data.dict(), result, district_id=data.district_id)
         
         if result["risk_score"] > 0.7 and data.district_id:
-            background_tasks.add_task(AlertService.evaluate_clinical_cluster, db, data.district_id, "diabetes")
+            await event_bus.emit(
+                "clinical.screening.high_risk",
+                district_id=str(data.district_id),
+                disease="diabetes"
+            )
 
         return result
     except Exception as e:
@@ -108,7 +112,6 @@ async def diagnose_diabetes(
 async def diagnose_parkinsons(
     request: Request,
     data: ParkinsonsScreeningInput,
-    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user: Any = Depends(deps.get_current_user)
 ) -> Any:
@@ -120,7 +123,11 @@ async def diagnose_parkinsons(
         await log_prediction(db, current_user.id, "clinical/parkinsons", data.dict(), result, district_id=data.district_id)
         
         if result["risk_score"] > 0.7 and data.district_id:
-            background_tasks.add_task(AlertService.evaluate_clinical_cluster, db, data.district_id, "parkinsons")
+            await event_bus.emit(
+                "clinical.screening.high_risk",
+                district_id=str(data.district_id),
+                disease="parkinsons"
+            )
 
         return result
     except Exception as e:
