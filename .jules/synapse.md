@@ -1,0 +1,6 @@
+## 2024-07-26 — EventBus Prediction-to-User Connection
+**Systems connected:** Prediction Service ↔ User Notification System
+**Intelligence emerged:** Proactive, targeted notifications based on user-configured alert thresholds and geographic district assignments. When the predictive model detects a high-risk outbreak, only users responsible for that specific district who have requested email alerts for that risk level are notified.
+**Data flows:** `prediction_service` generates `prediction.high_risk` events with district IDs and risk scores on the `event_bus`. `notification_dispatcher` listens to the event, queries the `User` model joined with `user_district_association` to find active users matching the risk criteria and district, and dispatches targeted alerts.
+**Coupling approach:** Loosely coupled using an asynchronous, pub/sub `EventBus` singleton. Neither system directly imports the other; the `prediction_service` just emits events blindly, while the `notification_dispatcher` independently handles the filtering logic and user context.
+**Next connection:** Correlate user activity (e.g. login frequency) with tactical alerts to see if officials increase their vigilance during high-risk periods.
