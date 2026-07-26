@@ -3,6 +3,8 @@ import { MapContainer, TileLayer, GeoJSON, Tooltip, ZoomControl } from 'react-le
 import 'leaflet/dist/leaflet.css';
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
+import { apiClient } from '../api/client';
+import { useQueryClient } from '@tanstack/react-query';
 import { ShieldAlert, Activity, Users, Map as MapIcon } from 'lucide-react';
 import indiaDistricts from '../assets/india_districts.json';
 
@@ -18,6 +20,7 @@ import { useSimulation } from '../context/SimulationContext';
 
 const StrategicMap: React.FC = () => {
   const { isSimulating, activeSimId } = useSimulation();
+  const queryClient = useQueryClient();
 
   const { data: districtData, isLoading } = useQuery({
     queryKey: ['choropleth-data', isSimulating, activeSimId],
@@ -57,6 +60,18 @@ const StrategicMap: React.FC = () => {
 
   const onEachFeature = (feature: any, layer: any) => {
     const districtId = feature.properties.district_id;
+
+    // ORACLE PREDICTION: Prefetch full district details when hovering over the map
+    layer.on('mouseover', () => {
+      if (districtId) {
+        queryClient.prefetchQuery({
+          queryKey: ['district-detail', districtId],
+          queryFn: () => apiClient.get(`/districts/${districtId}`).then(res => res.data),
+          staleTime: 60000 // Keep fresh for 60 seconds
+        });
+      }
+    });
+
     const d = riskMap[districtId];
     if (d) {
       layer.bindTooltip(`
