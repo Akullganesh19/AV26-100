@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.core.config import settings
+from app.core.events import event_bus
 from app.ml.features import FeatureBuilder, FEATURE_NAMES
 from app.models.prediction import Prediction, RiskTier
 from app.schemas.prediction import PredictionResponse
@@ -185,12 +186,24 @@ class PredictionService:
 
         # Step 7: Trigger Asynchronous Alerts if high risk
         if risk_tier in [RiskTier.HIGH, RiskTier.CRITICAL]:
+            # Generic fallback alert
             asyncio.create_task(send_alert_notification(
                 alert_id=str(prediction_id),
                 district_name="Jurisdiction Monitor", # In production, fetch from District model
                 disease=disease,
                 risk_score=float(raw_score)
             ))
+
+            # Targeted alert via event bus
+            event_bus.emit(
+                "prediction.high_risk",
+                prediction_data={
+                    "district_id": district_id,
+                    "disease": disease,
+                    "risk_score": float(raw_score),
+                    "alert_id": str(prediction_id)
+                }
+            )
 
         return PredictionResponse(
             prediction_id=prediction_id,
