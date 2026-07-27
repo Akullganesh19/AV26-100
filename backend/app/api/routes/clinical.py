@@ -4,8 +4,11 @@ import json
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
+import logging
 from app.api import deps
 from app.services.clinical_service import ClinicalService
+
+logger = logging.getLogger(__name__)
 from app.schemas.clinical import HeartScreeningInput, DiabetesScreeningInput, ParkinsonsScreeningInput
 from app.api.deps import limiter, get_db
 from app.models.audit_log import PredictionAuditLog
@@ -70,8 +73,9 @@ async def diagnose_heart(
             
         return result
     except Exception as e:
+        logger.error(f"Error in diagnose_heart: {str(e)}", exc_info=True)
         await log_prediction(db, current_user.id, "clinical/heart", data.dict(), status="FAIL", error=str(e), district_id=data.district_id)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal Server Error")
 
 @router.post("/diabetes", response_model=Dict[str, Any])
 @limiter.limit("5/minute")
@@ -99,8 +103,9 @@ async def diagnose_diabetes(
 
         return result
     except Exception as e:
+        logger.error(f"Error in diagnose_diabetes: {str(e)}", exc_info=True)
         await log_prediction(db, current_user.id, "clinical/diabetes", data.dict(), status="FAIL", error=str(e), district_id=data.district_id)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal Server Error")
 
 @router.post("/parkinsons", response_model=Dict[str, Any])
 @limiter.limit("5/minute")
@@ -124,8 +129,9 @@ async def diagnose_parkinsons(
 
         return result
     except Exception as e:
+        logger.error(f"Error in diagnose_parkinsons: {str(e)}", exc_info=True)
         await log_prediction(db, current_user.id, "clinical/parkinsons", data.dict(), status="FAIL", error=str(e), district_id=data.district_id)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal Server Error")
 
 from fastapi.responses import StreamingResponse
 import io
@@ -150,4 +156,5 @@ async def generate_screening_report(
             headers={"Content-Disposition": f"attachment; filename=EpiSense_Screening_{datetime.now():%Y%m%d}.pdf"}
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"PDF generation failed: {str(e)}")
+        logger.error(f"Error in generate_screening_report: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal Server Error")

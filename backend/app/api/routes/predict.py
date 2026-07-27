@@ -1,8 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
+import logging
 from app.api import deps
 from app.api.deps import get_db, get_current_user, limiter
+
+logger = logging.getLogger(__name__)
 from app.schemas.prediction import PredictionRequest, PredictionResponse
 from app.services.prediction_service import PredictionService
 from app.models.user import User
@@ -36,7 +39,8 @@ async def create_prediction(
             detail={"code": "INSUFFICIENT_HISTORY", "message": str(e)},
         )
     except Exception as e:
+        logger.error(f"Error in create_prediction: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
-            detail=f"Inference engine failure: {str(e)}"
+            detail="Inference engine failure"
         )
