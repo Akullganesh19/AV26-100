@@ -1,8 +1,8 @@
 import React, { useMemo } from 'react';
 import { MapContainer, TileLayer, GeoJSON, Tooltip, ZoomControl } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
-import { useQuery } from '@tanstack/react-query';
-import axios from 'axios';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { apiClient } from '../api/client';
 import { ShieldAlert, Activity, Users, Map as MapIcon } from 'lucide-react';
 import indiaDistricts from '../assets/india_districts.json';
 
@@ -18,6 +18,7 @@ import { useSimulation } from '../context/SimulationContext';
 
 const StrategicMap: React.FC = () => {
   const { isSimulating, activeSimId } = useSimulation();
+  const queryClient = useQueryClient();
 
   const { data: districtData, isLoading } = useQuery({
     queryKey: ['choropleth-data', isSimulating, activeSimId],
@@ -25,7 +26,7 @@ const StrategicMap: React.FC = () => {
       const url = isSimulating 
         ? `${import.meta.env.VITE_API_URL}/districts` // Simulation could have its own mapping
         : `${import.meta.env.VITE_API_URL}/districts`;
-      const response = await axios.get(url);
+      const response = await apiClient.get(url);
       return response.data;
     }
   });
@@ -75,6 +76,19 @@ const StrategicMap: React.FC = () => {
           </div>
         </div>
       `, { sticky: true, className: 'glass-panel border-white/10 rounded-xl overflow-hidden shadow-2xl' });
+
+      // Oracle Prediction: Prefetch district data when user hovers over a district polygon
+      // Predicts that users clicking or investigating a district will navigate to its detail or diagnostics view
+      layer.on('mouseover', () => {
+        queryClient.prefetchQuery({
+          queryKey: ['district-detail', districtId],
+          queryFn: async () => {
+             const response = await apiClient.get(`/districts/${districtId}`);
+             return response.data;
+          },
+          staleTime: 60000 // Keep warm for 60 seconds
+        });
+      });
     }
   };
 
