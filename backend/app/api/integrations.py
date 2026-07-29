@@ -5,6 +5,7 @@ from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
 from stream_chat import StreamChat
 from app.core.config import settings
+from app.core.utils import with_retry
 
 class IntegrationService:
     def __init__(self):
@@ -22,7 +23,7 @@ class IntegrationService:
         """Indexes district for world-class search performance."""
         district_data["objectID"] = str(district_data["id"])
         # Offload sync I/O to a separate thread
-        await asyncio.to_thread(self.index.save_object, district_data)
+        await with_retry(asyncio.to_thread, self.index.save_object, district_data, max_attempts=3)
 
     async def send_health_alert_email(self, to_email: str, district_name: str, disease: str, risk_score: float):
         """Sends high-priority alerts via SendGrid."""
@@ -37,11 +38,14 @@ class IntegrationService:
 
     async def upload_report_to_cloudinary(self, file_bytes: bytes, district_id: str):
         """Uploads generated PDF reports to Cloudinary CDN."""
-        upload_result = cloudinary.uploader.upload(
+        upload_result = await with_retry(
+            asyncio.to_thread,
+            cloudinary.uploader.upload,
             file_bytes,
             resource_type="raw",
             public_id=f"reports/district_{district_id}",
-            format="pdf"
+            format="pdf",
+            max_attempts=3
         )
         return upload_result.get("secure_url")
 
