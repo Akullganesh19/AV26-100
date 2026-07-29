@@ -1,10 +1,10 @@
 import React, { useMemo } from 'react';
 import { MapContainer, TileLayer, GeoJSON, Tooltip, ZoomControl } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
-import { useQuery } from '@tanstack/react-query';
-import axios from 'axios';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ShieldAlert, Activity, Users, Map as MapIcon } from 'lucide-react';
 import indiaDistricts from '../assets/india_districts.json';
+import { apiClient } from '../api/client';
 
 // Theme for the Tactical Map
 const RISK_COLORS: Record<string, string> = {
@@ -18,14 +18,15 @@ import { useSimulation } from '../context/SimulationContext';
 
 const StrategicMap: React.FC = () => {
   const { isSimulating, activeSimId } = useSimulation();
+  const queryClient = useQueryClient();
 
   const { data: districtData, isLoading } = useQuery({
     queryKey: ['choropleth-data', isSimulating, activeSimId],
     queryFn: async () => {
       const url = isSimulating 
-        ? `${import.meta.env.VITE_API_URL}/districts` // Simulation could have its own mapping
-        : `${import.meta.env.VITE_API_URL}/districts`;
-      const response = await axios.get(url);
+        ? `/districts` // Simulation could have its own mapping
+        : `/districts`;
+      const response = await apiClient.get(url);
       return response.data;
     }
   });
@@ -75,6 +76,21 @@ const StrategicMap: React.FC = () => {
           </div>
         </div>
       `, { sticky: true, className: 'glass-panel border-white/10 rounded-xl overflow-hidden shadow-2xl' });
+
+      // Oracle: Prefetch District Details on Hover
+      // Hovering over a district's tooltip makes the user highly likely to click "Initiate Clinical Triage"
+      // or otherwise inspect the district's specific metrics.
+      layer.on('mouseover', () => {
+        if (!districtId) return;
+        queryClient.prefetchQuery({
+          queryKey: ['district-detail', districtId],
+          queryFn: async () => {
+             const response = await apiClient.get(`/districts/${districtId}`);
+             return response.data;
+          },
+          staleTime: 60000 // Keep prefetched data valid for 60 seconds
+        });
+      });
     }
   };
 
