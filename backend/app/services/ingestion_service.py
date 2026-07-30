@@ -3,6 +3,7 @@ from datetime import date, timedelta, datetime
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.dialects.postgresql import insert as pg_insert
+from app.core.utils import with_retry
 
 from app.api.integrations import weather_client
 from app.models.district import District
@@ -38,7 +39,8 @@ class IngestionService:
             total_rows = 0
             for district in districts:
                 # Fetch weather
-                raw_data = await weather_client.get_daily_weather(
+                raw_data = await with_retry(
+                    weather_client.get_daily_weather,
                     latitude=float(district.latitude),
                     longitude=float(district.longitude),
                     start_date=start_date,

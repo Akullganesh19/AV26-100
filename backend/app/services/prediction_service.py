@@ -23,6 +23,8 @@ from app.tasks.alerts import send_alert_notification
 
 logger = logging.getLogger(__name__)
 
+_background_tasks = set()
+
 MODELS_DIR = Path(__file__).parent.parent.parent / "models"
 MANIFEST_PATH = MODELS_DIR / "latest.json"
 
@@ -185,12 +187,14 @@ class PredictionService:
 
         # Step 7: Trigger Asynchronous Alerts if high risk
         if risk_tier in [RiskTier.HIGH, RiskTier.CRITICAL]:
-            asyncio.create_task(send_alert_notification(
+            task = asyncio.create_task(send_alert_notification(
                 alert_id=str(prediction_id),
                 district_name="Jurisdiction Monitor", # In production, fetch from District model
                 disease=disease,
                 risk_score=float(raw_score)
             ))
+            _background_tasks.add(task)
+            task.add_done_callback(_background_tasks.discard)
 
         return PredictionResponse(
             prediction_id=prediction_id,
