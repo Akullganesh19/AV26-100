@@ -14,6 +14,7 @@ from uuid import UUID
 import shap
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy import select
 
 from app.core.config import settings
 from app.ml.features import FeatureBuilder, FEATURE_NAMES
@@ -79,6 +80,8 @@ def load_artifacts() -> dict:
 
 # Module-level state — populated by lifespan, shared across all requests
 ml_state: dict = {}
+
+_background_tasks = set()
 
 
 class PredictionService:
@@ -185,12 +188,14 @@ class PredictionService:
 
         # Step 7: Trigger Asynchronous Alerts if high risk
         if risk_tier in [RiskTier.HIGH, RiskTier.CRITICAL]:
-            asyncio.create_task(send_alert_notification(
+            task = asyncio.create_task(send_alert_notification(
                 alert_id=str(prediction_id),
                 district_name="Jurisdiction Monitor", # In production, fetch from District model
                 disease=disease,
                 risk_score=float(raw_score)
             ))
+            _background_tasks.add(task)
+            task.add_done_callback(_background_tasks.discard)
 
         return PredictionResponse(
             prediction_id=prediction_id,
@@ -217,6 +222,39 @@ class PredictionService:
         Optimized batch inference using asyncio.gather for concurrency.
         Uses a semaphore to prevent overwhelming the database connection pool or CPU.
         """
+        # Step 1: Check cache/DB for existing predictions for this batch
+        async with self._db_lock:
+            stmt = select(Prediction).where(
+                Prediction.district_id.in_(district_ids),
+                Prediction.disease == disease,
+                Prediction.prediction_date == as_of_date,
+                Prediction.model_version == self.manifest["version"]
+            )
+            result = await self.db.execute(stmt)
+            existing_predictions = result.scalars().all()
+
+        cached_responses = []
+        cached_district_ids = set()
+
+        for p in existing_predictions:
+            cached_district_ids.add(p.district_id)
+            cached_responses.append(PredictionResponse(
+                prediction_id=p.id,
+                district_id=p.district_id,
+                disease=p.disease,
+                prediction_date=p.prediction_date,
+                risk_score=float(p.risk_score),
+                risk_tier=p.risk_tier,
+                baseline_score=None,
+                delta=None,
+                shap_values=p.shap_values or {},
+                model_version=p.model_version,
+                extrapolation_warning=p.extrapolation_warning,
+            ))
+
+        missing_district_ids = [d_id for d_id in district_ids if d_id not in cached_district_ids]
+
+        # Step 2: Generate predictions only for missing districts
         semaphore = asyncio.Semaphore(concurrency)
 
         async def _predict_with_sem(d_id: UUID):
@@ -233,11 +271,13 @@ class PredictionService:
                     )
                     return None
 
-        tasks = [_predict_with_sem(d_id) for d_id in district_ids]
-        results = await asyncio.gather(*tasks)
+        tasks = [_predict_with_sem(d_id) for d_id in missing_district_ids]
+        new_results = await asyncio.gather(*tasks)
 
         # Filter out skipped districts (None)
-        return [r for r in results if r is not None]
+        valid_new_results = [r for r in new_results if r is not None]
+
+        return cached_responses + valid_new_results
 
     # ── private methods ──────────────────────────────────────────────────────
 
