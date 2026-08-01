@@ -1,0 +1,6 @@
+## 2024-06-25 — Transient External Dependency Integration Resilience
+**Failure point found:** External API integrations (Algolia, SendGrid, Cloudinary) were completely unprotected. A single transient failure in these auxiliary services would crash the caller, resulting in severe 500 errors across primary workflows (like prediction inference or alert generation).
+**Why it existed:** I/O operations were wrapped in `asyncio.to_thread` but lacked retry logic, backoff, or error boundaries. The assumption was that external dependencies never fail.
+**Recovery built:** Implemented `with_retry` (an exponential backoff mechanism in `app.core.utils`) and applied it to `sync_district_to_algolia`, `send_health_alert_email`, and `upload_report_to_cloudinary`. Added graceful degradation that returns `None` and swallows the error (with logging) when all retries are exhausted, preventing failure propagation.
+**Blast radius before:** Any intermittent network blip or 5XX from Cloudinary/SendGrid/Algolia would fail critical core logic (e.g. failing to persist an epidemiological prediction because Algolia sync failed).
+**Watch for:** Other `asyncio.to_thread` wrappers or raw HTTP client calls scattered in services missing resiliency wrappers.
