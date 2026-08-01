@@ -7,8 +7,6 @@ from app.models.user import UserRole
 class UserBase(BaseModel):
     email: EmailStr
     name: str
-    is_active: bool = True
-    role: UserRole = UserRole.OFFICER
     alert_threshold: int = 70
     email_alerts: bool = True
 
@@ -30,6 +28,8 @@ class UserResponse(UserBase):
     model_config = ConfigDict(from_attributes=True)
     
     id: uuid.UUID
+    is_active: bool
+    role: UserRole
     created_at: datetime
     updated_at: datetime
 
