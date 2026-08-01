@@ -57,6 +57,7 @@ class FeatureBuilder:
                     AVG(confirmed_cases) OVER (w ROWS BETWEEN 3 PRECEDING AND CURRENT ROW) AS cases_rolling_mean_4wk,
                     STDDEV(confirmed_cases) OVER (w ROWS BETWEEN 3 PRECEDING AND CURRENT ROW) AS cases_rolling_std_4wk
                 FROM raw_data
+                WHERE district_id = :d_id AND disease = :disease
                 WINDOW w AS (PARTITION BY district_id, disease ORDER BY week_start_date)
             ),
             latest_env AS (
@@ -66,6 +67,7 @@ class FeatureBuilder:
                     temperature_c,
                     humidity_pct
                 FROM environmental_data
+                WHERE district_id = :d_id
             ),
             latest_vacc AS (
                 SELECT 
@@ -73,6 +75,7 @@ class FeatureBuilder:
                     disease, 
                     coverage_pct AS vaccination_coverage_pct
                 FROM vaccination_coverage
+                WHERE district_id = :d_id AND disease = :disease
             )
             SELECT 
                 lc.*,
@@ -82,7 +85,6 @@ class FeatureBuilder:
             FROM lagged_cases lc
             LEFT JOIN latest_env e ON lc.district_id = e.district_id AND lc.week_start_date = e.date
             LEFT JOIN latest_vacc v ON lc.district_id = v.district_id AND lc.disease = v.disease
-            WHERE lc.district_id = :d_id AND lc.disease = :disease
             ORDER BY lc.week_start_date DESC
         """)
         

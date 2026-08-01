@@ -117,18 +117,20 @@ async def get_district_stats(
     """
     from sqlalchemy import func
     from app.models.district import District
-    from app.models.alert import Alert
+    from app.models.alert import Alert, AlertStatus
     
-    # Total Districts
-    q_total = await db.execute(select(func.count(District.id)))
-    total = q_total.scalar() or 0
-    
-    # Population
-    q_pop = await db.execute(select(func.sum(District.population)))
-    pop = q_pop.scalar() or 0
+    # Total Districts & Population (Single Query)
+    q_stats = await db.execute(
+        select(func.count(District.id), func.sum(District.population))
+    )
+    total, pop = q_stats.one()
+    total = total or 0
+    pop = pop or 0
     
     # Active Alerts
-    q_alerts = await db.execute(select(func.count(Alert.id)).where(Alert.is_resolved == False))
+    q_alerts = await db.execute(
+        select(func.count(Alert.id)).where(Alert.status != AlertStatus.RESOLVED)
+    )
     alerts = q_alerts.scalar() or 0
     
     return {
