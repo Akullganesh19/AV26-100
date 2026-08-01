@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Activity, 
   Droplet, 
@@ -25,6 +25,45 @@ const DiagnosticsCenter: React.FC = () => {
   const [selectedDistrict, setSelectedDistrict] = useState<string>(districtIdFromUrl || '');
   const [loading, setLoading] = useState(false);
   const [prediction, setPrediction] = useState<any>(null);
+  const [prefetchedReportUrl, setPrefetchedReportUrl] = useState<string | null>(null);
+
+  // Oracle Prediction: Prefetch Tactical Report immediately when a high-risk prediction is made.
+  // Users who receive a positive/high-risk diagnosis almost invariably download the report next.
+  useEffect(() => {
+    let isActive = true;
+    let localBlobUrl: string | null = null;
+
+    const prefetchReport = async () => {
+      if (!prediction) {
+        setPrefetchedReportUrl(null);
+        return;
+      }
+
+      try {
+        const response = await axios.post(
+          `${import.meta.env.VITE_API_URL}/clinical/report`,
+          [prediction],
+          { responseType: 'blob' }
+        );
+
+        if (isActive) {
+          localBlobUrl = window.URL.createObjectURL(new Blob([response.data]));
+          setPrefetchedReportUrl(localBlobUrl);
+        }
+      } catch (error) {
+        console.error('Prefetching report failed:', error);
+      }
+    };
+
+    prefetchReport();
+
+    return () => {
+      isActive = false;
+      if (localBlobUrl) {
+        window.URL.revokeObjectURL(localBlobUrl);
+      }
+    };
+  }, [prediction]);
 
   const handleDiagnose = async (formData: any) => {
     setLoading(true);
@@ -53,6 +92,20 @@ const DiagnosticsCenter: React.FC = () => {
 
   const handleDownloadReport = async () => {
     if (!prediction) return;
+
+    // Use the predictively prefetched report if available for instant download
+    if (prefetchedReportUrl) {
+      const link = document.createElement('a');
+      link.href = prefetchedReportUrl;
+      link.setAttribute('download', `EpiSense_Tactical_Report_${activeTab.toUpperCase()}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      toast.success('Instant report download complete');
+      return;
+    }
+
+    // Fallback if prediction hasn't prefetched yet
     try {
       const response = await axios.post(
         `${import.meta.env.VITE_API_URL}/clinical/report`,
