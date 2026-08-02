@@ -57,6 +57,7 @@ class FeatureBuilder:
                     AVG(confirmed_cases) OVER (w ROWS BETWEEN 3 PRECEDING AND CURRENT ROW) AS cases_rolling_mean_4wk,
                     STDDEV(confirmed_cases) OVER (w ROWS BETWEEN 3 PRECEDING AND CURRENT ROW) AS cases_rolling_std_4wk
                 FROM raw_data
+                WHERE district_id = :d_id AND disease = :disease
                 WINDOW w AS (PARTITION BY district_id, disease ORDER BY week_start_date)
             ),
             latest_env AS (

@@ -24,6 +24,8 @@ class PredictionRequest(BaseModel):
 
 
 class PredictionResponse(BaseModel):
+    model_config = {'protected_namespaces': ()}
+
     prediction_id: UUID
     district_id: UUID
     disease: str
