@@ -14,6 +14,7 @@ from uuid import UUID
 import shap
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy import select
 
 from app.core.config import settings
 from app.ml.features import FeatureBuilder, FEATURE_NAMES
@@ -217,6 +218,23 @@ class PredictionService:
         Optimized batch inference using asyncio.gather for concurrency.
         Uses a semaphore to prevent overwhelming the database connection pool or CPU.
         """
+        model_version = self.manifest["version"]
+
+        # Query existing predictions first to avoid redundant compute
+        async with self._db_lock:
+            query = select(Prediction).where(
+                Prediction.district_id.in_(district_ids),
+                Prediction.disease == disease,
+                Prediction.prediction_date == as_of_date,
+                Prediction.model_version == model_version
+            )
+            result = await self.db.execute(query)
+            existing_predictions = result.scalars().all()
+
+        existing_map = {p.district_id: p for p in existing_predictions}
+
+        missing_ids = [d_id for d_id in district_ids if d_id not in existing_map]
+
         semaphore = asyncio.Semaphore(concurrency)
 
         async def _predict_with_sem(d_id: UUID):
@@ -233,11 +251,31 @@ class PredictionService:
                     )
                     return None
 
-        tasks = [_predict_with_sem(d_id) for d_id in district_ids]
+        tasks = [_predict_with_sem(d_id) for d_id in missing_ids]
         results = await asyncio.gather(*tasks)
 
-        # Filter out skipped districts (None)
-        return [r for r in results if r is not None]
+        # Build final results combining cached and newly predicted
+        final_results = []
+        new_results_map = {r.district_id: r for r in results if r is not None}
+
+        for d_id in district_ids:
+            if d_id in existing_map:
+                p = existing_map[d_id]
+                final_results.append(PredictionResponse(
+                    prediction_id=p.id,
+                    district_id=p.district_id,
+                    disease=p.disease,
+                    prediction_date=p.prediction_date,
+                    risk_score=float(p.risk_score),
+                    risk_tier=p.risk_tier,
+                    shap_values=p.shap_values or {},
+                    model_version=p.model_version,
+                    extrapolation_warning=p.extrapolation_warning,
+                ))
+            elif d_id in new_results_map:
+                final_results.append(new_results_map[d_id])
+
+        return final_results
 
     # ── private methods ──────────────────────────────────────────────────────
 
