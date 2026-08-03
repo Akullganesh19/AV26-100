@@ -1,0 +1,6 @@
+## 2024-08-03 — Graceful Degradation and Retry on Third-Party Integrations
+**Failure point found:** External integrations (Cloudinary, Algolia, SendGrid) in `IntegrationService` had no retry mechanism on transient network failures and crashed the main transaction thread on ultimate failure. Cloudinary file uploads were synchronous and blocked the event loop.
+**Why it existed:** MVP architecture assumed external integrations would always succeed or be handled by the caller, without accounting for network instability or third-party outages.
+**Recovery built:** Created `with_retry` utility using exponential backoff to handle transient failures. Wrapped external API calls (`sync_district_to_algolia`, `upload_report_to_cloudinary`) in `with_retry` and offloaded synchronous tasks to `asyncio.to_thread`. Added graceful degradation (`try/except` returning `None`) for all third-party operations to prevent auxiliary errors from crashing main transactions.
+**Blast radius before:** Any transient third-party failure (e.g., Cloudinary API being slow) would crash the parent process (like `PredictionService` logic) leading to complete mission transaction failure and bad UX.
+**Watch for:** Other non-idempotent integrations that shouldn't be blindly retried without a distributed lock or idempotency key guard.
