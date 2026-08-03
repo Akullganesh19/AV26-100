@@ -1,0 +1,11 @@
+--- .github/workflows/ci.yml
++++ .github/workflows/ci.yml
+@@ -6,7 +6,7 @@
+
+ jobs:
+   test:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     services:
+       postgres:
+         image: postgres:15-alpine
