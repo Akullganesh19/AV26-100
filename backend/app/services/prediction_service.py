@@ -212,48 +212,54 @@ class PredictionService:
         district_ids: list[UUID],
         disease: str,
         as_of_date: date,
-        concurrency: int = 5
+        concurrency: int = 5,
+        overrides: dict[str, float] | None = None
     ) -> list[PredictionResponse]:
         """
         Optimized batch inference using asyncio.gather for concurrency.
         Uses a semaphore to prevent overwhelming the database connection pool or CPU.
         """
+        cached_map = {}
+        missing_ids = district_ids
+
         # 1. Fetch cached predictions first to avoid redundant compute
-        async with self._db_lock:
-            cached_query = select(Prediction).where(
-                Prediction.district_id.in_(district_ids),
-                Prediction.disease == disease,
-                Prediction.prediction_date == as_of_date,
-                Prediction.model_version == self.manifest["version"]
-            )
-            cached_result = await self.db.execute(cached_query)
-            cached_predictions = cached_result.scalars().all()
+        # Only use cache if there are no scenario overrides, otherwise we must compute
+        if not overrides:
+            async with self._db_lock:
+                cached_query = select(Prediction).where(
+                    Prediction.district_id.in_(district_ids),
+                    Prediction.disease == disease,
+                    Prediction.prediction_date == as_of_date,
+                    Prediction.model_version == self.manifest["version"]
+                )
+                cached_result = await self.db.execute(cached_query)
+                cached_predictions = cached_result.scalars().all()
 
-        cached_map = {
-            p.district_id: PredictionResponse(
-                prediction_id=p.id,
-                district_id=p.district_id,
-                disease=p.disease,
-                prediction_date=p.prediction_date,
-                risk_score=p.risk_score,
-                risk_tier=p.risk_tier,
-                baseline_score=None, # Only computed on the fly right now when overrides are provided
-                delta=None,
-                shap_values=p.shap_values or {},
-                model_version=p.model_version,
-                extrapolation_warning=p.extrapolation_warning
-            ) for p in cached_predictions
-        }
+            cached_map = {
+                p.district_id: PredictionResponse(
+                    prediction_id=p.id,
+                    district_id=p.district_id,
+                    disease=p.disease,
+                    prediction_date=p.prediction_date,
+                    risk_score=p.risk_score,
+                    risk_tier=p.risk_tier,
+                    baseline_score=None, # Only computed on the fly right now when overrides are provided
+                    delta=None,
+                    shap_values=p.shap_values or {},
+                    model_version=p.model_version,
+                    extrapolation_warning=p.extrapolation_warning
+                ) for p in cached_predictions
+            }
 
-        # 2. Filter ids to only those that need to be calculated
-        missing_ids = [d_id for d_id in district_ids if d_id not in cached_map]
+            # 2. Filter ids to only those that need to be calculated
+            missing_ids = [d_id for d_id in district_ids if d_id not in cached_map]
 
         semaphore = asyncio.Semaphore(concurrency)
 
         async def _predict_with_sem(d_id: UUID):
             async with semaphore:
                 try:
-                    return await self.predict_single(d_id, disease, as_of_date)
+                    return await self.predict_single(d_id, disease, as_of_date, overrides)
                 except ValueError as exc:
                     logger.warning(f"Skipping district {d_id}: {exc}")
                     return None
