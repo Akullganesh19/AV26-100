@@ -1,0 +1,6 @@
+## 2026-08-04 — Add with_retry and fix integrations cascading failure
+**Failure point found:** Non-critical auxiliary integrations (Algolia and Cloudinary) in `backend/app/api/integrations.py` could fail or block the main thread and crash the primary transaction, disrupting the app's critical path and triggering HTTP 500s.
+**Why it existed:** Developers prioritized fast feedback loops and integration, not thinking about network partitioning or third-party outages. Cloudinary used a synchronous `upload` call, which blocked the async event loop.
+**Recovery built:** Created `with_retry` mechanism with exponential backoff and graceful degradation in `backend/app/core/retry.py`. Applied it to `upload_report_to_cloudinary` and `sync_district_to_algolia` wrapping their implementations via `asyncio.to_thread`.
+**Blast radius before:** An Algolia or Cloudinary API latency spike could block the backend process and fail essential operations like pipeline runs or scenario creation, impacting the entire user base.
+**Watch for:** Other non-idempotent integrations or synchronous external I/O blocking the async loop across other services (e.g. any direct `requests.get` or missing thread-wrappers).
