@@ -1,0 +1,6 @@
+## 2024-05-19 — Systemic Missing Form Labels and Aria-busy States
+**Found:** Across multiple components (e.g., `DiagnosticsCenter`, `LoginPage`), custom form inputs lacked proper `htmlFor`/`id` associations, icon buttons were missing `aria-label`s, and asynchronous submit buttons were missing `aria-busy` state indicators.
+**Why it existed:** The custom `Input` and `Select` UI helper components were built quickly without considering screen reader association. Icon-only buttons (like the sidebar toggle or password visibility toggle) relied entirely on visual cues.
+**Fix:** Added automatic `id` generation via `React.useId()` in custom input components, added `aria-label` to icon-only buttons, added `aria-busy` to submit buttons, and hid decorative icons with `aria-hidden="true"`.
+**Learning:** Future components need to consistently associate labels with inputs and ensure that icon-only buttons always have a descriptive `aria-label`. We should not rely solely on visual cues for form states or actions.
+**Watch for:** Other custom form components or icon-only buttons in the application that might be missing proper accessibility labels, especially in dynamically rendered lists or custom interactive components.
