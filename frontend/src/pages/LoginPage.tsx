@@ -96,10 +96,11 @@ const LoginPage: React.FC = () => {
                 />
                 <button
                   type="button"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors"
                 >
-                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  {showPassword ? <EyeOff aria-hidden="true" className="w-5 h-5" /> : <Eye aria-hidden="true" className="w-5 h-5" />}
                 </button>
               </div>
               {errors.password && <p className="text-xs text-rose-500 font-medium ml-1">{errors.password.message}</p>}
@@ -107,11 +108,12 @@ const LoginPage: React.FC = () => {
 
             <button
               disabled={isLoading}
+              aria-busy={isLoading}
               type="submit"
               className="w-full btn-tactical btn-primary py-4 flex items-center justify-center gap-3 mt-4"
             >
               {isLoading ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
+                <Loader2 aria-hidden="true" className="w-5 h-5 animate-spin" />
               ) : (
                 <>
                   <span className="uppercase tracking-widest text-xs font-bold">Initiate Authentication</span>
