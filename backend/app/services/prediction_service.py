@@ -13,6 +13,7 @@ from uuid import UUID
 
 import shap
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.core.config import settings
@@ -211,33 +212,74 @@ class PredictionService:
         district_ids: list[UUID],
         disease: str,
         as_of_date: date,
-        concurrency: int = 5
+        concurrency: int = 5,
+        overrides: dict[str, float] | None = None,
     ) -> list[PredictionResponse]:
         """
         Optimized batch inference using asyncio.gather for concurrency.
         Uses a semaphore to prevent overwhelming the database connection pool or CPU.
         """
-        semaphore = asyncio.Semaphore(concurrency)
+        results: list[PredictionResponse] = []
+        missing_ids = []
 
-        async def _predict_with_sem(d_id: UUID):
-            async with semaphore:
-                try:
-                    return await self.predict_single(d_id, disease, as_of_date)
-                except ValueError as exc:
-                    logger.warning(f"Skipping district {d_id}: {exc}")
-                    return None
-                except Exception as exc:
-                    logger.error(
-                        f"Unexpected error for district {d_id}: {exc}",
-                        exc_info=True,
-                    )
-                    return None
+        if not overrides:
+            stmt = select(Prediction).where(
+                Prediction.district_id.in_(district_ids),
+                Prediction.disease == disease,
+                Prediction.prediction_date == as_of_date,
+                Prediction.model_version == self.manifest["version"]
+            )
+            existing = await self.db.execute(stmt)
+            existing_preds = existing.scalars().all()
 
-        tasks = [_predict_with_sem(d_id) for d_id in district_ids]
-        results = await asyncio.gather(*tasks)
+            existing_map = {p.district_id: p for p in existing_preds}
 
-        # Filter out skipped districts (None)
-        return [r for r in results if r is not None]
+            for d_id in district_ids:
+                if d_id in existing_map:
+                    p = existing_map[d_id]
+                    results.append(PredictionResponse(
+                        prediction_id=p.id,
+                        district_id=p.district_id,
+                        disease=p.disease,
+                        prediction_date=p.prediction_date,
+                        risk_score=float(p.risk_score),
+                        risk_tier=p.risk_tier,
+                        baseline_score=None,
+                        delta=None,
+                        shap_values=p.shap_values or {},
+                        model_version=p.model_version,
+                        extrapolation_warning=p.extrapolation_warning,
+                    ))
+                else:
+                    missing_ids.append(d_id)
+        else:
+            missing_ids = district_ids
+
+        if missing_ids:
+            semaphore = asyncio.Semaphore(concurrency)
+
+            async def _predict_with_sem(d_id: UUID):
+                async with semaphore:
+                    try:
+                        return await self.predict_single(d_id, disease, as_of_date, overrides)
+                    except ValueError as exc:
+                        logger.warning(f"Skipping district {d_id}: {exc}")
+                        return None
+                    except Exception as exc:
+                        logger.error(
+                            f"Unexpected error for district {d_id}: {exc}",
+                            exc_info=True,
+                        )
+                        return None
+
+            tasks = [_predict_with_sem(d_id) for d_id in missing_ids]
+            new_results = await asyncio.gather(*tasks)
+
+            # Filter out skipped districts (None)
+            results.extend([r for r in new_results if r is not None])
+
+        result_map = {r.district_id: r for r in results}
+        return [result_map[d_id] for d_id in district_ids if d_id in result_map]
 
     # ── private methods ──────────────────────────────────────────────────────
 
