@@ -1,0 +1,6 @@
+## 2024-05-24 — Form Accessibility and Loading States
+**Found:** Missing `htmlFor` properties on labels linked to form inputs across the app, and missing screen-reader accessible loading states for buttons that perform asynchronous actions.
+**Why it existed:** Form elements and icons were quickly implemented using generic tags (like unsemantic `<span>` tags instead of `<label>` in `ParkinsonsForm`) and visual loading spinners without corresponding `aria-busy` states on their parent buttons.
+**Fix:** Explicitly linked labels to inputs via `React.useId()` or explicit `id`s, converted spans to labels, and added `aria-busy` to submit buttons during loading alongside `aria-hidden="true"` to visual icons/spinners.
+**Learning:** React components acting as custom form fields (like `Input` or `Select`) need to generate their own internal `id`s to correctly associate their internally rendered `<label>` and `<input>` elements. Screen reader visibility needs to be manually maintained via `aria-hidden` when dynamically injecting loaders.
+**Watch for:** Ensure new `Input`/`Select` components maintain these accessibility standards, and verify that any new form with complex dynamic inputs correctly renders them with associated label tags.
