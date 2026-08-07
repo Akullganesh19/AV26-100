@@ -211,33 +211,69 @@ class PredictionService:
         district_ids: list[UUID],
         disease: str,
         as_of_date: date,
-        concurrency: int = 5
+        concurrency: int = 5,
+        overrides: dict[str, float] | None = None
     ) -> list[PredictionResponse]:
         """
         Optimized batch inference using asyncio.gather for concurrency.
-        Uses a semaphore to prevent overwhelming the database connection pool or CPU.
+        Fetches existing predictions from DB in bulk to prevent N+1 CPU/DB work on read paths.
+        Uses a semaphore to prevent overwhelming the database connection pool or CPU for missing ids.
         """
-        semaphore = asyncio.Semaphore(concurrency)
+        results_map = {}
+        missing_ids = district_ids
 
-        async def _predict_with_sem(d_id: UUID):
-            async with semaphore:
-                try:
-                    return await self.predict_single(d_id, disease, as_of_date)
-                except ValueError as exc:
-                    logger.warning(f"Skipping district {d_id}: {exc}")
-                    return None
-                except Exception as exc:
-                    logger.error(
-                        f"Unexpected error for district {d_id}: {exc}",
-                        exc_info=True,
-                    )
-                    return None
+        if not overrides:
+            # Query existing cached predictions for the requested date and model version
+            stmt = Prediction.__table__.select().where(
+                Prediction.district_id.in_(district_ids),
+                Prediction.disease == disease,
+                Prediction.prediction_date == as_of_date,
+                Prediction.model_version == self.manifest["version"],
+            )
+            existing_records = await self.db.execute(stmt)
+            for row in existing_records:
+                results_map[row.district_id] = PredictionResponse(
+                    prediction_id=row.id,
+                    district_id=row.district_id,
+                    disease=row.disease,
+                    prediction_date=row.prediction_date,
+                    risk_score=float(row.risk_score),
+                    risk_tier=row.risk_tier,
+                    baseline_score=None,
+                    delta=None,
+                    shap_values=row.shap_values or {},
+                    model_version=row.model_version,
+                    extrapolation_warning=row.extrapolation_warning,
+                )
 
-        tasks = [_predict_with_sem(d_id) for d_id in district_ids]
-        results = await asyncio.gather(*tasks)
+            missing_ids = [d_id for d_id in district_ids if d_id not in results_map]
 
-        # Filter out skipped districts (None)
-        return [r for r in results if r is not None]
+        if missing_ids:
+            semaphore = asyncio.Semaphore(concurrency)
+
+            async def _predict_with_sem(d_id: UUID):
+                async with semaphore:
+                    try:
+                        return await self.predict_single(d_id, disease, as_of_date, overrides)
+                    except ValueError as exc:
+                        logger.warning(f"Skipping district {d_id}: {exc}")
+                        return None
+                    except Exception as exc:
+                        logger.error(
+                            f"Unexpected error for district {d_id}: {exc}",
+                            exc_info=True,
+                        )
+                        return None
+
+            tasks = [_predict_with_sem(d_id) for d_id in missing_ids]
+            new_results = await asyncio.gather(*tasks)
+
+            for res in new_results:
+                if res is not None:
+                    results_map[res.district_id] = res
+
+        # Return results in the original requested order
+        return [results_map[d_id] for d_id in district_ids if d_id in results_map]
 
     # ── private methods ──────────────────────────────────────────────────────
 
