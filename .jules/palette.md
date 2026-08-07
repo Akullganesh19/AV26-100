@@ -1,0 +1,6 @@
+## 2025-02-12 — Accessible Forms and Focus Rings
+**Found:** Custom UI forms (slider, toggles, checkboxes) in `CalculatorSection` were hiding base inputs with `className="hidden"` and missing focus-visible styling, making the interactive elements completely inaccessible for keyboard users and lacking semantic context for screen readers.
+**Why it existed:** The custom Tailwind styling prioritized visual cleanliness and likely rushed the implementation of custom checkboxes and sliders, removing native input elements without replacing their accessibility states.
+**Fix:** Replaced `hidden` with `sr-only peer` on checkbox inputs and utilized `peer-focus-visible` for custom rings. Added `aria-label` to custom range inputs. Added `aria-pressed` and `focus-visible` to button-based radio selectors.
+**Learning:** When building custom checkboxes or radio buttons in Tailwind, do not use `className="hidden"` on the underlying `<input>` element. Instead, apply `className="sr-only peer"` to the input and use `peer-focus-visible` on the adjacent custom visual element to maintain keyboard navigation.
+**Watch for:** Other custom form controls (like toggles or range sliders) across the dashboard that rely on `div` or `<button>` tags lacking appropriate `aria` attributes or focus states.
