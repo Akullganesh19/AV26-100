@@ -1,3 +1,9 @@
 ## 2025-05-15 - Concurrent Batch Inference for Jurisdiction Matrix
 **Learning:** Sequential async calls in a loop (O(N)) for compute-intensive inference create significant bottlenecks, especially when each call involves I/O and CPU work. Batching these with `asyncio.gather` and a concurrency-limiting semaphore dramatically improves performance.
 **Action:** Always prefer `asyncio.gather` with a semaphore for processing multiple independent entities in API routes.
+## 2025-05-16 - Batch Endpoint N+1 Compute Optimization
+**Found:** `predict_batch` inside `backend/app/services/prediction_service.py` was computing full machine learning inferences sequentially (even when batched concurrently using `asyncio.gather`), leading to redundant, expensive I/O and CPU bound operations for predictions that already existed in the database for the given date.
+**Why it existed:** The `predict_batch` function simply wrapped the `predict_single` call for each ID in an `asyncio.gather`. It failed to leverage the cache/persistence layer *before* fanning out to single prediction runs.
+**Fix:** Extracted a read-only cache lookup outside the loop inside `predict_batch`. Used a bulk query (`.in_()`) to fetch existing prediction records from the database, cached them in a local dictionary, and only spawned `predict_single` tasks for districts missing from the cache or when explicit `overrides` were provided.
+**Learning:** For endpoints processing multiple independent entities (like jurisdiction list endpoints), always query the database cache first using bulk fetch methods to avoid N+1 redundant computational or database write paths.
+**Watch for:** Ensure that batch optimizations correctly respect user overrides, bypassing the cache when `overrides` are not None, to prevent serving stale baseline metrics during what-if scenario simulations.

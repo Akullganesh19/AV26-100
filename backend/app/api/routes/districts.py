@@ -31,12 +31,12 @@ async def list_districts(
         result = await db.execute(query)
         districts = result.scalars().all()
         
-        # Batch predict all districts concurrently for significant performance boost
-        # Reduced from N sequential calls to concurrent execution with controlled semaphore
+
+        # Fetch predictions, ideally using cache if possible (cached inside predict_batch)
         district_ids = [d.id for d in districts]
         predictions = await service.predict_batch(district_ids, disease, date.today())
 
-        # Map predictions by district_id for easy lookup
+        # Map predictions by district_id for easy lookup, preserving original order
         pred_map = {p.district_id: p for p in predictions}
 
         output = []
@@ -64,6 +64,7 @@ async def list_districts(
                     "last_updated": "No Data",
                     "extrapolation_warning": False
                 })
+
             
         return output
     except Exception as e:
