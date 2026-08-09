@@ -12,6 +12,7 @@ from typing import Any, Dict, Optional
 from uuid import UUID
 
 import shap
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
@@ -211,33 +212,71 @@ class PredictionService:
         district_ids: list[UUID],
         disease: str,
         as_of_date: date,
-        concurrency: int = 5
+        concurrency: int = 5,
+        overrides: dict[str, float] | None = None
     ) -> list[PredictionResponse]:
         """
-        Optimized batch inference using asyncio.gather for concurrency.
-        Uses a semaphore to prevent overwhelming the database connection pool or CPU.
+        Optimized batch inference.
+        First checks database for existing predictions to avoid redundant ML inference.
+        Uses asyncio.gather with a semaphore for missing records.
         """
-        semaphore = asyncio.Semaphore(concurrency)
+        results_map: dict[UUID, PredictionResponse] = {}
+        missing_ids = district_ids
 
-        async def _predict_with_sem(d_id: UUID):
-            async with semaphore:
-                try:
-                    return await self.predict_single(d_id, disease, as_of_date)
-                except ValueError as exc:
-                    logger.warning(f"Skipping district {d_id}: {exc}")
-                    return None
-                except Exception as exc:
-                    logger.error(
-                        f"Unexpected error for district {d_id}: {exc}",
-                        exc_info=True,
-                    )
-                    return None
+        # 1. Check cache if no overrides are provided
+        if not overrides:
+            stmt = (
+                select(Prediction)
+                .where(
+                    Prediction.district_id.in_(district_ids),
+                    Prediction.disease == disease,
+                    Prediction.prediction_date == as_of_date,
+                    Prediction.model_version == self.manifest["version"]
+                )
+            )
+            cached_result = await self.db.execute(stmt)
+            for row in cached_result.scalars():
+                results_map[row.district_id] = PredictionResponse(
+                    prediction_id=row.id,
+                    district_id=row.district_id,
+                    disease=row.disease,
+                    prediction_date=row.prediction_date,
+                    risk_score=float(row.risk_score),
+                    risk_tier=row.risk_tier,
+                    shap_values=row.shap_values or {},
+                    model_version=row.model_version,
+                    extrapolation_warning=row.extrapolation_warning,
+                )
 
-        tasks = [_predict_with_sem(d_id) for d_id in district_ids]
-        results = await asyncio.gather(*tasks)
+            missing_ids = [d_id for d_id in district_ids if d_id not in results_map]
 
-        # Filter out skipped districts (None)
-        return [r for r in results if r is not None]
+        # 2. Compute missing (or all if overridden)
+        if missing_ids:
+            semaphore = asyncio.Semaphore(concurrency)
+
+            async def _predict_with_sem(d_id: UUID):
+                async with semaphore:
+                    try:
+                        return await self.predict_single(d_id, disease, as_of_date, overrides=overrides)
+                    except ValueError as exc:
+                        logger.warning(f"Skipping district {d_id}: {exc}")
+                        return None
+                    except Exception as exc:
+                        logger.error(
+                            f"Unexpected error for district {d_id}: {exc}",
+                            exc_info=True,
+                        )
+                        return None
+
+            tasks = [_predict_with_sem(d_id) for d_id in missing_ids]
+            computed_results = await asyncio.gather(*tasks)
+
+            for res in computed_results:
+                if res is not None:
+                    results_map[res.district_id] = res
+
+        # 3. Filter out skipped districts (None) and preserve requested order
+        return [results_map[d_id] for d_id in district_ids if d_id in results_map]
 
     # ── private methods ──────────────────────────────────────────────────────
 
