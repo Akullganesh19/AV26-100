@@ -1,0 +1,7 @@
+## 2024-05-23 — External Integration Resiliency
+
+**Failure point found:** `IntegrationService` methods (`sync_district_to_algolia`, `send_health_alert_email`, `upload_report_to_cloudinary`) in `backend/app/api/integrations.py` lacked any error handling, retries, or idempotency. They were executing blocking synchronous calls in asynchronous contexts and would propagate failures upwards.
+**Why it existed:** Quick initial implementation relying on optimistic success for external auxiliary services (Algolia, SendGrid, Cloudinary) without accounting for network flakiness or rate limits.
+**Recovery built:** Added an `async def with_retry` decorator providing automatic retries with exponential backoff and graceful degradation (failing to `None` on ultimate failure). Added Redis-backed idempotency guard to `send_health_alert_email` to prevent duplicate emails, wrapped caching in `try...except` to ensure it fails open. All external sync operations are now properly offloaded via `asyncio.to_thread`.
+**Blast radius before:** Any temporary failure in Algolia/Cloudinary/SendGrid would cause an unhandled exception to bubble up, crashing the primary user transaction or background worker (e.g. failing to render a UI or missing a report). Re-running a failed job could send duplicate alert emails.
+**Watch for:** Other third-party integrations (e.g. `weather_client`) that might be lacking robust error handling or idempotency guarantees.
