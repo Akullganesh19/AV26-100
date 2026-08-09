@@ -1,0 +1,7 @@
+## 2026-08-09 — Sensitive Data Exposure in Prediction Logging
+
+**Data traced:** Clinical Screening Input (includes PII fields like `email`, `age`, `blood_pressure` depending on the schema).
+**Exposure found:** `extra={...}` kwargs passed to standard python loggers could log unredacted sensitive values because they weren't captured properly and structlog lacked a redact hook to traverse deeply into `event_dict`.
+**Fix:** Implemented `redact_pii_processor` in `backend/app/core/logging.py` that reconstructs deepcopy maps to redact emails/PII keys (`phone`, `ssn`, `dob`, `address`, `date_of_birth`, `password`, `card_number`) while guarding against cyclic references using `id(obj)`, and added `structlog.stdlib.ExtraAdder()` along with `structlog.stdlib.ProcessorFormatter` to capture standard logging `extra=` attributes safely.
+**Coverage confirmed:** The structlog logger and standard logging `logger.info(..., extra=...)` natively redact `email` inputs while leaving standard info intact (verified locally with a test script mapping both interfaces). Python syntax checks and basic app functionality confirmed through imports.
+**Still exposed elsewhere:** Potential frontend exposure mapping the API payloads or local caching, and further fields potentially added to `HeartScreeningInput` if not explicitly caught by our key-matching filters (though structural gaps here are primarily bounded by our `sensitive_keys` array).
