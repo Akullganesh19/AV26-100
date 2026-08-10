@@ -127,6 +127,38 @@ async def diagnose_parkinsons(
         await log_prediction(db, current_user.id, "clinical/parkinsons", data.dict(), status="FAIL", error=str(e), district_id=data.district_id)
         raise HTTPException(status_code=500, detail=str(e))
 
+from sqlalchemy import select, desc
+
+@router.get("/history", response_model=List[Dict[str, Any]])
+async def get_clinical_history(
+    db: AsyncSession = Depends(get_db),
+    current_user: Any = Depends(deps.get_current_user),
+    limit: int = 10
+) -> Any:
+    """
+    Retrieve recent clinical screening history for the current officer.
+    """
+    query = (
+        select(PredictionAuditLog)
+        .where(PredictionAuditLog.user_id == current_user.id)
+        .order_by(desc(PredictionAuditLog.timestamp))
+        .limit(limit)
+    )
+    result = await db.execute(query)
+    logs = result.scalars().all()
+
+    return [
+        {
+            "id": str(log.id),
+            "endpoint": log.endpoint,
+            "risk_score": float(log.risk_score),
+            "status": log.status,
+            "timestamp": log.timestamp.isoformat(),
+            "model_version": log.model_version
+        }
+        for log in logs
+    ]
+
 from fastapi.responses import StreamingResponse
 import io
 from app.services.report_service import ReportService
