@@ -88,8 +88,10 @@ export const CalculatorSection = () => {
                 ].map((opt) => (
                   <button
                     key={opt.id}
+                    role="radio"
+                    aria-checked={serviceType === opt.id}
                     onClick={() => setServiceType(opt.id as any)}
-                    className="flex items-center gap-3 group cursor-pointer"
+                    className="flex items-center gap-3 group cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FF5656] focus-visible:ring-offset-2 focus-visible:ring-offset-black rounded"
                   >
                     <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${serviceType === opt.id ? 'border-[#FF5656]' : 'border-[#333]'}`}>
                       {serviceType === opt.id && <div className="w-2 h-2 rounded-full bg-[#FF5656]" />}
@@ -127,15 +129,15 @@ export const CalculatorSection = () => {
                 ].map((addon) => (
                   <label key={addon.id} className="flex items-center justify-between group cursor-pointer">
                     <div className="flex items-center gap-3">
-                      <div className={`w-5 h-5 border-2 rounded flex items-center justify-center transition-all ${addon.state ? 'bg-[#FF5656] border-[#FF5656]' : 'border-[#333]'}`}>
-                        {addon.state && <Check size={14} strokeWidth={4} className="text-white" />}
-                      </div>
                       <input 
                         type="checkbox" 
-                        className="hidden" 
+                        className="sr-only peer"
                         checked={addon.state} 
                         onChange={() => addon.set(!addon.state)} 
                       />
+                      <div className={`w-5 h-5 border-2 rounded flex items-center justify-center transition-all peer-focus-visible:ring-2 peer-focus-visible:ring-[#FF5656] peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-black ${addon.state ? 'bg-[#FF5656] border-[#FF5656]' : 'border-[#333]'}`}>
+                        {addon.state && <Check size={14} strokeWidth={4} className="text-white" />}
+                      </div>
                       <span className={`text-sm transition-colors ${addon.state ? 'text-white' : 'text-[#666]'}`}>{addon.label}</span>
                     </div>
                     <span className="text-xs font-bold text-[#FF5656]">{addon.price}</span>
@@ -155,8 +157,10 @@ export const CalculatorSection = () => {
                 ].map((opt) => (
                   <button
                     key={opt.id}
+                    role="radio"
+                    aria-checked={timeline === opt.id}
                     onClick={() => setTimeline(opt.id as any)}
-                    className="flex items-center justify-between group cursor-pointer w-full text-left"
+                    className="flex items-center justify-between group cursor-pointer w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FF5656] focus-visible:ring-offset-2 focus-visible:ring-offset-black rounded"
                   >
                     <div className="flex items-center gap-3">
                       <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${timeline === opt.id ? 'border-[#FF5656]' : 'border-[#333]'}`}>
