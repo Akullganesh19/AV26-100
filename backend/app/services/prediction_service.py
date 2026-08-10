@@ -12,6 +12,7 @@ from typing import Any, Dict, Optional
 from uuid import UUID
 
 import shap
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
@@ -211,18 +212,51 @@ class PredictionService:
         district_ids: list[UUID],
         disease: str,
         as_of_date: date,
-        concurrency: int = 5
+        concurrency: int = 5,
+        overrides: dict[str, float] | None = None,
     ) -> list[PredictionResponse]:
         """
         Optimized batch inference using asyncio.gather for concurrency.
         Uses a semaphore to prevent overwhelming the database connection pool or CPU.
         """
+        cached_responses = {}
+        missing_ids = district_ids
+
+        # Only check cache if we are not simulating with overrides
+        if not overrides:
+            async with self._db_lock:
+                stmt = select(Prediction).where(
+                    Prediction.district_id.in_(district_ids),
+                    Prediction.disease == disease,
+                    Prediction.prediction_date == as_of_date,
+                    Prediction.model_version == self.manifest["version"]
+                )
+                result = await self.db.execute(stmt)
+                existing_preds = result.scalars().all()
+
+                for p in existing_preds:
+                    cached_responses[p.district_id] = PredictionResponse(
+                        prediction_id=p.id,
+                        district_id=p.district_id,
+                        disease=p.disease,
+                        prediction_date=p.prediction_date,
+                        risk_score=float(p.risk_score),
+                        risk_tier=p.risk_tier,
+                        baseline_score=None,
+                        delta=None,
+                        shap_values=p.shap_values or {},
+                        model_version=p.model_version,
+                        extrapolation_warning=p.extrapolation_warning,
+                    )
+
+            missing_ids = [d_id for d_id in district_ids if d_id not in cached_responses]
+
         semaphore = asyncio.Semaphore(concurrency)
 
         async def _predict_with_sem(d_id: UUID):
             async with semaphore:
                 try:
-                    return await self.predict_single(d_id, disease, as_of_date)
+                    return await self.predict_single(d_id, disease, as_of_date, overrides=overrides)
                 except ValueError as exc:
                     logger.warning(f"Skipping district {d_id}: {exc}")
                     return None
@@ -233,11 +267,18 @@ class PredictionService:
                     )
                     return None
 
-        tasks = [_predict_with_sem(d_id) for d_id in district_ids]
+        # Only compute for the missing ids
+        tasks = [_predict_with_sem(d_id) for d_id in missing_ids]
         results = await asyncio.gather(*tasks)
 
-        # Filter out skipped districts (None)
-        return [r for r in results if r is not None]
+        # Merge new results into cache
+        for r in results:
+            if r is not None:
+                cached_responses[r.district_id] = r
+
+        # Return in original order, filtering out None values
+        final_results = [cached_responses[d_id] for d_id in district_ids if d_id in cached_responses]
+        return final_results
 
     # ── private methods ──────────────────────────────────────────────────────
 
