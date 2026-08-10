@@ -9,15 +9,18 @@ import {
   CheckCircle2,
   Stethoscope,
   Info,
-  Download
+  Download,
+  Clock
 } from 'lucide-react';
 import axios from 'axios';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useSearchParams } from 'react-router-dom';
 
 type DiseaseType = 'heart' | 'diabetes' | 'parkinsons';
 
 const DiagnosticsCenter: React.FC = () => {
+  const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
   const districtIdFromUrl = searchParams.get('district_id');
   
@@ -32,6 +35,7 @@ const DiagnosticsCenter: React.FC = () => {
     try {
       const response = await axios.post(`${import.meta.env.VITE_API_URL}/clinical/${activeTab}`, formData);
       setPrediction(response.data);
+      queryClient.invalidateQueries({ queryKey: ['clinical-history'] });
       if (response.data.risk) {
         toast.error(`High risk detected for ${activeTab.toUpperCase()}`, {
           description: response.data.advice
@@ -186,7 +190,45 @@ const DiagnosticsCenter: React.FC = () => {
               </div>
             </div>
           )}
+          <ScreeningHistory />
         </div>
+      </div>
+    </div>
+  );
+};
+
+const ScreeningHistory = () => {
+  const { data: history, isLoading } = useQuery({
+    queryKey: ['clinical-history'],
+    queryFn: async () => {
+      const response = await axios.get(`${import.meta.env.VITE_API_URL}/clinical/history`);
+      return response.data;
+    }
+  });
+
+  if (isLoading) return null;
+  if (!history || history.length === 0) return null;
+
+  return (
+    <div className="mt-8 bg-slate-900/40 backdrop-blur-md border border-slate-800 p-6 rounded-2xl">
+      <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+        <Clock className="w-5 h-5 text-emerald-500" /> Recent Screenings
+      </h3>
+      <div className="space-y-3">
+        {history.map((log: any) => (
+          <div key={log.id} className="flex items-center justify-between p-3 rounded-lg bg-slate-800/30 border border-slate-700/50">
+            <div>
+              <p className="text-sm font-medium text-white capitalize">{log.endpoint.split('/')[1]} Screening</p>
+              <p className="text-xs text-slate-400">{new Date(log.timestamp).toLocaleString()}</p>
+            </div>
+            <div className="text-right">
+              <p className={`text-sm font-bold ${log.risk_score > 0.7 ? 'text-red-400' : 'text-emerald-400'}`}>
+                {(log.risk_score * 100).toFixed(1)}% Risk
+              </p>
+              <p className="text-[10px] text-slate-500 uppercase">{log.status}</p>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
