@@ -207,7 +207,15 @@ const ScreeningHistory = () => {
   });
 
   if (isLoading) return null;
-  if (!history || history.length === 0) return null;
+  if (!history || history.length === 0) {
+    return (
+      <div className="mt-8 bg-slate-900/40 backdrop-blur-md border border-slate-800 p-6 rounded-2xl flex flex-col items-center justify-center text-slate-500 py-12">
+        <Clock className="w-8 h-8 mb-3 text-slate-600" />
+        <p className="text-sm">No recent screenings found.</p>
+        <p className="text-xs mt-1">Run a diagnosis above to see your history.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="mt-8 bg-slate-900/40 backdrop-blur-md border border-slate-800 p-6 rounded-2xl">
