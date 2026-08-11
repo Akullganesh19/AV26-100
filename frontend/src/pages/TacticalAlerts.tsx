@@ -1,6 +1,6 @@
 import React from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import axios from 'axios';
+import { apiClient } from '../api/client';
 import { 
   ShieldAlert, 
   CheckCircle2, 
@@ -34,9 +34,9 @@ const TacticalAlerts: React.FC = () => {
     queryKey: ['tactical-alerts', isSimulating, activeSimId],
     queryFn: async () => {
       const url = isSimulating 
-        ? `${import.meta.env.VITE_API_URL}/alerts?simulation_id=${activeSimId}`
-        : `${import.meta.env.VITE_API_URL}/alerts`;
-      const response = await axios.get(url);
+        ? `/alerts?simulation_id=${activeSimId}`
+        : '/alerts';
+      const response = await apiClient.get(url);
       return response.data;
     },
     refetchInterval: 30000 
@@ -44,10 +44,29 @@ const TacticalAlerts: React.FC = () => {
 
   const acknowledgeMutation = useMutation({
     mutationFn: (alertId: string) => 
-      axios.post(`${import.meta.env.VITE_API_URL}/alerts/${alertId}/acknowledge`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tactical-alerts'] });
+      apiClient.post(`/alerts/${alertId}/acknowledge`),
+    onMutate: async (alertId: string) => {
+      await queryClient.cancelQueries({ queryKey: ['tactical-alerts', isSimulating, activeSimId] });
+      const previousAlerts = queryClient.getQueryData(['tactical-alerts', isSimulating, activeSimId]);
+
+      queryClient.setQueryData(['tactical-alerts', isSimulating, activeSimId], (old: Alert[] | undefined) => {
+        if (!old) return old;
+        return old.map(alert =>
+          alert.id === alertId ? { ...alert, status: 'acknowledged' } : alert
+        );
+      });
+
       toast.success('Mission alert acknowledged');
+      return { previousAlerts };
+    },
+    onError: (err, alertId, context) => {
+      if (context?.previousAlerts) {
+        queryClient.setQueryData(['tactical-alerts', isSimulating, activeSimId], context.previousAlerts);
+      }
+      toast.error('Failed to acknowledge alert');
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['tactical-alerts', isSimulating, activeSimId] });
     }
   });
 
