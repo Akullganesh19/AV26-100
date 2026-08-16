@@ -1,3 +1,4 @@
+import time
 from typing import List, Any, Dict, Optional
 from uuid import UUID
 from datetime import date, timedelta
@@ -107,6 +108,12 @@ async def get_district_detail(
             "error": str(e)
         }
 
+
+
+
+stats_cache = {}
+CACHE_TTL = 60
+
 @router.get("/stats", response_model=Dict[str, Any])
 async def get_district_stats(
     db: AsyncSession = Depends(deps.get_db),
@@ -115,6 +122,10 @@ async def get_district_stats(
     """
     Get aggregated mission statistics for the dashboard.
     """
+    current_time = time.time()
+    if "data" in stats_cache and current_time - stats_cache["timestamp"] < CACHE_TTL:
+        return stats_cache["data"]
+
     from sqlalchemy import func
     from app.models.district import District
     from app.models.alert import Alert
@@ -131,9 +142,13 @@ async def get_district_stats(
     q_alerts = await db.execute(select(func.count(Alert.id)).where(Alert.is_resolved == False))
     alerts = q_alerts.scalar() or 0
     
-    return {
+    result = {
         "total_districts": total,
         "population_covered": f"{pop/1000000:.1f}M",
         "active_alerts": alerts,
         "avg_risk": 42.8 # Baseline
     }
+
+    stats_cache["data"] = result
+    stats_cache["timestamp"] = current_time
+    return result
