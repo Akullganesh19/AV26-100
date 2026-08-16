@@ -1,4 +1,4 @@
-from cachetools import TTLCache
+import time
 from typing import List, Any, Dict, Optional
 from uuid import UUID
 from datetime import date, timedelta
@@ -109,7 +109,10 @@ async def get_district_detail(
         }
 
 
-stats_cache = TTLCache(maxsize=1, ttl=60)
+
+
+stats_cache = {}
+CACHE_TTL = 60
 
 @router.get("/stats", response_model=Dict[str, Any])
 async def get_district_stats(
@@ -119,7 +122,8 @@ async def get_district_stats(
     """
     Get aggregated mission statistics for the dashboard.
     """
-    if "data" in stats_cache:
+    current_time = time.time()
+    if "data" in stats_cache and current_time - stats_cache["timestamp"] < CACHE_TTL:
         return stats_cache["data"]
 
     from sqlalchemy import func
@@ -146,4 +150,5 @@ async def get_district_stats(
     }
 
     stats_cache["data"] = result
+    stats_cache["timestamp"] = current_time
     return result
