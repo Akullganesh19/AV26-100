@@ -25,13 +25,31 @@ const DiagnosticsCenter: React.FC = () => {
   const [selectedDistrict, setSelectedDistrict] = useState<string>(districtIdFromUrl || '');
   const [loading, setLoading] = useState(false);
   const [prediction, setPrediction] = useState<any>(null);
+  const [prefetchedReport, setPrefetchedReport] = useState<Blob | null>(null);
 
   const handleDiagnose = async (formData: any) => {
     setLoading(true);
     setPrediction(null);
+    setPrefetchedReport(null);
     try {
       const response = await axios.post(`${import.meta.env.VITE_API_URL}/clinical/${activeTab}`, formData);
       setPrediction(response.data);
+
+      // ORACLE: Behavioral Prefetch Prediction
+      // Signal: User successfully generated a diagnosis
+      // Prediction: User is likely (80%+) to download the tactical report next
+      // Action: Pre-compute and download the PDF report silently in the background
+      axios.post(
+        `${import.meta.env.VITE_API_URL}/clinical/report`,
+        [response.data],
+        { responseType: 'blob' }
+      ).then(res => {
+        setPrefetchedReport(new Blob([res.data]));
+      }).catch(err => {
+        // Silent failure - gracefully degrade to normal on-demand fetch
+        console.warn("Oracle prefetch failed, will fallback to on-demand generation.", err);
+      });
+
       if (response.data.risk) {
         toast.error(`High risk detected for ${activeTab.toUpperCase()}`, {
           description: response.data.advice
@@ -54,13 +72,19 @@ const DiagnosticsCenter: React.FC = () => {
   const handleDownloadReport = async () => {
     if (!prediction) return;
     try {
-      const response = await axios.post(
-        `${import.meta.env.VITE_API_URL}/clinical/report`,
-        [prediction], // Send current prediction in a list
-        { responseType: 'blob' }
-      );
+      let reportBlob = prefetchedReport;
+
+      // Fallback if prediction engine prefetch hasn't finished or failed
+      if (!reportBlob) {
+        const response = await axios.post(
+          `${import.meta.env.VITE_API_URL}/clinical/report`,
+          [prediction], // Send current prediction in a list
+          { responseType: 'blob' }
+        );
+        reportBlob = new Blob([response.data]);
+      }
       
-      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const url = window.URL.createObjectURL(reportBlob);
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute('download', `EpiSense_Tactical_Report_${activeTab.toUpperCase()}.pdf`);
