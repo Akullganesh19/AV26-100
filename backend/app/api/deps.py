@@ -76,8 +76,14 @@ async def get_current_user(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Token has been revoked",
             )
-    except Exception:
-        pass # Fall through to standard verification
+    except HTTPException:
+        # Re-raise the 401 if explicitly revoked, failing closed for bad tokens.
+        raise
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning(f"Fail-open on token revocation check: {e}")
+        pass # Fall through to standard verification if Redis is unreachable
     finally:
         await r.aclose()
 
