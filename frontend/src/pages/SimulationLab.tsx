@@ -3,10 +3,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import { 
   Play, 
-  FastForward, 
   RotateCcw, 
+  FastForward,
   ShieldAlert, 
-  Activity, 
   TrendingUp, 
   CheckCircle2,
   AlertTriangle,
@@ -69,6 +68,19 @@ const SimulationLab: React.FC = () => {
     }
   });
 
+  const handleScenarioHover = (scenarioId: string) => {
+    // Pre-fetch alerts for the specific scenario to eliminate latency upon starting it
+    queryClient.prefetchQuery({
+      queryKey: ['tactical-alerts', true, scenarioId],
+      queryFn: async () => {
+        const url = `${import.meta.env.VITE_API_URL}/alerts?simulation_id=${scenarioId}`;
+        const response = await axios.get(url);
+        return response.data;
+      },
+      staleTime: 60 * 1000
+    });
+  };
+
   if (view === 'selection') {
     return (
       <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -85,7 +97,11 @@ const SimulationLab: React.FC = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {scenarios?.map((scenario: any) => (
-            <div key={scenario.id} className="glass-panel p-6 rounded-3xl border-white/5 hover:border-brand-primary/30 transition-all group flex flex-col justify-between h-full">
+            <div
+              key={scenario.id}
+              className="glass-panel p-6 rounded-3xl border-white/5 hover:border-brand-primary/30 transition-all group flex flex-col justify-between h-full cursor-pointer"
+              onMouseEnter={() => handleScenarioHover(scenario.id)}
+            >
               <div>
                 <div className="flex justify-between items-start mb-4">
                    <div className="p-3 rounded-2xl bg-brand-primary/10 text-brand-primary">
