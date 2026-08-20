@@ -86,16 +86,35 @@ async def get_current_user(
         await r.aclose()
 
     try:
+        import json
+
+        # Check if public_key is a JSON string (JWK) or a dict (JWK)
+        # and convert it if necessary for PyJWT
+        key_to_use = public_key
+        if isinstance(public_key, str) and public_key.strip().startswith("{"):
+            try:
+                from jwt.algorithms import RSAAlgorithm
+                jwk_dict = json.loads(public_key)
+                key_to_use = RSAAlgorithm.from_jwk(json.dumps(jwk_dict))
+            except Exception:
+                pass
+        elif isinstance(public_key, dict):
+            try:
+                from jwt.algorithms import RSAAlgorithm
+                key_to_use = RSAAlgorithm.from_jwk(json.dumps(public_key))
+            except Exception:
+                pass
+
         payload = jwt.decode(
             token, 
-            public_key, 
+            key_to_use,
             algorithms=["RS256"],
             issuer=settings.CLERK_ISSUER,
             audience=settings.CLERK_AUDIENCE,
-            options={"verify_aud": True, "verify_iss": True}
+            options={"verify_aud": True, "verify_signature": True}
         )
         clerk_id = payload.get("sub")
-    except jwt.PyJWTError:
+    except (jwt.PyJWTError, Exception):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Could not validate credentials",
