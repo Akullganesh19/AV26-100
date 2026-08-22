@@ -7,7 +7,10 @@ from app.core.database import Base
 from app.core.config import settings
 
 # Use the dedicated test database created in the previous step
-TEST_DATABASE_URL = str(settings.DATABASE_URL) + "_test"
+# We check if it already ends with _test to avoid episense_test_test when run locally with DATABASE_URL ending in _test
+TEST_DATABASE_URL = str(settings.DATABASE_URL)
+if not TEST_DATABASE_URL.endswith("_test"):
+    TEST_DATABASE_URL += "_test"
 
 @pytest_asyncio.fixture
 async def db_session():
