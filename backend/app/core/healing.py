@@ -26,5 +26,5 @@ async def with_retry(
                 logger.error(f"Final retry attempt {attempt}/{max_attempts} failed for {fn_name}: {err}")
                 raise err
             delay = base_delay * (2 ** (attempt - 1))
-            logger.warning(f"Attempt {attempt}/{max_attempts} failed for {fn_name}. Retrying in {delay}s...")
+            logger.warning(f"Attempt {attempt}/{max_attempts} failed for {fn_name} with error: {err}. Retrying in {delay}s...")
             await asyncio.sleep(delay)
