@@ -8,6 +8,7 @@ from app.models.alert import Alert, AlertStatus, AlertType
 from app.models.audit_log import PredictionAuditLog
 from app.models.prediction import Prediction
 from app.core.config import settings
+from app.core.healing import with_retry
 
 logger = logging.getLogger(__name__)
 
@@ -18,51 +19,57 @@ class AlertService:
         Background task to evaluate regional clinical clusters.
         Wrapped in robust error handling to prevent silent mission-level failures.
         """
-        try:
-            # Lookback: 24 hours
-            threshold_time = datetime.utcnow() - timedelta(hours=24)
-            
-            query = select(func.count(PredictionAuditLog.id)).where(
-                and_(
-                    PredictionAuditLog.district_id == district_id,
-                    PredictionAuditLog.endpoint.contains(disease),
-                    PredictionAuditLog.status == "SUCCESS",
-                    PredictionAuditLog.risk_score >= 0.7,
-                    PredictionAuditLog.timestamp >= threshold_time
-                )
-            )
-            
-            result = await db.execute(query)
-            count = result.scalar() or 0
-            
-            if count >= settings.CLINICAL_CLUSTER_THRESHOLD:
-                # Check for existing open alert to avoid spam
-                existing_query = select(Alert).where(
+        async def _execute():
+            try:
+                # Lookback: 24 hours
+                threshold_time = datetime.utcnow() - timedelta(hours=24)
+
+                query = select(func.count(PredictionAuditLog.id)).where(
                     and_(
-                        Alert.district_id == district_id,
-                        Alert.disease == disease,
-                        Alert.alert_type == AlertType.CLINICAL_CLUSTER,
-                        Alert.status == AlertStatus.TRIGGERED
+                        PredictionAuditLog.district_id == district_id,
+                        PredictionAuditLog.endpoint.contains(disease),
+                        PredictionAuditLog.status == "SUCCESS",
+                        PredictionAuditLog.risk_score >= 0.7,
+                        PredictionAuditLog.timestamp >= threshold_time
                     )
                 )
-                existing = await db.execute(existing_query)
-                if not existing.scalar():
-                    new_alert = Alert(
-                        district_id=district_id,
-                        disease=disease,
-                        risk_score=0.88,
-                        alert_type=AlertType.CLINICAL_CLUSTER,
-                        status=AlertStatus.TRIGGERED,
-                        metadata_json=json.dumps({
-                            "cluster_size": count,
-                            "lookback_hours": 24,
-                            "triggered_at": datetime.utcnow().isoformat()
-                        })
+
+                result = await db.execute(query)
+                count = result.scalar() or 0
+
+                if count >= settings.CLINICAL_CLUSTER_THRESHOLD:
+                    # Check for existing open alert to avoid spam
+                    existing_query = select(Alert).where(
+                        and_(
+                            Alert.district_id == district_id,
+                            Alert.disease == disease,
+                            Alert.alert_type == AlertType.CLINICAL_CLUSTER,
+                            Alert.status == AlertStatus.TRIGGERED
+                        )
                     )
-                    db.add(new_alert)
-                    await db.commit()
-                    logger.info(f"TACTICAL ALERT: Clinical cluster detected in {district_id} ({disease})")
-        
+                    existing = await db.execute(existing_query)
+                    if not existing.scalar():
+                        new_alert = Alert(
+                            district_id=district_id,
+                            disease=disease,
+                            risk_score=0.88,
+                            alert_type=AlertType.CLINICAL_CLUSTER,
+                            status=AlertStatus.TRIGGERED,
+                            metadata_json=json.dumps({
+                                "cluster_size": count,
+                                "lookback_hours": 24,
+                                "triggered_at": datetime.utcnow().isoformat()
+                            })
+                        )
+                        db.add(new_alert)
+                        await db.commit()
+                        logger.info(f"TACTICAL ALERT: Clinical cluster detected in {district_id} ({disease})")
+            except Exception:
+                await db.rollback()
+                raise
+
+        try:
+            await with_retry(_execute)
         except Exception as e:
             logger.error(
                 f"MISSION FAILURE: Failed to evaluate clinical cluster for {district_id}",
