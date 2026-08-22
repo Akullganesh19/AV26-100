@@ -8,6 +8,7 @@ from app.models.alert import Alert, AlertStatus, AlertType
 from app.models.audit_log import PredictionAuditLog
 from app.models.prediction import Prediction
 from app.core.config import settings
+from app.core.healing import with_retry
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +19,7 @@ class AlertService:
         Background task to evaluate regional clinical clusters.
         Wrapped in robust error handling to prevent silent mission-level failures.
         """
-        try:
+        async def _execute():
             # Lookback: 24 hours
             threshold_time = datetime.utcnow() - timedelta(hours=24)
             
@@ -62,8 +63,11 @@ class AlertService:
                     db.add(new_alert)
                     await db.commit()
                     logger.info(f"TACTICAL ALERT: Clinical cluster detected in {district_id} ({disease})")
-        
+
+        try:
+            await with_retry(_execute)
         except Exception as e:
+            await db.rollback()
             logger.error(
                 f"MISSION FAILURE: Failed to evaluate clinical cluster for {district_id}",
                 extra={"disease": disease, "error": str(e)},
