@@ -63,7 +63,7 @@ const StrategicMap: React.FC = () => {
     // Oracle: Map Hover Prefetching
     layer.on('mouseover', () => {
       queryClient.prefetchQuery({
-        queryKey: ['district-detail', districtId],
+        queryKey: ['district-detail', String(districtId)],
         queryFn: async () => {
           const response = await axios.get(`${import.meta.env.VITE_API_URL}/districts/${districtId}?disease=heart`);
           return response.data;
