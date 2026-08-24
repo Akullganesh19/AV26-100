@@ -12,6 +12,7 @@ from typing import Any, Dict, Optional
 from uuid import UUID
 
 import shap
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
@@ -217,6 +218,44 @@ class PredictionService:
         Optimized batch inference using asyncio.gather for concurrency.
         Uses a semaphore to prevent overwhelming the database connection pool or CPU.
         """
+
+        # ⚡ Bolt: Bulk lookup existing predictions to prevent N+1 queries in batch loop
+        stmt = (
+            select(Prediction)
+            .where(
+                Prediction.district_id.in_(district_ids),
+                Prediction.disease == disease,
+                Prediction.prediction_date == as_of_date,
+                Prediction.model_version == self.manifest["version"]
+            )
+        )
+
+        result = await self.db.execute(stmt)
+        cached_predictions = result.scalars().all()
+
+        cached_responses = []
+        cached_district_ids = set()
+
+        for p in cached_predictions:
+            cached_district_ids.add(p.district_id)
+            cached_responses.append(
+                PredictionResponse(
+                    prediction_id=p.id,
+                    district_id=p.district_id,
+                    disease=p.disease,
+                    prediction_date=p.prediction_date,
+                    risk_score=round(float(p.risk_score), 2),
+                    risk_tier=p.risk_tier,
+                    baseline_score=None,
+                    delta=None,
+                    shap_values=p.shap_values or {},
+                    model_version=p.model_version,
+                    extrapolation_warning=p.extrapolation_warning,
+                )
+            )
+
+        missing_district_ids = [d_id for d_id in district_ids if d_id not in cached_district_ids]
+
         semaphore = asyncio.Semaphore(concurrency)
 
         async def _predict_with_sem(d_id: UUID):
@@ -233,11 +272,13 @@ class PredictionService:
                     )
                     return None
 
-        tasks = [_predict_with_sem(d_id) for d_id in district_ids]
-        results = await asyncio.gather(*tasks)
+        tasks = [_predict_with_sem(d_id) for d_id in missing_district_ids]
+        computed_results = await asyncio.gather(*tasks)
 
         # Filter out skipped districts (None)
-        return [r for r in results if r is not None]
+        valid_computed_results = [r for r in computed_results if r is not None]
+
+        return cached_responses + valid_computed_results
 
     # ── private methods ──────────────────────────────────────────────────────
 
