@@ -14,6 +14,7 @@ import {
 import axios from 'axios';
 import { toast } from 'sonner';
 import { useSearchParams } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 
 type DiseaseType = 'heart' | 'diabetes' | 'parkinsons';
 
@@ -26,11 +27,25 @@ const DiagnosticsCenter: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [prediction, setPrediction] = useState<any>(null);
 
+  // Oracle: Prefetched Data Consumption
+  const { data: districtContext } = useQuery({
+    queryKey: ['district-detail', selectedDistrict],
+    queryFn: async () => {
+      const response = await axios.get(`${import.meta.env.VITE_API_URL}/districts/${selectedDistrict}?disease=heart`);
+      return response.data;
+    },
+    enabled: !!selectedDistrict
+  });
+
   const handleDiagnose = async (formData: any) => {
     setLoading(true);
     setPrediction(null);
     try {
-      const response = await axios.post(`${import.meta.env.VITE_API_URL}/clinical/${activeTab}`, formData);
+      const payload = {
+        ...formData,
+        district_id: selectedDistrict || undefined
+      };
+      const response = await axios.post(`${import.meta.env.VITE_API_URL}/clinical/${activeTab}`, payload);
       setPrediction(response.data);
       if (response.data.risk) {
         toast.error(`High risk detected for ${activeTab.toUpperCase()}`, {
@@ -139,11 +154,29 @@ const DiagnosticsCenter: React.FC = () => {
           <div className="bg-slate-900/40 backdrop-blur-md border border-slate-800 p-6 rounded-2xl shadow-2xl relative overflow-hidden group">
             <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 blur-3xl -z-10 group-hover:bg-emerald-500/10 transition-all"></div>
             
-            <h2 className="text-xl font-semibold text-white mb-6 flex items-center gap-2">
-              {activeTab === 'heart' && <><Activity className="text-emerald-500" /> Heart Risk Assessment</>}
-              {activeTab === 'diabetes' && <><Droplet className="text-emerald-500" /> Metabolic Screening</>}
-              {activeTab === 'parkinsons' && <><Brain className="text-emerald-500" /> Neuro-vocal Analysis</>}
-            </h2>
+            <div className="flex justify-between items-start mb-6">
+              <h2 className="text-xl font-semibold text-white flex items-center gap-2">
+                {activeTab === 'heart' && <><Activity className="text-emerald-500" /> Heart Risk Assessment</>}
+                {activeTab === 'diabetes' && <><Droplet className="text-emerald-500" /> Metabolic Screening</>}
+                {activeTab === 'parkinsons' && <><Brain className="text-emerald-500" /> Neuro-vocal Analysis</>}
+              </h2>
+
+              {districtContext && (
+                <div className="text-right flex flex-col gap-1 items-end animate-in fade-in duration-500">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Sector Context</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-bold text-white">{districtContext.name}</span>
+                    <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${
+                      districtContext.risk_tier === 'high' || districtContext.risk_tier === 'critical' ? 'bg-rose-500/20 text-rose-500' :
+                      districtContext.risk_tier === 'medium' ? 'bg-amber-500/20 text-amber-500' :
+                      'bg-emerald-500/20 text-emerald-500'
+                    }`}>
+                      {districtContext.risk_tier} RISK
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
 
             {activeTab === 'heart' && <HeartForm onSubmit={handleDiagnose} loading={loading} />}
             {activeTab === 'diabetes' && <DiabetesForm onSubmit={handleDiagnose} loading={loading} />}
