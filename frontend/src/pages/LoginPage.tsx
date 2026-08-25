@@ -71,10 +71,11 @@ const LoginPage: React.FC = () => {
         <div className="glass-panel p-8 rounded-3xl">
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             <div className="space-y-2">
-              <label className="tactical-header">Operational Identity</label>
+              <label htmlFor="email" className="tactical-header">Operational Identity</label>
               <div className="relative group">
                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 group-focus-within:text-brand-primary transition-colors" />
                 <input
+                  id="email"
                   {...register('email')}
                   type="email"
                   placeholder="name@agency.gov"
@@ -85,10 +86,11 @@ const LoginPage: React.FC = () => {
             </div>
 
             <div className="space-y-2">
-              <label className="tactical-header">Access Protocol</label>
+              <label htmlFor="password" className="tactical-header">Access Protocol</label>
               <div className="relative group">
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 group-focus-within:text-brand-primary transition-colors" />
                 <input
+                  id="password"
                   {...register('password')}
                   type={showPassword ? 'text' : 'password'}
                   placeholder="••••••••••••"
@@ -96,8 +98,9 @@ const LoginPage: React.FC = () => {
                 />
                 <button
                   type="button"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors focus-visible:ring-2 focus-visible:ring-brand-primary rounded-full p-1 focus-visible:outline-none"
                 >
                   {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
