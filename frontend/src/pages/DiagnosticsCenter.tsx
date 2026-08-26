@@ -306,10 +306,14 @@ const ParkinsonsForm = ({ onSubmit, loading }: { onSubmit: (data: any) => void, 
 };
 
 // UI Helpers
-const Input = ({ label, type, value, onChange, step }: any) => (
+const Input = ({ label, type, value, onChange, step }: any) => {
+  // UX Fix: Dynamically link labels to inputs via IDs to ensure screen readers announce the field context correctly.
+  const id = React.useId();
+  return (
   <div className="flex flex-col gap-1.5">
-    <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{label}</label>
+    <label htmlFor={id} className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{label}</label>
     <input 
+      id={id}
       type={type} 
       step={step}
       value={value}
@@ -317,12 +321,16 @@ const Input = ({ label, type, value, onChange, step }: any) => (
       className="bg-slate-900/80 border border-slate-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all"
     />
   </div>
-);
+)};
 
-const Select = ({ label, value, options, onChange }: any) => (
+const Select = ({ label, value, options, onChange }: any) => {
+  // UX Fix: Dynamically link labels to selects via IDs to ensure screen readers announce the field context correctly.
+  const id = React.useId();
+  return (
   <div className="flex flex-col gap-1.5">
-    <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{label}</label>
+    <label htmlFor={id} className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{label}</label>
     <select 
+      id={id}
       value={value}
       onChange={(e) => onChange(e.target.value)}
       className="bg-slate-900/80 border border-slate-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all"
