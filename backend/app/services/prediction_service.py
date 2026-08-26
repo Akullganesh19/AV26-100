@@ -187,7 +187,7 @@ class PredictionService:
         if risk_tier in [RiskTier.HIGH, RiskTier.CRITICAL]:
             asyncio.create_task(send_alert_notification(
                 alert_id=str(prediction_id),
-                district_name="Jurisdiction Monitor", # In production, fetch from District model
+                district_name=str(d_id), # Ideally fetch actual name, but using id as fallback # In production, fetch from District model
                 disease=disease,
                 risk_score=float(raw_score)
             ))
@@ -214,31 +214,158 @@ class PredictionService:
         concurrency: int = 5
     ) -> list[PredictionResponse]:
         """
-        Optimized batch inference using asyncio.gather for concurrency.
-        Uses a semaphore to prevent overwhelming the database connection pool or CPU.
+        Optimized batch inference.
+        Processes in chunks of 500 to respect DB limits.
         """
-        semaphore = asyncio.Semaphore(concurrency)
+        if not district_ids:
+            return []
 
-        async def _predict_with_sem(d_id: UUID):
-            async with semaphore:
-                try:
-                    return await self.predict_single(d_id, disease, as_of_date)
-                except ValueError as exc:
-                    logger.warning(f"Skipping district {d_id}: {exc}")
-                    return None
-                except Exception as exc:
-                    logger.error(
-                        f"Unexpected error for district {d_id}: {exc}",
-                        exc_info=True,
+        all_responses = []
+        chunk_size = 500
+
+        for i in range(0, len(district_ids), chunk_size):
+            chunk_ids = district_ids[i:i + chunk_size]
+
+            async with self._db_lock:
+                feature_df = await self.feature_builder.build_batch(chunk_ids, disease, as_of_date)
+
+            if feature_df is None or feature_df.empty:
+                logger.warning(f"No historical data found for chunk of {len(chunk_ids)} districts / {disease}.")
+                continue
+
+            valid_district_ids = feature_df["district_id"].tolist()
+            X_real = feature_df[FEATURE_NAMES].copy()
+
+            loop = asyncio.get_event_loop()
+
+            extrap_warnings = []
+            for j in range(len(feature_df)):
+                warn, ood = self._check_distribution(X_real.iloc[[j]])
+                extrap_warnings.append((warn, ood))
+
+            X_sim_t = await loop.run_in_executor(None, self.pipeline.transform, X_real)
+
+            def run_batch_regressor(X_t):
+                return np.clip(self.regressor.predict(X_t), 0, 100)
+
+            raw_scores = await loop.run_in_executor(None, run_batch_regressor, X_sim_t)
+
+            def run_batch_classifier(X_t, scores):
+                X_stacked = np.column_stack((X_t, scores))
+                return self.classifier.predict(X_stacked)
+
+            tier_idxs = await loop.run_in_executor(None, run_batch_classifier, X_sim_t, raw_scores)
+
+            def compute_batch_shap(X_t):
+                return self.explainer.shap_values(X_t), round(float(self.explainer.expected_value), 4)
+
+            shap_vals_matrix, base_val = await loop.run_in_executor(None, compute_batch_shap, X_sim_t)
+
+            chunk_responses = []
+            upsert_values = []
+
+            for j, d_id in enumerate(valid_district_ids):
+                raw_score = float(raw_scores[j])
+                risk_tier = TIER_LABELS.get(int(tier_idxs[j]), RiskTier.LOW)
+
+                shap_dict = {
+                    FEATURE_NAMES[k]: round(float(shap_vals_matrix[j][k]), 4)
+                    for k in range(len(FEATURE_NAMES))
+                }
+                shap_dict["_base_value"] = base_val
+
+                extrapolation_warning, ood_features = extrap_warnings[j]
+
+                if extrapolation_warning:
+                    logger.warning(
+                        "Out-of-distribution features detected",
+                        extra={
+                            "district_id": str(d_id),
+                            "disease": disease,
+                            "ood_features": ood_features,
+                        },
                     )
-                    return None
 
-        tasks = [_predict_with_sem(d_id) for d_id in district_ids]
-        results = await asyncio.gather(*tasks)
+                # Prepare for bulk upsert
+                upsert_values.append({
+                    "district_id": d_id,
+                    "disease": disease,
+                    "prediction_date": as_of_date,
+                    "risk_score": raw_score,
+                    "risk_tier": risk_tier,
+                    "model_version": self.manifest["version"],
+                    "feature_snapshot": X_real.iloc[j].to_dict(),
+                    "shap_values": shap_dict,
+                    "extrapolation_warning": extrapolation_warning,
+                    "pipeline_run_id": None,
+                })
 
-        # Filter out skipped districts (None)
-        return [r for r in results if r is not None]
+                chunk_responses.append({
+                    "d_id": d_id,
+                    "raw_score": raw_score,
+                    "risk_tier": risk_tier,
+                    "shap_dict": shap_dict,
+                    "extrapolation_warning": extrapolation_warning
+                })
 
+            if upsert_values:
+                # Use a single DB interaction for bulk persist
+                async with self._db_lock:
+                    stmt = (
+                        pg_insert(Prediction)
+                        .values(upsert_values)
+                        .on_conflict_do_nothing(
+                            index_elements=["district_id", "disease", "prediction_date", "model_version"]
+                        )
+                        .returning(Prediction.id, Prediction.district_id)
+                    )
+                    result = await self.db.execute(stmt)
+                    await self.db.commit()
+
+                    inserted_rows = result.fetchall()
+                    inserted_map = {row.district_id: row.id for row in inserted_rows}
+
+                    # Fetch IDs for rows that already existed and were skipped by on_conflict_do_nothing
+                    missing_ids = [v["district_id"] for v in upsert_values if v["district_id"] not in inserted_map]
+                    if missing_ids:
+                        existing = await self.db.execute(
+                            Prediction.__table__.select().where(
+                                Prediction.district_id.in_(missing_ids),
+                                Prediction.disease == disease,
+                                Prediction.prediction_date == as_of_date,
+                                Prediction.model_version == self.manifest["version"],
+                            )
+                        )
+                        for row in existing.fetchall():
+                            inserted_map[row.district_id] = row.id
+
+                    for cr in chunk_responses:
+                        pred_id = inserted_map.get(cr["d_id"])
+                        if pred_id:
+                            # Trigger alerts AFTER db commit
+                            if cr["risk_tier"] in [RiskTier.HIGH, RiskTier.CRITICAL]:
+                                asyncio.create_task(send_alert_notification(
+                                    alert_id=str(pred_id),
+                                    district_name=str(cr["d_id"]),
+                                    disease=disease,
+                                    risk_score=float(cr["raw_score"])
+                                ))
+
+                            all_responses.append(PredictionResponse(
+                                prediction_id=pred_id,
+                                district_id=cr["d_id"],
+                                disease=disease,
+                                prediction_date=as_of_date,
+                                risk_score=round(cr["raw_score"], 2),
+                                risk_tier=cr["risk_tier"],
+                                baseline_score=None,
+                                delta=None,
+                                shap_values=cr["shap_dict"],
+                                model_version=self.manifest["version"],
+                                extrapolation_warning=cr["extrapolation_warning"],
+                            ))
+
+        return all_responses
     # ── private methods ──────────────────────────────────────────────────────
 
     def _run_regressor(self, X_t: np.ndarray) -> float:

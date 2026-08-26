@@ -1,7 +1,8 @@
 import pandas as pd
 import numpy as np
 from typing import Optional, List, Dict, Any, Union
-from sqlalchemy import text
+from sqlalchemy import text, bindparam
+
 from sqlalchemy.ext.asyncio import AsyncSession
 from sklearn.pipeline import Pipeline
 from sklearn.compose import ColumnTransformer
@@ -101,6 +102,90 @@ class FeatureBuilder:
         
         if not df.empty:
             return pd.DataFrame([df.sort_values("week_start_date", ascending=False).iloc[0]])
+        return pd.DataFrame()
+
+    async def build_batch(
+        self,
+        district_ids: List[Union[str, UUID]],
+        disease: str,
+        as_of_date: Optional[Any] = None
+    ) -> pd.DataFrame:
+        """
+        Builds the feature matrix for multiple districts in a single query.
+        Returns a DataFrame containing one row per district (the most recent record).
+        """
+        if not district_ids:
+            return pd.DataFrame()
+
+        # Format IDs for IN clause
+        id_strings = [str(d) for d in district_ids]
+        # SQL parameter binding for an IN clause with SQLAlchemy requires a tuple
+
+        query = text("""
+            WITH lagged_cases AS (
+                SELECT
+                    district_id,
+                    disease,
+                    week_start_date,
+                    confirmed_cases,
+                    LAG(confirmed_cases, 1) OVER w AS confirmed_cases_lag1,
+                    LAG(confirmed_cases, 2) OVER w AS confirmed_cases_lag2,
+                    LAG(confirmed_cases, 3) OVER w AS confirmed_cases_lag3,
+                    LAG(confirmed_cases, 4) OVER w AS confirmed_cases_lag4,
+                    AVG(confirmed_cases) OVER (w ROWS BETWEEN 3 PRECEDING AND CURRENT ROW) AS cases_rolling_mean_4wk,
+                    STDDEV(confirmed_cases) OVER (w ROWS BETWEEN 3 PRECEDING AND CURRENT ROW) AS cases_rolling_std_4wk
+                FROM raw_data
+                WHERE district_id IN :d_ids AND disease = :disease
+                WINDOW w AS (PARTITION BY district_id, disease ORDER BY week_start_date)
+            ),
+            latest_env AS (
+                SELECT
+                    district_id,
+                    date,
+                    temperature_c,
+                    humidity_pct
+                FROM environmental_data
+                WHERE district_id IN :d_ids
+            ),
+            latest_vacc AS (
+                SELECT
+                    district_id,
+                    disease,
+                    coverage_pct AS vaccination_coverage_pct
+                FROM vaccination_coverage
+                WHERE district_id IN :d_ids AND disease = :disease
+            )
+            SELECT
+                lc.*,
+                e.temperature_c,
+                e.humidity_pct,
+                v.vaccination_coverage_pct
+            FROM lagged_cases lc
+            LEFT JOIN latest_env e ON lc.district_id = e.district_id AND lc.week_start_date = e.date
+            LEFT JOIN latest_vacc v ON lc.district_id = v.district_id AND lc.disease = v.disease
+            WHERE lc.week_start_date <= :as_of_date
+            ORDER BY lc.district_id, lc.week_start_date DESC
+        """).bindparams(bindparam("d_ids", expanding=True))
+
+        # Need to cast list to tuple for IN clause binding in SQLAlchemy text()
+        params = {"d_ids": tuple(id_strings), "disease": disease, "as_of_date": as_of_date if as_of_date else '9999-12-31'}
+
+        result = await self.db.execute(query, params)
+        df = pd.DataFrame(result.fetchall(), columns=result.keys())
+
+        # Post-processing: Ensure types and handle the rolling std imputation
+        if not df.empty:
+            df["cases_rolling_std_4wk"] = df["cases_rolling_std_4wk"].fillna(0.0)
+
+        # Take the most recent row up to as_of_date if provided
+        if as_of_date:
+            df = df[df["week_start_date"] <= as_of_date]
+
+        if not df.empty:
+            # Sort and pick the most recent for each district
+            df = df.sort_values(["district_id", "week_start_date"], ascending=[True, False])
+            df = df.drop_duplicates(subset=["district_id"], keep="first").reset_index(drop=True)
+            return df
         return pd.DataFrame()
 
 
