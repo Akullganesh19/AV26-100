@@ -15,6 +15,8 @@ from app.api.deps import get_db, limiter
 from app.services.prediction_service import load_artifacts, ml_state
 from app.core.scheduler import start_scheduler, stop_scheduler
 from app.core.logging import setup_logging
+from app.core.events import event_bus
+from app.services.synapse_connections import route_alert_to_users
 
 # Initialize Structured Logging
 setup_logging()
@@ -22,6 +24,9 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Synapse connection: Alerts -> Users
+    event_bus.subscribe("alert.triggered", route_alert_to_users)
+
     # 1. Startup: Load all ML artifacts (Atomic — fails if any are missing/corrupt)
     logger.info("Initializing ML artifacts...")
     try:

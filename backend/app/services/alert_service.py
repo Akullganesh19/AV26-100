@@ -62,6 +62,16 @@ class AlertService:
                     db.add(new_alert)
                     await db.commit()
                     logger.info(f"TACTICAL ALERT: Clinical cluster detected in {district_id} ({disease})")
+
+                    from app.core.events import event_bus
+                    event_bus.publish(
+                        "alert.triggered",
+                        alert_id=str(new_alert.id),
+                        district_id=str(district_id),
+                        district_name="Clinical Cluster",
+                        disease=disease,
+                        risk_score=0.88
+                    )
         
         except Exception as e:
             logger.error(
@@ -87,6 +97,16 @@ class AlertService:
             )
             db.add(new_alert)
             await db.commit()
+
+            from app.core.events import event_bus
+            event_bus.publish(
+                "alert.triggered",
+                alert_id=str(new_alert.id),
+                district_id=str(prediction.district_id),
+                district_name="Autonomous Outbreak",
+                disease=prediction.disease,
+                risk_score=float(prediction.risk_score)
+            )
 
     @staticmethod
     async def acknowledge_alert(db: AsyncSession, alert_id: str, user_id: str):
