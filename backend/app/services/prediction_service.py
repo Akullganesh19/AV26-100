@@ -187,7 +187,7 @@ class PredictionService:
         if risk_tier in [RiskTier.HIGH, RiskTier.CRITICAL]:
             asyncio.create_task(send_alert_notification(
                 alert_id=str(prediction_id),
-                district_name=str(d_id), # Ideally fetch actual name, but using id as fallback # In production, fetch from District model
+                district_name=str(district_id), # Ideally fetch actual name, but using id as fallback # In production, fetch from District model
                 disease=disease,
                 risk_score=float(raw_score)
             ))
