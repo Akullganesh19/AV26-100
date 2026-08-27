@@ -1,0 +1,94 @@
+--- frontend/src/components/CalculatorSection.tsx
++++ frontend/src/components/CalculatorSection.tsx
+@@ -5,14 +5,15 @@
+ // STYLES FOR THE SLIDER (MANUAL SHADCN-LIKE SLIDER)
+-const Slider = ({ value, min, max, step, onChange }: any) => {
++const Slider = ({ value, min, max, step, onChange, ariaLabel }: any) => {
+   return (
+     <div className="relative w-full h-6 flex items-center group">
+       <input
+         type="range"
+         min={min}
+         max={max}
+         step={step}
+         value={value}
+         onChange={(e) => onChange(parseInt(e.target.value))}
+-        className="w-full h-1.5 bg-[#1E1E1E] rounded-lg appearance-none cursor-pointer accent-[#FF5656]"
++        aria-label={ariaLabel}
++        className="w-full h-1.5 bg-[#1E1E1E] rounded-lg appearance-none cursor-pointer accent-[#FF5656] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF5656] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0D0D0D]"
+       />
+     </div>
+@@ -79,10 +80,11 @@
+
+             {/* Service Type */}
+-            <div className="space-y-6">
+-              <h3 className="text-lg font-medium opacity-80">What kind of service do you need?</h3>
+-              <div className="flex flex-wrap gap-4">
++            {/* 🎨 UX Concern: Custom pseudo-radio buttons lacked role and ARIA state. Added role="radiogroup" and role="radio", aria-checked attributes and keyboard focus styles. */}
++            <div className="space-y-6" role="radiogroup" aria-labelledby="service-type-label">
++              <h3 className="text-lg font-medium opacity-80" id="service-type-label">What kind of service do you need?</h3>
++              <div className="flex flex-wrap gap-4">
+                 {[
+                   { id: 'design', label: 'Only Design' },
+                   { id: 'development', label: 'Only Development' },
+                   { id: 'both', label: 'Design + Development' }
+                 ].map((opt) => (
+                   <button
+                     key={opt.id}
++                    role="radio"
++                    aria-checked={serviceType === opt.id}
+                     onClick={() => setServiceType(opt.id as any)}
+-                    className="flex items-center gap-3 group cursor-pointer"
++                    className="flex items-center gap-3 group cursor-pointer rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF5656] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0D0D0D]"
+                   >
+                     <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${serviceType === opt.id ? 'border-[#FF5656]' : 'border-[#333]'}`}>
+@@ -107,3 +109,3 @@
+               <div className="space-y-2">
+-                <Slider value={pages} min={1} max={30} step={1} onChange={setPages} />
++                <Slider value={pages} min={1} max={30} step={1} onChange={setPages} ariaLabel="Number of pages" />
+                 <div className="flex justify-between text-[10px] uppercase font-mono text-[#444] tracking-widest pt-1">
+@@ -115,14 +117,15 @@
+             {/* Add-ons */}
++            {/* 🎨 UX Concern: Custom checkboxes were using className="hidden" which removes them from accessibility tree. Moved input before visual element, used sr-only peer, and added peer-focus-visible styles. */}
+             <div className="pt-10 space-y-6">
+               <h3 className="text-lg font-medium opacity-80">Add-ons</h3>
+               <div className="grid gap-4">
+                 {[
+                   { id: 'content', label: 'I will need help with content', price: '+$50/page', state: needContent, set: setNeedContent },
+                   { id: 'seo', label: 'I want to optimize my website for SEO', price: '+$50/page', state: needSEO, set: setNeedSEO }
+                 ].map((addon) => (
+                   <label key={addon.id} className="flex items-center justify-between group cursor-pointer">
+-                    <div className="flex items-center gap-3">
+-                      <div className={`w-5 h-5 border-2 rounded flex items-center justify-center transition-all ${addon.state ? 'bg-[#FF5656] border-[#FF5656]' : 'border-[#333]'}`}>
+-                        {addon.state && <Check size={14} strokeWidth={4} className="text-white" />}
+-                      </div>
++                    <div className="flex items-center gap-3 relative">
+                       <input
+                         type="checkbox"
+-                        className="hidden"
++                        className="sr-only peer"
+                         checked={addon.state}
+@@ -130,2 +133,5 @@
+                       />
++                      <div className={`w-5 h-5 border-2 rounded flex items-center justify-center transition-all peer-focus-visible:ring-2 peer-focus-visible:ring-[#FF5656] peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-[#0D0D0D] ${addon.state ? 'bg-[#FF5656] border-[#FF5656]' : 'border-[#333]'}`}>
++                        {addon.state && <Check size={14} strokeWidth={4} className="text-white" />}
++                      </div>
+                       <span className={`text-sm transition-colors ${addon.state ? 'text-white' : 'text-[#666]'}`}>{addon.label}</span>
+@@ -141,5 +147,5 @@
+             {/* Timeline */}
+-            <div className="pt-10 space-y-6">
+-              <h3 className="text-lg font-medium opacity-80">How fast do you need this?</h3>
+-              <div className="grid gap-4">
++            <div className="pt-10 space-y-6" role="radiogroup" aria-labelledby="timeline-label">
++              <h3 className="text-lg font-medium opacity-80" id="timeline-label">How fast do you need this?</h3>
++              <div className="grid gap-4">
+                 {[
+@@ -150,4 +156,6 @@
+                   <button
+                     key={opt.id}
++                    role="radio"
++                    aria-checked={timeline === opt.id}
+                     onClick={() => setTimeline(opt.id as any)}
+-                    className="flex items-center justify-between group cursor-pointer w-full text-left"
++                    className="flex items-center justify-between group cursor-pointer w-full text-left rounded-lg p-1 -m-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF5656] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0D0D0D]"
+                   >
