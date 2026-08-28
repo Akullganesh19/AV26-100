@@ -4,7 +4,7 @@ import httpx
 from cachetools import TTLCache
 from fastapi import Depends, HTTPException, status, Query, Request
 from fastapi.security import OAuth2PasswordBearer
-from jose import jwt
+import jwt
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -24,9 +24,11 @@ def get_user_id(request: Request) -> str:
             return f"ip:{get_remote_address(request)}"
         
         token = auth_header.split(" ")[1]
-        payload = jwt.get_unverified_claims(token)
+        payload = jwt.decode(token, options={"verify_signature": False, "verify_exp": False, "verify_aud": False, "verify_iss": False})
         user_id = payload.get("sub")
         return f"user:{user_id}" if user_id else f"ip:{get_remote_address(request)}"
+    except jwt.PyJWTError:
+        return f"ip:{get_remote_address(request)}"
     except Exception:
         return f"ip:{get_remote_address(request)}"
 
@@ -69,15 +71,19 @@ async def get_current_user(
     
     try:
         # Extract JTI (Unique Token ID)
-        payload_unverified = jwt.get_unverified_claims(token)
+        payload_unverified = jwt.decode(token, options={"verify_signature": False, "verify_exp": False, "verify_aud": False, "verify_iss": False})
         jti = payload_unverified.get("jti")
         if jti and await r.get(f"revoked_token:{jti}"):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Token has been revoked",
             )
-    except Exception:
+    except jwt.PyJWTError:
         pass # Fall through to standard verification
+    except HTTPException:
+        raise
+    except Exception:
+        pass
     finally:
         await r.aclose()
 
@@ -91,7 +97,7 @@ async def get_current_user(
             options={"verify_aud": True, "verify_iss": True}
         )
         clerk_id = payload.get("sub")
-    except Exception:
+    except jwt.PyJWTError:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Could not validate credentials",
