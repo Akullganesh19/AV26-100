@@ -98,11 +98,13 @@ const MainLayout: React.FC = () => {
         {/* Top Header */}
         <header className="h-16 border-b border-white/5 flex items-center justify-between px-8 bg-black/20 backdrop-blur-md">
           <div className="flex items-center gap-4">
+            {/* 🎨 UX Fix: Accessible icon-only button */}
             <button 
               onClick={() => setSidebarOpen(!isSidebarOpen)}
-              className="p-2 rounded-lg hover:bg-white/5 transition-colors"
+              aria-label={isSidebarOpen ? "Close sidebar" : "Open sidebar"}
+              className="p-2 rounded-lg hover:bg-white/5 transition-colors focus-visible:ring-2 focus-visible:ring-brand-primary"
             >
-              <Menu className="w-5 h-5 text-slate-400" />
+              <Menu className="w-5 h-5 text-slate-400" aria-hidden="true" />
             </button>
             <div className="h-4 w-[1px] bg-white/10" />
             <h1 className="text-sm font-medium text-slate-400">

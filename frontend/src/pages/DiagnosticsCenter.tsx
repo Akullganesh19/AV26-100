@@ -210,12 +210,14 @@ const HeartForm = ({ onSubmit, loading }: { onSubmit: (data: any) => void, loadi
       <Input label="Max HR" type="number" value={data.thalach} onChange={(v) => setData({...data, thalach: parseInt(v)})} />
       <Input label="ST Depression" type="number" step="0.1" value={data.oldpeak} onChange={(v) => setData({...data, oldpeak: parseFloat(v)})} />
       <div className="col-span-full mt-4">
+        {/* 🎨 UX Fix: Add visual disabled state and aria-busy */}
         <button 
           onClick={() => onSubmit(data)}
           disabled={loading}
-          className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-lg shadow-emerald-600/20 transition-all flex items-center justify-center gap-2"
+          aria-busy={loading}
+          className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-lg shadow-emerald-600/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {loading ? 'Analyzing...' : <><Activity size={20}/> RUN MISSION DIAGNOSIS</>}
+          {loading ? 'Analyzing...' : <><Activity size={20} aria-hidden="true"/> RUN MISSION DIAGNOSIS</>}
         </button>
       </div>
     </div>
@@ -237,12 +239,14 @@ const DiabetesForm = ({ onSubmit, loading }: { onSubmit: (data: any) => void, lo
       <Input label="BMI" type="number" step="0.1" value={data.bmi} onChange={(v) => setData({...data, bmi: parseFloat(v)})} />
       <Input label="Age" type="number" value={data.age} onChange={(v) => setData({...data, age: parseInt(v)})} />
       <div className="col-span-full mt-4">
+        {/* 🎨 UX Fix: Add visual disabled state and aria-busy */}
         <button 
           onClick={() => onSubmit(data)}
           disabled={loading}
-          className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-lg shadow-emerald-600/20 transition-all flex items-center justify-center gap-2"
+          aria-busy={loading}
+          className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-lg shadow-emerald-600/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {loading ? 'Analyzing...' : <><Droplet size={20}/> ANALYZE METABOLIC LOAD</>}
+          {loading ? 'Analyzing...' : <><Droplet size={20} aria-hidden="true"/> ANALYZE METABOLIC LOAD</>}
         </button>
       </div>
     </div>
@@ -294,46 +298,58 @@ const ParkinsonsForm = ({ onSubmit, loading }: { onSubmit: (data: any) => void, 
         </div>
       </div>
 
+      {/* 🎨 UX Fix: Add visual disabled state and aria-busy */}
       <button 
         onClick={() => onSubmit({ vocal_metrics: vocalMetrics })}
         disabled={loading}
-        className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-lg shadow-emerald-600/20 transition-all flex items-center justify-center gap-2"
+        aria-busy={loading}
+        className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-lg shadow-emerald-600/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        {loading ? 'Analyzing...' : <><Brain size={20}/> ANALYZE NEURO-SIGNALS</>}
+        {loading ? 'Analyzing...' : <><Brain size={20} aria-hidden="true"/> ANALYZE NEURO-SIGNALS</>}
       </button>
     </div>
   );
 };
 
 // UI Helpers
-const Input = ({ label, type, value, onChange, step }: any) => (
-  <div className="flex flex-col gap-1.5">
-    <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{label}</label>
-    <input 
-      type={type} 
-      step={step}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="bg-slate-900/80 border border-slate-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all"
-    />
-  </div>
-);
+// 🎨 UX Fix: Link label and input for screen readers
+const Input = ({ label, type, value, onChange, step }: any) => {
+  const id = React.useId();
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label htmlFor={id} className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{label}</label>
+      <input
+        id={id}
+        type={type}
+        step={step}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="bg-slate-900/80 border border-slate-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all"
+      />
+    </div>
+  );
+};
 
-const Select = ({ label, value, options, onChange }: any) => (
-  <div className="flex flex-col gap-1.5">
-    <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{label}</label>
-    <select 
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="bg-slate-900/80 border border-slate-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all"
-    >
-      {options.map((o: any) => (
-        <option key={typeof o === 'object' ? o.v : o} value={typeof o === 'object' ? o.v : o}>
-          {typeof o === 'object' ? o.l : o}
-        </option>
-      ))}
-    </select>
-  </div>
-);
+// 🎨 UX Fix: Link label and select for screen readers
+const Select = ({ label, value, options, onChange }: any) => {
+  const id = React.useId();
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label htmlFor={id} className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{label}</label>
+      <select
+        id={id}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="bg-slate-900/80 border border-slate-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all"
+      >
+        {options.map((o: any) => (
+          <option key={typeof o === 'object' ? o.v : o} value={typeof o === 'object' ? o.v : o}>
+            {typeof o === 'object' ? o.l : o}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+};
 
 export default DiagnosticsCenter;
