@@ -45,8 +45,35 @@ const TacticalAlerts: React.FC = () => {
   const acknowledgeMutation = useMutation({
     mutationFn: (alertId: string) => 
       axios.post(`${import.meta.env.VITE_API_URL}/alerts/${alertId}/acknowledge`),
+    onMutate: async (alertId: string) => {
+      const currentKey = ['tactical-alerts', isSimulating, activeSimId];
+      await queryClient.cancelQueries({ queryKey: currentKey });
+
+      const previousAlerts = queryClient.getQueryData<Alert[]>(currentKey);
+
+      queryClient.setQueryData<Alert[] | undefined>(currentKey, (old) => {
+        if (!old) return old;
+        return old.map((alert) =>
+          alert.id === alertId ? { ...alert, status: 'acknowledged' } : alert
+        );
+      });
+
+      return { previousAlerts, currentKey };
+    },
+    onError: (err, alertId, context: any) => {
+      if (context?.previousAlerts && context?.currentKey) {
+        queryClient.setQueryData(context.currentKey, context.previousAlerts);
+      }
+      toast.error('Failed to acknowledge alert.');
+    },
+    onSettled: (data, error, variables, context: any) => {
+      if (context?.currentKey) {
+        queryClient.invalidateQueries({ queryKey: context.currentKey });
+      } else {
+        queryClient.invalidateQueries({ queryKey: ['tactical-alerts'] });
+      }
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tactical-alerts'] });
       toast.success('Mission alert acknowledged');
     }
   });
