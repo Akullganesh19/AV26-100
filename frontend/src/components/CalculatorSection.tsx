@@ -3,10 +3,12 @@ import { Check } from 'lucide-react';
 import { toast } from 'sonner';
 
 // STYLES FOR THE SLIDER (MANUAL SHADCN-LIKE SLIDER)
-const Slider = ({ value, min, max, step, onChange }: any) => {
+const Slider = ({ value, min, max, step, onChange, ariaLabel }: any) => {
   return (
     <div className="relative w-full h-6 flex items-center group">
+      {/* UX Concern: Custom range inputs require an aria-label so screen readers can announce their purpose. */}
       <input
+        aria-label={ariaLabel}
         type="range"
         min={min}
         max={max}
@@ -109,7 +111,7 @@ export const CalculatorSection = () => {
                 <span className="text-2xl font-bold text-[#FF5656]">{pages}</span>
               </div>
               <div className="space-y-2">
-                <Slider value={pages} min={1} max={30} step={1} onChange={setPages} />
+                <Slider value={pages} min={1} max={30} step={1} onChange={setPages} ariaLabel="Number of pages" />
                 <div className="flex justify-between text-[10px] uppercase font-mono text-[#444] tracking-widest pt-1">
                   <span>1 Page</span>
                   <span>30 Pages</span>
