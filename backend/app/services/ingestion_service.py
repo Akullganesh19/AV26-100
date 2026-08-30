@@ -8,6 +8,7 @@ from app.api.integrations import weather_client
 from app.models.district import District
 from app.models.environmental_data import EnvironmentalData
 from app.models.pipeline_run import PipelineRun
+from app.core.healing import with_retry
 
 
 logger = logging.getLogger(__name__)
@@ -38,7 +39,8 @@ class IngestionService:
             total_rows = 0
             for district in districts:
                 # Fetch weather
-                raw_data = await weather_client.get_daily_weather(
+                raw_data = await with_retry(
+                    weather_client.get_daily_weather,
                     latitude=float(district.latitude),
                     longitude=float(district.longitude),
                     start_date=start_date,
