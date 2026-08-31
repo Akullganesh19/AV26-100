@@ -45,7 +45,7 @@ VITE_APP_NAME=EpiSense
 | ORM | SQLAlchemy | 2.0.30 | Async ORM, type-safe |
 | DB migrations | Alembic | 1.13.1 | Migration versioning |
 | Data validation | Pydantic | 2.7.3 | FastAPI-native, V2 speed |
-| Auth | python-jose | 3.3.0 | JWT encode/decode |
+| Auth | PyJWT[crypto] | 2.8.0 | JWT encode/decode |
 | Password hashing | passlib[bcrypt] | 1.7.4 | bcrypt hashing |
 | Email | fastapi-mail | 1.4.1 | SMTP email dispatch |
 | Scheduler | APScheduler | 3.10.4 | Cron-style data ingestion |
