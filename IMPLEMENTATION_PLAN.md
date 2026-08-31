@@ -20,7 +20,7 @@ mkdir frontend backend
 cd backend
 python -m venv venv && source venv/bin/activate
 pip install fastapi uvicorn sqlalchemy asyncpg alembic pydantic[email] pydantic-settings \
-  python-jose passlib[bcrypt] httpx apscheduler xgboost pandas numpy shap \
+  PyJWT[crypto] passlib[bcrypt] httpx apscheduler xgboost pandas numpy shap \
   scikit-learn mlflow reportlab fastapi-mail python-multipart
 pip freeze > requirements.txt
 ```
