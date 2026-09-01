@@ -15,6 +15,7 @@ from app.api.deps import get_db, limiter
 from app.services.prediction_service import load_artifacts, ml_state
 from app.core.scheduler import start_scheduler, stop_scheduler
 from app.core.logging import setup_logging
+from app.services.notification_service import setup_notifications
 
 # Initialize Structured Logging
 setup_logging()
@@ -22,6 +23,9 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Setup Event Bus
+    setup_notifications()
+
     # 1. Startup: Load all ML artifacts (Atomic — fails if any are missing/corrupt)
     logger.info("Initializing ML artifacts...")
     try:
