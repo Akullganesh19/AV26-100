@@ -1,4 +1,5 @@
-from typing import Generator, List, Optional
+import json
+from typing import Any, Generator, List, Optional
 import uuid
 import httpx
 from cachetools import TTLCache
@@ -47,14 +48,24 @@ async def get_db() -> Generator:
     async with SessionLocal() as session:
         yield session
 
-async def get_clerk_public_key() -> str:
+
+async def get_clerk_public_key() -> Any:
     """Fetches and caches Clerk JWKS to prevent outbound calls on every request."""
     if "pem" in clerk_key_cache:
         return clerk_key_cache["pem"]
     
     # Note: In a world-class setup, we would fetch from settings.CLERK_JWKS_URL
     # and convert the JWK to PEM. For now, we protect the existing PEM setting.
-    clerk_key_cache["pem"] = settings.CLERK_PEM_PUBLIC_KEY
+    raw_key = settings.CLERK_PEM_PUBLIC_KEY
+    try:
+        # Check if the key is actually a JWK dictionary string (which python-jose accepted natively)
+        jwk_dict = json.loads(raw_key)
+        parsed_key = jwt.algorithms.RSAAlgorithm.from_jwk(jwk_dict)
+    except (json.JSONDecodeError, TypeError, KeyError, jwt.PyJWTError):
+        # Fall back to assuming it's a standard PEM string
+        parsed_key = raw_key
+
+    clerk_key_cache["pem"] = parsed_key
     return clerk_key_cache["pem"]
 
 async def get_current_user(
