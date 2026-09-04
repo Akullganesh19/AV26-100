@@ -27,7 +27,7 @@ def get_user_id(request: Request) -> str:
         payload = jwt.get_unverified_claims(token)
         user_id = payload.get("sub")
         return f"user:{user_id}" if user_id else f"ip:{get_remote_address(request)}"
-    except Exception:
+    except jwt.JWTError:
         return f"ip:{get_remote_address(request)}"
 
 limiter = Limiter(key_func=get_user_id)
@@ -76,6 +76,8 @@ async def get_current_user(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Token has been revoked",
             )
+    except HTTPException:
+        raise
     except Exception:
         pass # Fall through to standard verification
     finally:
@@ -91,7 +93,7 @@ async def get_current_user(
             options={"verify_aud": True, "verify_iss": True}
         )
         clerk_id = payload.get("sub")
-    except Exception:
+    except jwt.JWTError:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Could not validate credentials",
