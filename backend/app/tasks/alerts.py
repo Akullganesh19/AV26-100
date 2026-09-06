@@ -1,9 +1,11 @@
 import logging
 import time
 from uuid import UUID
+from app.core.healing import with_retry
 
 logger = logging.getLogger(__name__)
 
+@with_retry(max_attempts=3, base_delay=1.0)
 async def send_alert_notification(alert_id: str, district_name: str, disease: str, risk_score: float):
     """
     Asynchronous task to deliver critical alerts to health officials.
@@ -30,4 +32,5 @@ async def send_alert_notification(alert_id: str, district_name: str, disease: st
         
     except Exception as exc:
         logger.error(f"Dispatch failed for {alert_id}: {str(exc)}")
-        return {"status": "failed", "error": str(exc)}
+        # Re-raise so the retry decorator can catch it
+        raise
