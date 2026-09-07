@@ -13,12 +13,65 @@ import {
   Map as MapIcon
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
+import { useQueryClient } from '@tanstack/react-query';
+import axios from 'axios';
 
 const MainLayout: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { logout, user } = useAuthStore();
   const [isSidebarOpen, setSidebarOpen] = React.useState(true);
+  const queryClient = useQueryClient();
+
+  // Oracle: Predictive Intent Engine
+  // Anticipates user navigation via hover events and prefetches payloads
+  // before the click occurs, reducing perceived latency to ~0ms.
+  const prefetchRouteIntent = (path: string) => {
+    const STALE_TIME = 5 * 60 * 1000;
+    try {
+      if (path === '/') {
+        queryClient.prefetchQuery({
+          queryKey: ['dashboard-stats'],
+          queryFn: async () => {
+            const res = await axios.get(`${import.meta.env.VITE_API_URL}/districts/stats`);
+            return res.data;
+          },
+          staleTime: STALE_TIME
+        });
+      } else if (path === '/map') {
+        queryClient.prefetchQuery({
+          queryKey: ['choropleth-data', false, null],
+          queryFn: async () => {
+            const url = `${import.meta.env.VITE_API_URL}/districts`;
+            const res = await axios.get(url);
+            return res.data;
+          },
+          staleTime: STALE_TIME
+        });
+      } else if (path === '/alerts') {
+        queryClient.prefetchQuery({
+          queryKey: ['tactical-alerts', false, null],
+          queryFn: async () => {
+            const url = `${import.meta.env.VITE_API_URL}/alerts`;
+            const res = await axios.get(url);
+            return res.data;
+          },
+          staleTime: STALE_TIME
+        });
+      } else if (path === '/simulations') {
+        queryClient.prefetchQuery({
+          queryKey: ['sim-scenarios'],
+          queryFn: async () => {
+            const res = await axios.get(`${import.meta.env.VITE_API_URL}/scenarios/`);
+            return res.data;
+          },
+          staleTime: STALE_TIME
+        });
+      }
+    } catch (e) {
+      console.warn("Oracle Prefetch failed:", e);
+    }
+  };
 
   const navItems = [
     { path: '/', label: 'Command Center', icon: LayoutDashboard },
@@ -62,6 +115,8 @@ const MainLayout: React.FC = () => {
               <Link
                 key={item.path}
                 to={item.path}
+                onMouseEnter={() => prefetchRouteIntent(item.path)}
+                onFocus={() => prefetchRouteIntent(item.path)}
                 className={`flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-200 group ${
                   isActive 
                     ? 'bg-brand-primary/10 text-brand-primary border border-brand-primary/20 shadow-[0_0_15px_rgba(30,144,255,0.1)]' 
