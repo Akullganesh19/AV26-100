@@ -5,7 +5,7 @@ from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.scenario import Scenario, ScenarioEvent, SimulationState
 from app.models.audit_log import PredictionAuditLog
-from app.models.alert import Alert, AlertStatus
+from app.models.alert import Alert
 from app.services.alert_service import AlertService
 from app.core.config import settings
 
