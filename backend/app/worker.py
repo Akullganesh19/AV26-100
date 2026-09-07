@@ -1,5 +1,5 @@
 from celery import Celery
-from kombu import Exchange, Queue
+from kombu import Queue
 from app.core.config import settings
 
 celery_app = Celery(
