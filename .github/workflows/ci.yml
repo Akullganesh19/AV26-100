@@ -40,6 +40,11 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r backend/requirements.txt
         pip install pytest pytest-asyncio httpx psycopg2-binary
+        pip install asyncpg
+
+    - name: Setup test database
+      run: |
+        PGPASSWORD=episense psql -h localhost -U episense -d postgres -c "CREATE DATABASE episense_test_test;"
 
     - name: Run Gitleaks Secret Scan
       uses: gitleaks/gitleaks-action@v3
