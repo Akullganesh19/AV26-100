@@ -11,7 +11,6 @@ from sqlalchemy import select
 from app.core.config import settings
 from app.core.database import SessionLocal
 from app.models.user import User, UserRole
-from app.schemas.auth import TokenPayload
 
 from slowapi import Limiter
 from slowapi.util import get_remote_address
