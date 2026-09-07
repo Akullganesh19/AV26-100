@@ -1,5 +1,4 @@
 from typing import Generator, List, Optional
-import uuid
 import httpx
 from cachetools import TTLCache
 from fastapi import Depends, HTTPException, status, Query, Request
