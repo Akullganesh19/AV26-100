@@ -15,7 +15,6 @@ import shap
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
-from app.core.config import settings
 from app.ml.features import FeatureBuilder, FEATURE_NAMES
 from app.models.prediction import Prediction, RiskTier
 from app.schemas.prediction import PredictionResponse
