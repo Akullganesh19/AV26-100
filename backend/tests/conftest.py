@@ -6,8 +6,14 @@ from sqlalchemy.orm import sessionmaker
 from app.core.database import Base
 from app.core.config import settings
 
-# Use the dedicated test database created in the previous step
-TEST_DATABASE_URL = str(settings.DATABASE_URL) + "_test"
+# In the CI environment, the DATABASE_URL is already pointing to the test database.
+# Let's check if it ends with '_test' before appending another '_test'.
+import os
+db_url_str = str(settings.DATABASE_URL)
+if db_url_str.endswith("_test"):
+    TEST_DATABASE_URL = db_url_str
+else:
+    TEST_DATABASE_URL = db_url_str + "_test"
 
 @pytest_asyncio.fixture
 async def db_session():
