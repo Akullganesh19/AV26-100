@@ -5,7 +5,7 @@ import hashlib
 import json
 from pathlib import Path
 from datetime import datetime
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 from app.core.config import settings
 
 # Paths resolved relative to the backend root (where main.py runs)
