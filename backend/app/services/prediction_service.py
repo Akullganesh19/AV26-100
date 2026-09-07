@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import joblib
+import hashlib
 import pandas as pd
 import numpy as np
 import asyncio
@@ -49,7 +50,7 @@ def get_latest_manifest() -> dict:
     with open(MANIFEST_PATH) as f:
         manifest = json.load(f)
 
-    required_keys = {"version", "pipeline", "regressor", "classifier", "explainer", "feature_bounds"}
+    required_keys = {"version", "pipeline", "regressor", "classifier", "explainer", "feature_bounds", "hashes"}
     missing = required_keys - set(manifest.keys())
     if missing:
         raise RuntimeError(f"Manifest missing required keys: {missing}")
@@ -71,7 +72,20 @@ def load_artifacts() -> dict:
         if not Path(path).exists():
             raise RuntimeError(f"Artifact not found: {path}")
         logger.info(f"Loading {key} from {path}")
-        artifacts[key] = joblib.load(path)
+
+        expected_hash = manifest["hashes"].get(key)
+        if not expected_hash:
+            raise RuntimeError(f"Missing hash in manifest for {key}")
+
+        with open(path, "rb") as f:
+            content = f.read()
+            actual_hash = hashlib.sha256(content).hexdigest()
+            if actual_hash != expected_hash:
+                raise RuntimeError(f"Security error: hash mismatch for {key}. Expected {expected_hash}, got {actual_hash}")
+
+            # joblib doesn't have loads(), but load() accepts a file-like object
+            import io
+            artifacts[key] = joblib.load(io.BytesIO(content))
 
     logger.info(f"ML artifacts loaded. Model version: {manifest['version']}")
     return artifacts
