@@ -1,0 +1,6 @@
+## 2024-05-24 — Fixed Custom Controls Accessibility in Calculator
+**Found:** Custom checkboxes, radio buttons, and range slider lacked keyboard focus states and appropriate ARIA roles/attributes. Hidden inputs were completely removed from flow.
+**Why it existed:** The component was built purely visually mimicking Shadcn without transferring the underlying accessibility behaviors.
+**Fix:** Changed `className="hidden"` to `className="sr-only peer"` on checkboxes and added `peer-focus-visible` to custom visual containers. Added `role="radiogroup"`, `role="radio"`, `aria-labelledby`, and `aria-checked` to custom radio buttons. Added `aria-label` to slider. Added `focus-visible` styles to all interactive elements.
+**Learning:** When implementing custom checkboxes using Tailwind CSS, do not hide the native `<input type="checkbox">` element using the `hidden` class (`display: none`), as this completely breaks keyboard focus and accessibility. Instead, use `className="sr-only peer"` to visually hide the input while keeping it focusable, and apply `peer-focus-visible` styles (e.g., `peer-focus-visible:ring-2`) to the custom visual indicator element to provide clear keyboard focus feedback.
+**Watch for:** Other custom visual components bypassing native semantic elements and hiding inputs using `display: none`.
