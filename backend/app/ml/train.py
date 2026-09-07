@@ -5,6 +5,7 @@ import json
 import pandas as pd
 import numpy as np
 import shap
+import hashlib
 from datetime import datetime, UTC
 from pathlib import Path
 from xgboost import XGBRegressor, XGBClassifier
@@ -204,17 +205,33 @@ async def train_model():
 
         # 12. Save artifacts
         version = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
-        joblib.dump(pipeline, MODELS_DIR / f"feature_pipeline_{version}.joblib")
-        joblib.dump(regressor, MODELS_DIR / f"regressor_{version}.joblib")
-        joblib.dump(classifier, MODELS_DIR / f"classifier_{version}.joblib")
-        joblib.dump(explainer, MODELS_DIR / f"shap_explainer_{version}.joblib")
 
-        manifest = {
-            "version": version,
+        files_to_hash = {
             "pipeline": f"feature_pipeline_{version}.joblib",
             "regressor": f"regressor_{version}.joblib",
             "classifier": f"classifier_{version}.joblib",
-            "explainer": f"shap_explainer_{version}.joblib",
+            "explainer": f"shap_explainer_{version}.joblib"
+        }
+
+        joblib.dump(pipeline, MODELS_DIR / files_to_hash["pipeline"])
+        joblib.dump(regressor, MODELS_DIR / files_to_hash["regressor"])
+        joblib.dump(classifier, MODELS_DIR / files_to_hash["classifier"])
+        joblib.dump(explainer, MODELS_DIR / files_to_hash["explainer"])
+
+        hashes = {}
+        for key, filename in files_to_hash.items():
+            path = MODELS_DIR / filename
+            with open(path, "rb") as f:
+                content = f.read()
+                hashes[key] = hashlib.sha256(content).hexdigest()
+
+        manifest = {
+            "version": version,
+            "pipeline": files_to_hash["pipeline"],
+            "regressor": files_to_hash["regressor"],
+            "classifier": files_to_hash["classifier"],
+            "explainer": files_to_hash["explainer"],
+            "hashes": hashes,
             "feature_bounds": feature_bounds,
             "metrics": {"mae": mae, "rmse": rmse, "f1": f1},
             "trained_at": datetime.now(UTC).isoformat(),
