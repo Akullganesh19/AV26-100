@@ -31,12 +31,9 @@ class ClinicalService:
         with open(MANIFEST_PATH, "r") as f:
             return json.load(f)
 
-    def _verify_and_load(self, name: str, path: Path):
+    def _verify_and_load(self, name: str, path: Path, expected_hash: str):
         if not path.exists():
-            raise FileNotFoundError(f"Model {name} not found at {path}")
-        
-        expected = self._manifest["active"].get(name, {})
-        expected_hash = expected.get("sha256")
+            raise FileNotFoundError(f"File {name} not found at {path}")
         
         if not expected_hash:
             raise SecurityError(f"No hash defined for {name} in manifest!")
@@ -45,9 +42,10 @@ class ClinicalService:
             content = f.read()
             actual_hash = hashlib.sha256(content).hexdigest().upper()
             if actual_hash != expected_hash.upper():
-                raise SecurityError(f"Integrity violation: {name} model hash mismatch! Security compromised.")
+                raise SecurityError(f"Integrity violation: {name} hash mismatch! Security compromised.")
             
-            return joblib.loads(content)
+            import io
+            return joblib.load(io.BytesIO(content))
 
     def _load_model(self, disease: str):
         if disease not in self._models:
@@ -55,11 +53,22 @@ class ClinicalService:
             if not metadata:
                 raise ValueError(f"Disease {disease} not supported in active manifest.")
             
-            self._models[disease] = self._verify_and_load(disease, MODELS_DIR / metadata["file"])
+            self._models[disease] = self._verify_and_load(
+                disease,
+                MODELS_DIR / metadata["file"],
+                metadata.get("sha256")
+            )
+
+            scaler_file = metadata.get("scaler_file")
+            scaler_hash = metadata.get("scaler_sha256")
             
-            scaler_path = MODELS_DIR / f"scaler_{disease}.sav"
-            if scaler_path.exists():
-                self._scalers[disease] = joblib.load(scaler_path)
+            if scaler_file and scaler_hash:
+                scaler_path = MODELS_DIR / scaler_file
+                self._scalers[disease] = self._verify_and_load(
+                    f"scaler_{disease}",
+                    scaler_path,
+                    scaler_hash
+                )
             else:
                 self._scalers[disease] = None
 
