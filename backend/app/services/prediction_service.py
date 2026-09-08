@@ -8,6 +8,9 @@ import asyncio
 import logging
 from datetime import date
 from pathlib import Path
+
+# Module-level set to store strong references to background tasks
+background_tasks = set()
 from typing import Any, Dict, Optional
 from uuid import UUID
 
@@ -185,12 +188,14 @@ class PredictionService:
 
         # Step 7: Trigger Asynchronous Alerts if high risk
         if risk_tier in [RiskTier.HIGH, RiskTier.CRITICAL]:
-            asyncio.create_task(send_alert_notification(
+            task = asyncio.create_task(send_alert_notification(
                 alert_id=str(prediction_id),
                 district_name="Jurisdiction Monitor", # In production, fetch from District model
                 disease=disease,
                 risk_score=float(raw_score)
             ))
+            background_tasks.add(task)
+            task.add_done_callback(background_tasks.discard)
 
         return PredictionResponse(
             prediction_id=prediction_id,
@@ -233,8 +238,9 @@ class PredictionService:
                     )
                     return None
 
-        tasks = [_predict_with_sem(d_id) for d_id in district_ids]
-        results = await asyncio.gather(*tasks)
+        results = []
+        for d_id in district_ids:
+            results.append(await _predict_with_sem(d_id))
 
         # Filter out skipped districts (None)
         return [r for r in results if r is not None]

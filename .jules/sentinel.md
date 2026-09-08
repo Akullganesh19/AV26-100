@@ -1,0 +1,6 @@
+## 2026-06-16 — Security and Concurrency Vulnerabilities Fixed
+**Attacked:** Auth token revocation (`deps.py`) and prediction batching (`prediction_service.py`).
+**Found:** 1) The authentication fallback mechanism swallowed `HTTPException`s from the revoked token check, allowing revoked tokens to successfully authenticate. 2) The `PredictionService.predict_batch` method executed queries concurrently on a single `AsyncSession`, causing `IllegalStateChangeError` crashes. 3) The `asyncio.create_task` call for `send_alert_notification` was vulnerable to garbage collection.
+**Severity:** 🔴
+**Fixed or flagged:** Fixed. I explicitly caught `HTTPException` before falling through to the broad exception handler in `deps.py`. I refactored `predict_batch` to execute sequentially to respect SQLAlchemy's concurrency limitations, and I added a global `background_tasks` set to persist strong references to alert tasks.
+**Systemic pattern:** Look out for broad `except Exception:` blocks in authentication paths, any use of `asyncio.gather` on the database session in other services, and fire-and-forget `asyncio.create_task` usage without garbage collection safeguards.
