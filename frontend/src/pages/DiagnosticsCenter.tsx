@@ -9,13 +9,15 @@ import {
   CheckCircle2,
   Stethoscope,
   Info,
-  Download
+  Download,
+  History
 } from 'lucide-react';
-import axios from 'axios';
 import { toast } from 'sonner';
 import { useSearchParams } from 'react-router-dom';
+import { apiClient } from '../api/client';
+import { useEffect } from 'react';
 
-type DiseaseType = 'heart' | 'diabetes' | 'parkinsons';
+type DiseaseType = 'heart' | 'diabetes' | 'parkinsons' | 'history';
 
 const DiagnosticsCenter: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -25,12 +27,28 @@ const DiagnosticsCenter: React.FC = () => {
   const [selectedDistrict, setSelectedDistrict] = useState<string>(districtIdFromUrl || '');
   const [loading, setLoading] = useState(false);
   const [prediction, setPrediction] = useState<any>(null);
+  const [history, setHistory] = useState<any[]>([]);
+
+  const fetchHistory = async () => {
+    try {
+      const response = await apiClient.get('/clinical/history');
+      setHistory(response.data);
+    } catch (error) {
+      console.error('Failed to fetch history', error);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'history') {
+      fetchHistory();
+    }
+  }, [activeTab]);
 
   const handleDiagnose = async (formData: any) => {
     setLoading(true);
     setPrediction(null);
     try {
-      const response = await axios.post(`${import.meta.env.VITE_API_URL}/clinical/${activeTab}`, formData);
+      const response = await apiClient.post(`/clinical/${activeTab}`, formData);
       setPrediction(response.data);
       if (response.data.risk) {
         toast.error(`High risk detected for ${activeTab.toUpperCase()}`, {
@@ -54,8 +72,8 @@ const DiagnosticsCenter: React.FC = () => {
   const handleDownloadReport = async () => {
     if (!prediction) return;
     try {
-      const response = await axios.post(
-        `${import.meta.env.VITE_API_URL}/clinical/report`,
+      const response = await apiClient.post(
+        '/clinical/report',
         [prediction], // Send current prediction in a list
         { responseType: 'blob' }
       );
@@ -123,6 +141,20 @@ const DiagnosticsCenter: React.FC = () => {
             <span className="font-medium">Parkinson's</span>
           </button>
 
+          <div className="my-2 border-t border-slate-800/50"></div>
+
+          <button
+            onClick={() => setActiveTab('history')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all border ${
+              activeTab === 'history'
+              ? 'bg-blue-500/10 border-blue-500/50 text-white shadow-lg shadow-blue-500/10'
+              : 'bg-slate-900/50 border-slate-800 text-slate-400 hover:bg-slate-800/50 hover:text-white'
+            }`}
+          >
+            <History className={activeTab === 'history' ? 'text-blue-500' : ''} />
+            <span className="font-medium">Screening History</span>
+          </button>
+
           <div className="mt-8 p-4 rounded-xl bg-slate-900/50 border border-slate-800/50">
             <h3 className="text-sm font-semibold text-slate-300 flex items-center gap-2 mb-2">
               <Info className="h-4 w-4 text-emerald-500" />
@@ -143,14 +175,44 @@ const DiagnosticsCenter: React.FC = () => {
               {activeTab === 'heart' && <><Activity className="text-emerald-500" /> Heart Risk Assessment</>}
               {activeTab === 'diabetes' && <><Droplet className="text-emerald-500" /> Metabolic Screening</>}
               {activeTab === 'parkinsons' && <><Brain className="text-emerald-500" /> Neuro-vocal Analysis</>}
+              {activeTab === 'history' && <><History className="text-blue-500" /> Screening History</>}
             </h2>
 
             {activeTab === 'heart' && <HeartForm onSubmit={handleDiagnose} loading={loading} />}
             {activeTab === 'diabetes' && <DiabetesForm onSubmit={handleDiagnose} loading={loading} />}
             {activeTab === 'parkinsons' && <ParkinsonsForm onSubmit={handleDiagnose} loading={loading} />}
+            {activeTab === 'history' && (
+              <div className="space-y-4">
+                {history.length === 0 ? (
+                  <div className="text-slate-400 text-center py-8">No screening history found.</div>
+                ) : (
+                  history.map((item) => (
+                    <div key={item.id} className={`p-4 rounded-xl border flex items-center justify-between ${
+                      item.risk_score > 0.7 ? 'bg-red-500/10 border-red-500/30' : 'bg-slate-800/50 border-slate-700'
+                    }`}>
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-semibold text-white capitalize">{item.endpoint.replace('clinical/', '')}</span>
+                          {item.risk_score > 0.7 && <AlertTriangle className="h-4 w-4 text-red-500" />}
+                        </div>
+                        <div className="text-sm text-slate-400">
+                          {new Date(item.timestamp).toLocaleString()}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className={`text-lg font-bold ${item.risk_score > 0.7 ? 'text-red-400' : 'text-emerald-400'}`}>
+                          {(item.risk_score * 100).toFixed(1)}% Risk
+                        </div>
+                        <div className="text-xs text-slate-500">{item.status}</div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
           </div>
 
-          {prediction && (
+          {prediction && activeTab !== 'history' && (
             <div className={`p-6 rounded-2xl border animate-in zoom-in-95 duration-300 ${
               prediction.risk 
               ? 'bg-red-500/10 border-red-500/30' 
