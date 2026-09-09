@@ -10,6 +10,28 @@ export const apiClient = axios.create({
   },
 });
 
+// 🌀 Phantom: Invisible Infrastructure - Request Coalescing
+// Identical GET requests made concurrently will resolve to the exact same promise.
+// Prevents thundering herds of requests on component mount/render.
+const inFlightRequests = new Map();
+
+const originalGet = apiClient.get;
+(apiClient as any).get = async (url: string, config?: any) => {
+  const cacheKey = url + JSON.stringify(config || {});
+
+  if (inFlightRequests.has(cacheKey)) {
+    console.debug(`🌀 Phantom: Coalesced duplicate request to ${url}`);
+    return inFlightRequests.get(cacheKey);
+  }
+
+  const promise = originalGet.call(apiClient, url, config).finally(() => {
+    inFlightRequests.delete(cacheKey);
+  });
+
+  inFlightRequests.set(cacheKey, promise);
+  return promise;
+};
+
 apiClient.interceptors.request.use((config) => {
   const token = useAuthStore.getState().token;
   if (token) {
