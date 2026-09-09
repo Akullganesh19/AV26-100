@@ -99,6 +99,7 @@ const MainLayout: React.FC = () => {
         <header className="h-16 border-b border-white/5 flex items-center justify-between px-8 bg-black/20 backdrop-blur-md">
           <div className="flex items-center gap-4">
             <button 
+              aria-label="Toggle Sidebar"
               onClick={() => setSidebarOpen(!isSidebarOpen)}
               className="p-2 rounded-lg hover:bg-white/5 transition-colors"
             >
