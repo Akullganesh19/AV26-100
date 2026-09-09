@@ -27,3 +27,22 @@ apiClient.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+// --- Request Coalescing ---
+const originalGet = apiClient.get;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const inFlightRequests = new Map<string, Promise<any>>();
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+(apiClient as any).get = function (url: string, config?: any) {
+  const serializedParams = config?.params ? JSON.stringify(config.params) : '';
+  const cacheKey = `${url}?${serializedParams}`;
+  if (inFlightRequests.has(cacheKey)) {
+    return inFlightRequests.get(cacheKey);
+  }
+  const promise = originalGet.call(this, url, config).finally(() => {
+    inFlightRequests.delete(cacheKey);
+  });
+  inFlightRequests.set(cacheKey, promise);
+  return promise;
+};
