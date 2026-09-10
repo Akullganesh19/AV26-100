@@ -1,0 +1,4 @@
+## 2024-09-10 - [TOCTOU in Joblib Deserialization]
+**Vulnerability:** Time-Of-Check to Time-Of-Use (TOCTOU) vulnerability during joblib deserialization when attempting to prevent malicious model loading.
+**Learning:** `joblib` does not provide a `.loads` method for loading directly from bytes in memory. Attempting to check a file's hash and then re-read the file by passing the path to `joblib.load(path)` opens a window where an attacker could replace the file after the check but before the load. Simply reading the file into bytes and trying `joblib.loads(bytes)` fails because the function doesn't exist.
+**Prevention:** Use `joblib.load(io.BytesIO(content))` to safely load models directly from the verified byte buffer in memory, eliminating the TOCTOU window while supporting the expected file-like interface.
