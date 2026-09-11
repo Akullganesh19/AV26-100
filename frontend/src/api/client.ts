@@ -27,3 +27,24 @@ apiClient.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+
+// 🌀 Phantom: Request Coalescing
+// Multiple simultaneous requests for the same resource → one request
+const inFlight = new Map();
+
+const originalGet = apiClient.get;
+(apiClient as any).get = function (url: string, config?: any) {
+  const cacheKey = config ? `${url}-${JSON.stringify(config)}` : url;
+
+  if (inFlight.has(cacheKey)) {
+    return inFlight.get(cacheKey);
+  }
+
+  const promise = originalGet.call(this, url, config).finally(() => {
+    inFlight.delete(cacheKey);
+  });
+
+  inFlight.set(cacheKey, promise);
+  return promise;
+};
