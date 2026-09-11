@@ -6,8 +6,9 @@ from sqlalchemy.orm import sessionmaker
 from app.core.database import Base
 from app.core.config import settings
 
-# Use the dedicated test database created in the previous step
-TEST_DATABASE_URL = str(settings.DATABASE_URL) + "_test"
+# In the backend test configuration (`conftest.py`), when constructing the `TEST_DATABASE_URL` dynamically from `settings.DATABASE_URL`, ensure the logic checks if the base URL already ends with `_test` before appending it (e.g., `db_url_str if db_url_str.endswith("_test") else f"{db_url_str}_test"`). This avoids appending `_test` multiple times resulting in `InvalidCatalogNameError` for non-existent databases like `episense_test_test`.
+db_url_str = str(settings.DATABASE_URL)
+TEST_DATABASE_URL = db_url_str if db_url_str.endswith("_test") else f"{db_url_str}_test"
 
 @pytest_asyncio.fixture
 async def db_session():
