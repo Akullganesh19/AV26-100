@@ -13,9 +13,12 @@ import {
   Map as MapIcon
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
+import { useQueryClient } from '@tanstack/react-query';
+import axios from 'axios';
 
 const MainLayout: React.FC = () => {
   const location = useLocation();
+  const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { logout, user } = useAuthStore();
   const [isSidebarOpen, setSidebarOpen] = React.useState(true);
@@ -58,10 +61,46 @@ const MainLayout: React.FC = () => {
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = location.pathname === item.path;
+
+            // ORACLE: Predictive Prefetching
+            // When user intends to navigate, pre-warm the cache for that route's data
+            const handleMouseEnter = () => {
+              if (item.path === '/map') {
+                queryClient.prefetchQuery({
+                  queryKey: ['choropleth-data', false, null], // default args, map isn't simulating by default from nav
+                  queryFn: async () => {
+                    const response = await axios.get(`${import.meta.env.VITE_API_URL}/districts`);
+                    return response.data;
+                  },
+                  staleTime: 60000, // keep prefetch fresh for 1 min
+                });
+              } else if (item.path === '/alerts') {
+                queryClient.prefetchQuery({
+                  queryKey: ['tactical-alerts', false, null],
+                  queryFn: async () => {
+                    const response = await axios.get(`${import.meta.env.VITE_API_URL}/alerts`);
+                    return response.data;
+                  },
+                  staleTime: 30000,
+                });
+              } else if (item.path === '/') {
+                queryClient.prefetchQuery({
+                  queryKey: ['dashboard-stats'],
+                  queryFn: async () => {
+                    const response = await axios.get(`${import.meta.env.VITE_API_URL}/districts/stats`);
+                    return response.data;
+                  },
+                  staleTime: 60000,
+                });
+              }
+            };
+
             return (
               <Link
                 key={item.path}
                 to={item.path}
+                onMouseEnter={handleMouseEnter}
+                onFocus={handleMouseEnter}
                 className={`flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-200 group ${
                   isActive 
                     ? 'bg-brand-primary/10 text-brand-primary border border-brand-primary/20 shadow-[0_0_15px_rgba(30,144,255,0.1)]' 
