@@ -1,10 +1,14 @@
 import asyncio
+import logging
 import cloudinary.uploader
 from algoliasearch.search_client import SearchClient
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
 from stream_chat import StreamChat
 from app.core.config import settings
+from app.core.resilience import with_retry, CircuitBreaker
+
+logger = logging.getLogger(__name__)
 
 class IntegrationService:
     def __init__(self):
@@ -18,11 +22,16 @@ class IntegrationService:
         # GetStream Setup
         self.stream = StreamChat(api_key=settings.STREAM_API_KEY, api_secret=settings.STREAM_API_SECRET)
 
+        self.email_breaker = CircuitBreaker(failure_threshold=3, recovery_timeout=60.0)
+
     async def sync_district_to_algolia(self, district_data: dict):
         """Indexes district for world-class search performance."""
         district_data["objectID"] = str(district_data["id"])
         # Offload sync I/O to a separate thread
-        await asyncio.to_thread(self.index.save_object, district_data)
+        await with_retry(asyncio.to_thread, self.index.save_object, district_data, max_attempts=3)
+
+    async def _send_email_fallback(self, to_email: str, district_name: str, disease: str, risk_score: float):
+        logger.error(f"Email failed to {to_email} for {district_name}. Circuit open. Logging locally.")
 
     async def send_health_alert_email(self, to_email: str, district_name: str, disease: str, risk_score: float):
         """Sends high-priority alerts via SendGrid."""
@@ -32,16 +41,29 @@ class IntegrationService:
             subject=f"CRITICAL: Outbreak Risk in {district_name}",
             plain_text_content=f"High risk detected for {disease}. Score: {risk_score}"
         )
+
+        async def target():
+            return await asyncio.to_thread(self.sg.send, message)
+
+        async def fallback():
+            return await self._send_email_fallback(to_email, district_name, disease, risk_score)
+
         # Offload sync I/O to a separate thread
-        await asyncio.to_thread(self.sg.send, message)
+        await self.email_breaker.call(
+            target,
+            fallback_func=fallback
+        )
 
     async def upload_report_to_cloudinary(self, file_bytes: bytes, district_id: str):
         """Uploads generated PDF reports to Cloudinary CDN."""
-        upload_result = cloudinary.uploader.upload(
+        upload_result = await with_retry(
+            asyncio.to_thread,
+            cloudinary.uploader.upload,
             file_bytes,
             resource_type="raw",
             public_id=f"reports/district_{district_id}",
-            format="pdf"
+            format="pdf",
+            max_attempts=3
         )
         return upload_result.get("secure_url")
 
