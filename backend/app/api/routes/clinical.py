@@ -61,7 +61,7 @@ async def diagnose_heart(
             data.fbs, data.restecg, data.thalach, data.exang,
             data.oldpeak, data.slope, data.ca, data.thal
         ]
-        result = clinical_service.predict_heart(features)
+        result = clinical_service.predict("heart", features)
         await log_prediction(db, current_user.id, "clinical/heart", data.dict(), result, district_id=data.district_id)
         
         # Trigger cluster evaluation in background if high risk
@@ -91,7 +91,7 @@ async def diagnose_diabetes(
             data.pregnancies, data.glucose, data.blood_pressure,
             data.skin_thickness, data.insulin, data.bmi, data.dpf, data.age
         ]
-        result = clinical_service.predict_diabetes(features)
+        result = clinical_service.predict("diabetes", features)
         await log_prediction(db, current_user.id, "clinical/diabetes", data.dict(), result, district_id=data.district_id)
         
         if result["risk_score"] > 0.7 and data.district_id:
@@ -116,7 +116,7 @@ async def diagnose_parkinsons(
     Tactical diagnosis for Parkinson's Disease.
     """
     try:
-        result = clinical_service.predict_parkinsons(data.vocal_metrics)
+        result = clinical_service.predict("parkinsons", data.vocal_metrics)
         await log_prediction(db, current_user.id, "clinical/parkinsons", data.dict(), result, district_id=data.district_id)
         
         if result["risk_score"] > 0.7 and data.district_id:
