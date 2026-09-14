@@ -13,12 +13,62 @@ import {
   Map as MapIcon
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
+import { apiClient } from '../api/client';
+
+// Oracle: Predict what user will do next based on history.
+const PREDICTION_STATE_KEY = 'episense_behavior_markov';
+type MarkovState = Record<string, Record<string, number>>;
 
 const MainLayout: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { logout, user } = useAuthStore();
   const [isSidebarOpen, setSidebarOpen] = React.useState(true);
+  const [lastPath, setLastPath] = React.useState<string | null>(null);
+
+  // Oracle Predictive Engine
+  React.useEffect(() => {
+    const currentPath = location.pathname;
+
+    // 1. Record transition
+    try {
+      if (lastPath && lastPath !== currentPath) {
+        const stateStr = localStorage.getItem(PREDICTION_STATE_KEY);
+        const state: MarkovState = stateStr ? JSON.parse(stateStr) : {};
+
+        if (!state[lastPath]) state[lastPath] = {};
+        state[lastPath][currentPath] = (state[lastPath][currentPath] || 0) + 1;
+
+        localStorage.setItem(PREDICTION_STATE_KEY, JSON.stringify(state));
+      }
+      setLastPath(currentPath);
+
+      // 2. Predict next move
+      const stateStr = localStorage.getItem(PREDICTION_STATE_KEY);
+      if (stateStr) {
+        const state: MarkovState = JSON.parse(stateStr);
+        const edges = state[currentPath];
+        if (edges) {
+          // Find most probable next route
+          const nextRoute = Object.entries(edges).sort((a, b) => b[1] - a[1])[0]?.[0];
+
+          if (nextRoute) {
+            // 3. Execute prefetch based on predicted route
+            if (nextRoute === '/map' || nextRoute === '/') {
+              apiClient.get('/districts').catch(() => {});
+            } else if (nextRoute === '/alerts') {
+              apiClient.get('/alerts').catch(() => {});
+            } else if (nextRoute === '/simulations') {
+              apiClient.get('/scenarios/').catch(() => {});
+              apiClient.get('/scenarios/active').catch(() => {});
+            }
+          }
+        }
+      }
+    } catch (e) {
+      // Graceful degradation - ignore prediction errors
+    }
+  }, [location.pathname, lastPath]);
 
   const navItems = [
     { path: '/', label: 'Command Center', icon: LayoutDashboard },
