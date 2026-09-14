@@ -1,0 +1,4 @@
+## 2024-05-24 - [Insecure Deserialization TOCTOU Fix]
+**Vulnerability:** A Time-of-Check-to-Time-of-Use (TOCTOU) vulnerability existed in `app/services/clinical_service.py` where a model file was read, its hash verified in memory, and then `joblib.loads(content)` was attempted. However, `joblib.loads()` does not exist. It would typically cause developers to change it back to `joblib.load(path)`, which re-reads the file from disk after verification, opening a TOCTOU race condition.
+**Learning:** `joblib` does not have a native `loads` method for deserializing bytes from memory. To securely deserialize already-verified file content in memory using `joblib`, it must be wrapped in a byte stream: `joblib.load(io.BytesIO(content))`.
+**Prevention:** When verifying file hashes before deserialization in Python, always pass the verified memory buffer to the deserializer (e.g., using `io.BytesIO`) rather than re-reading from the file path.
