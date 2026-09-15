@@ -100,7 +100,10 @@ class FeatureBuilder:
             df = df[df["week_start_date"] <= as_of_date]
         
         if not df.empty:
-            return pd.DataFrame([df.sort_values("week_start_date", ascending=False).iloc[0]])
+            # ⚡ Bolt: Replaced O(N log N) `sort_values` with O(N) `idxmax` to find the most recent row
+            # Impact: Significantly faster extraction of the latest data point without full sort overhead
+            latest_idx = df["week_start_date"].idxmax()
+            return pd.DataFrame([df.loc[latest_idx]])
         return pd.DataFrame()
 
 
