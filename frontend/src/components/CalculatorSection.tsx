@@ -13,7 +13,8 @@ const Slider = ({ value, min, max, step, onChange }: any) => {
         step={step}
         value={value}
         onChange={(e) => onChange(parseInt(e.target.value))}
-        className="w-full h-1.5 bg-[#1E1E1E] rounded-lg appearance-none cursor-pointer accent-[#FF5656]"
+        aria-label="Number of pages"
+        className="w-full h-1.5 bg-[#1E1E1E] rounded-lg appearance-none cursor-pointer accent-[#FF5656] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF5656]"
       />
     </div>
   );
@@ -89,7 +90,8 @@ export const CalculatorSection = () => {
                   <button
                     key={opt.id}
                     onClick={() => setServiceType(opt.id as any)}
-                    className="flex items-center gap-3 group cursor-pointer"
+                    aria-pressed={serviceType === opt.id}
+                    className="flex items-center gap-3 group cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF5656] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0D0D0D] rounded"
                   >
                     <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${serviceType === opt.id ? 'border-[#FF5656]' : 'border-[#333]'}`}>
                       {serviceType === opt.id && <div className="w-2 h-2 rounded-full bg-[#FF5656]" />}
@@ -125,17 +127,18 @@ export const CalculatorSection = () => {
                   { id: 'content', label: 'I will need help with content', price: '+$50/page', state: needContent, set: setNeedContent },
                   { id: 'seo', label: 'I want to optimize my website for SEO', price: '+$50/page', state: needSEO, set: setNeedSEO }
                 ].map((addon) => (
-                  <label key={addon.id} className="flex items-center justify-between group cursor-pointer">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-5 h-5 border-2 rounded flex items-center justify-center transition-all ${addon.state ? 'bg-[#FF5656] border-[#FF5656]' : 'border-[#333]'}`}>
-                        {addon.state && <Check size={14} strokeWidth={4} className="text-white" />}
-                      </div>
+                  <label key={addon.id} htmlFor={addon.id} className="flex items-center justify-between group cursor-pointer">
+                    <div className="flex items-center gap-3 relative">
                       <input 
                         type="checkbox" 
-                        className="hidden" 
+                        id={addon.id}
+                        className="sr-only peer"
                         checked={addon.state} 
                         onChange={() => addon.set(!addon.state)} 
                       />
+                      <div className={`w-5 h-5 border-2 rounded flex items-center justify-center transition-all peer-focus-visible:ring-2 peer-focus-visible:ring-[#FF5656] peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-[#0D0D0D] ${addon.state ? 'bg-[#FF5656] border-[#FF5656]' : 'border-[#333]'}`}>
+                        {addon.state && <Check size={14} strokeWidth={4} className="text-white" />}
+                      </div>
                       <span className={`text-sm transition-colors ${addon.state ? 'text-white' : 'text-[#666]'}`}>{addon.label}</span>
                     </div>
                     <span className="text-xs font-bold text-[#FF5656]">{addon.price}</span>
@@ -156,7 +159,8 @@ export const CalculatorSection = () => {
                   <button
                     key={opt.id}
                     onClick={() => setTimeline(opt.id as any)}
-                    className="flex items-center justify-between group cursor-pointer w-full text-left"
+                    aria-pressed={timeline === opt.id}
+                    className="flex items-center justify-between group cursor-pointer w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF5656] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0D0D0D] rounded"
                   >
                     <div className="flex items-center gap-3">
                       <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${timeline === opt.id ? 'border-[#FF5656]' : 'border-[#333]'}`}>
@@ -207,7 +211,7 @@ export const CalculatorSection = () => {
 
             <button 
               onClick={() => toast.success("Consultation Request Sent. Transmission Received.")}
-              className="w-full mt-10 py-4 bg-white text-black font-bold rounded-xl hover:scale-[1.02] active:scale-[0.98] transition-all"
+              className="w-full mt-10 py-4 bg-white text-black font-bold rounded-xl hover:scale-[1.02] active:scale-[0.98] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#050505]"
             >
               Book Your Free Consultation
             </button>
