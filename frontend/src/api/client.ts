@@ -27,3 +27,23 @@ apiClient.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+// Request Coalescing for GET requests
+const inFlight = new Map<string, Promise<any>>();
+const originalGet = apiClient.get;
+
+(apiClient as any).get = function (url: string, config?: any) {
+  const key = `${url}${config ? JSON.stringify(config) : ''}`;
+
+  if (inFlight.has(key)) {
+    return inFlight.get(key);
+  }
+
+  const promise = originalGet.call(this, url, config)
+    .finally(() => {
+      inFlight.delete(key);
+    });
+
+  inFlight.set(key, promise);
+  return promise;
+};
