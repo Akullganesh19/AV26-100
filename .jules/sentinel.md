@@ -1,0 +1,4 @@
+## 2025-02-13 - Secure joblib deserialization with verified bytes (TOCTOU mitigation)
+**Vulnerability:** Attempting to deserialize a file in memory using `joblib.loads(content)` after verifying its hash against a known good state. This would fail since `joblib.loads` does not exist in standard `joblib`. Resorting to re-reading from the file path `joblib.load(path)` would introduce a Time-of-Check-to-Time-of-Use (TOCTOU) vulnerability where the file could be swapped out after the integrity check but before deserialization.
+**Learning:** `joblib.loads()` does not exist. Deserializing in-memory byte contents using `joblib` securely without re-reading from disk must be done using `io.BytesIO`.
+**Prevention:** Use `joblib.load(io.BytesIO(content))` to load the verified byte content in memory securely to prevent TOCTOU vulnerabilities and bypass the lack of `joblib.loads()`.
