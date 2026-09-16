@@ -1,0 +1,3 @@
+## 2025-02-13 - Hidden Custom Checkboxes
+**Learning:** Using `className="hidden"` (or `display: none`) on custom checkboxes removes them from the accessibility tree, breaking screen reader functionality and preventing keyboard navigation (tabbing and spacebar checking).
+**Action:** When styling custom checkboxes or radio buttons with Tailwind CSS, use `className="sr-only peer"` on the actual `<input>` element to keep it accessible but visually hidden. Place the `<input>` element just before the custom visual element (e.g. `<div>`), and apply `peer-focus-visible:ring-2 ...` styles to the custom visual element to ensure keyboard focus states are visible.
