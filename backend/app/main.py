@@ -15,6 +15,7 @@ from app.api.deps import get_db, limiter
 from app.services.prediction_service import load_artifacts, ml_state
 from app.core.scheduler import start_scheduler, stop_scheduler
 from app.core.logging import setup_logging
+from app.services.synapse_connection import setup_synapse_connections
 
 # Initialize Structured Logging
 setup_logging()
@@ -35,6 +36,9 @@ async def lifespan(app: FastAPI):
     # 2. Start Background Scheduler
     start_scheduler()
     logger.info("Background scheduler started")
+
+    # 3. Setup Synapse Connections
+    setup_synapse_connections()
     
     yield
     
