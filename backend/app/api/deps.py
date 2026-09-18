@@ -17,18 +17,8 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 
 def get_user_id(request: Request) -> str:
-    """Extracts user ID from JWT or falls back to IP for unauthenticated requests."""
-    try:
-        auth_header = request.headers.get("Authorization")
-        if not auth_header:
-            return f"ip:{get_remote_address(request)}"
-        
-        token = auth_header.split(" ")[1]
-        payload = jwt.get_unverified_claims(token)
-        user_id = payload.get("sub")
-        return f"user:{user_id}" if user_id else f"ip:{get_remote_address(request)}"
-    except Exception:
-        return f"ip:{get_remote_address(request)}"
+    """Uses IP for rate limiting on unauthenticated or pre-auth requests."""
+    return f"ip:{get_remote_address(request)}"
 
 limiter = Limiter(key_func=get_user_id)
 # Global limit for any requester (authenticated or not) to protect threads
