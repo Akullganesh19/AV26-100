@@ -21,29 +21,26 @@ FEATURE_NAMES = [
     "vaccination_coverage_pct",
 ]
 
-# Note: cases_rolling_std_4wk is imputed with 0.0 as zero variance 
+# Note: cases_rolling_std_4wk is imputed with 0.0 as zero variance
 # is a defensible baseline for short histories.
-FEATURE_NOTES = {
-    "imputation": {
-        "cases_rolling_std_4wk": 0.0,
-        "others": "mean"
-    }
-}
+FEATURE_NOTES = {"imputation": {"cases_rolling_std_4wk": 0.0, "others": "mean"}}
+
 
 class FeatureBuilder:
     def __init__(self, db: AsyncSession):
         self.db = db
 
     async def build(
-        self, 
-        district_id: Union[str, UUID], 
+        self,
+        district_id: Union[str, UUID],
         disease: str,
-        as_of_date: Optional[Any] = None # Use Any for date for now, will refine later
+        as_of_date: Optional[Any] = None,  # Use Any for date for now, will refine later
     ) -> pd.DataFrame:
         """
         Builds the feature matrix using SQL Window Functions for high-performance lag/rolling calculations.
         """
-        query = text("""
+        query = text(
+            """
             WITH lagged_cases AS (
                 SELECT
                     district_id,
@@ -84,23 +81,26 @@ class FeatureBuilder:
             LEFT JOIN latest_vacc v ON lc.district_id = v.district_id AND lc.disease = v.disease
             WHERE lc.district_id = :d_id AND lc.disease = :disease
             ORDER BY lc.week_start_date DESC
-        """)
-        
+        """
+        )
+
         params = {"d_id": str(district_id), "disease": disease}
-        
+
         result = await self.db.execute(query, params)
         df = pd.DataFrame(result.fetchall(), columns=result.keys())
-        
+
         # Post-processing: Ensure types and handle the rolling std imputation
         if not df.empty:
             df["cases_rolling_std_4wk"] = df["cases_rolling_std_4wk"].fillna(0.0)
-        
+
         # Take the most recent row up to as_of_date if provided
         if as_of_date:
             df = df[df["week_start_date"] <= as_of_date]
-        
+
         if not df.empty:
-            return pd.DataFrame([df.sort_values("week_start_date", ascending=False).iloc[0]])
+            # ⚡ Bolt Optimization: Replacing O(N log N) sort_values with O(1) iloc[0].
+            # The dataframe is already ordered by week_start_date DESC via the SQL query.
+            return pd.DataFrame([df.iloc[0]])
         return pd.DataFrame()
 
 
@@ -110,14 +110,19 @@ def get_preprocessing_pipeline() -> Pipeline:
     """
     # Keyset: Districts with < 4 weeks of history will yield NaNs.
     # We use constant 0 imputation for lags to ensure the scaler receives a valid vector.
-    
-    numeric_transformer = Pipeline(steps=[
-        ("imputer", SimpleImputer(strategy="constant", fill_value=0)),
-        ("scaler", StandardScaler()) # StandardScaler handles NaNs if imputer doesn't fill all
-    ])
+
+    numeric_transformer = Pipeline(
+        steps=[
+            ("imputer", SimpleImputer(strategy="constant", fill_value=0)),
+            (
+                "scaler",
+                StandardScaler(),
+            ),  # StandardScaler handles NaNs if imputer doesn't fill all
+        ]
+    )
 
     preprocessor = ColumnTransformer(
-        transformers=[ # Ensure all FEATURE_NAMES are passed to the preprocessor
+        transformers=[  # Ensure all FEATURE_NAMES are passed to the preprocessor
             ("num", numeric_transformer, FEATURE_NAMES)
         ]
     )
