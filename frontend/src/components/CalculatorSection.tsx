@@ -127,15 +127,15 @@ export const CalculatorSection = () => {
                 ].map((addon) => (
                   <label key={addon.id} className="flex items-center justify-between group cursor-pointer">
                     <div className="flex items-center gap-3">
-                      <div className={`w-5 h-5 border-2 rounded flex items-center justify-center transition-all ${addon.state ? 'bg-[#FF5656] border-[#FF5656]' : 'border-[#333]'}`}>
-                        {addon.state && <Check size={14} strokeWidth={4} className="text-white" />}
-                      </div>
                       <input 
                         type="checkbox" 
-                        className="hidden" 
+                        className="sr-only peer"
                         checked={addon.state} 
                         onChange={() => addon.set(!addon.state)} 
                       />
+                      <div className={`w-5 h-5 border-2 rounded flex items-center justify-center transition-all peer-focus-visible:ring-2 peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-[#0D0D0D] peer-focus-visible:ring-[#FF5656] ${addon.state ? 'bg-[#FF5656] border-[#FF5656]' : 'border-[#333]'}`}>
+                        {addon.state && <Check size={14} strokeWidth={4} className="text-white" />}
+                      </div>
                       <span className={`text-sm transition-colors ${addon.state ? 'text-white' : 'text-[#666]'}`}>{addon.label}</span>
                     </div>
                     <span className="text-xs font-bold text-[#FF5656]">{addon.price}</span>
