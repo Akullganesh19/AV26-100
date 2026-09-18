@@ -185,12 +185,17 @@ class PredictionService:
 
         # Step 7: Trigger Asynchronous Alerts if high risk
         if risk_tier in [RiskTier.HIGH, RiskTier.CRITICAL]:
-            asyncio.create_task(send_alert_notification(
+            if not hasattr(self, "_active_tasks"):
+                self._active_tasks = set()
+            task = asyncio.create_task(send_alert_notification(
                 alert_id=str(prediction_id),
                 district_name="Jurisdiction Monitor", # In production, fetch from District model
                 disease=disease,
-                risk_score=float(raw_score)
+                risk_score=float(raw_score),
+                district_id=str(district_id)
             ))
+            self._active_tasks.add(task)
+            task.add_done_callback(self._active_tasks.discard)
 
         return PredictionResponse(
             prediction_id=prediction_id,
