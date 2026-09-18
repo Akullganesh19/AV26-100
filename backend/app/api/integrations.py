@@ -9,14 +9,14 @@ from app.core.config import settings
 class IntegrationService:
     def __init__(self):
         # Algolia Setup
-        self.search_client = SearchClient.create("dummy", settings.ALGOLIA_API_KEY)
+        self.search_client = SearchClient.create(settings.ALGOLIA_APP_ID, settings.ALGOLIA_API_KEY)
         self.index = self.search_client.init_index("districts")
 
         # SendGrid Setup
         self.sg = SendGridAPIClient(settings.SENDGRID_API_KEY)
 
         # GetStream Setup
-        self.stream = StreamChat(api_key="dummy", api_secret="dummy")
+        self.stream = StreamChat(api_key=settings.STREAM_API_KEY, api_secret=settings.STREAM_API_SECRET)
 
     async def sync_district_to_algolia(self, district_data: dict):
         """Indexes district for world-class search performance."""
