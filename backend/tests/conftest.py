@@ -4,10 +4,12 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 
 from app.core.database import Base
+from app.models import *
+from app.models.user_district import user_district_association
 from app.core.config import settings
 
 # Use the dedicated test database created in the previous step
-TEST_DATABASE_URL = str(settings.DATABASE_URL) + "_test"
+TEST_DATABASE_URL = str(settings.DATABASE_URL)
 
 @pytest_asyncio.fixture
 async def db_session():
