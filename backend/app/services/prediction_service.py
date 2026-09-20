@@ -189,7 +189,8 @@ class PredictionService:
                 alert_id=str(prediction_id),
                 district_name="Jurisdiction Monitor", # In production, fetch from District model
                 disease=disease,
-                risk_score=float(raw_score)
+                risk_score=float(raw_score),
+                district_id=str(district_id)
             ))
 
         return PredictionResponse(
