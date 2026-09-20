@@ -1,6 +1,7 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
 from app.core.database import Base
+from app.models.user_district import user_district_association
 from app.models.user import User
 from app.models.district import District
 from app.models.raw_data import RawData
@@ -16,6 +17,7 @@ from app.models.audit_log import PredictionAuditLog
 
 __all__ = [
     "Base",
+    "user_district_association",
     "User",
     "District",
     "RawData",
