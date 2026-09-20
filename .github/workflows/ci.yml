@@ -58,4 +58,5 @@ jobs:
         REDIS_HOST: localhost
       run: |
         export PYTHONPATH=$PYTHONPATH:$(pwd)/backend
+        PGPASSWORD=episense createdb -h localhost -U episense episense_test_test
         pytest backend/tests/ml/test_features.py
