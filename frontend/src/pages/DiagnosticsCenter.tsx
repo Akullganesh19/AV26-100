@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Activity, 
   Droplet, 
@@ -25,14 +25,47 @@ const DiagnosticsCenter: React.FC = () => {
   const [selectedDistrict, setSelectedDistrict] = useState<string>(districtIdFromUrl || '');
   const [loading, setLoading] = useState(false);
   const [prediction, setPrediction] = useState<any>(null);
+  const [precomputedReport, setPrecomputedReport] = useState<string | null>(null);
+  const [abortController, setAbortController] = useState<AbortController | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (precomputedReport) window.URL.revokeObjectURL(precomputedReport);
+      if (abortController) abortController.abort();
+    };
+  }, [precomputedReport, abortController]);
 
   const handleDiagnose = async (formData: any) => {
     setLoading(true);
     setPrediction(null);
+    if (precomputedReport) {
+      window.URL.revokeObjectURL(precomputedReport);
+    }
+    setPrecomputedReport(null);
+    if (abortController) {
+      abortController.abort();
+    }
     try {
       const response = await axios.post(`${import.meta.env.VITE_API_URL}/clinical/${activeTab}`, formData);
       setPrediction(response.data);
+
       if (response.data.risk) {
+        // ORACLE: Predictive Pre-computation
+        // High probability user will request report next. Background fetch it now.
+        const controller = new AbortController();
+        setAbortController(controller);
+
+        axios.post(
+          `${import.meta.env.VITE_API_URL}/clinical/report`,
+          [response.data],
+          { responseType: 'blob', signal: controller.signal }
+        ).then(reportResp => {
+          const url = window.URL.createObjectURL(new Blob([reportResp.data]));
+          setPrecomputedReport(url);
+        }).catch(err => {
+          if (!axios.isCancel(err)) console.error("Oracle pre-computation failed", err);
+        });
+
         toast.error(`High risk detected for ${activeTab.toUpperCase()}`, {
           description: response.data.advice
         });
@@ -54,13 +87,17 @@ const DiagnosticsCenter: React.FC = () => {
   const handleDownloadReport = async () => {
     if (!prediction) return;
     try {
-      const response = await axios.post(
-        `${import.meta.env.VITE_API_URL}/clinical/report`,
-        [prediction], // Send current prediction in a list
-        { responseType: 'blob' }
-      );
+      let url = precomputedReport;
+
+      if (!url) {
+        const response = await axios.post(
+          `${import.meta.env.VITE_API_URL}/clinical/report`,
+          [prediction], // Send current prediction in a list
+          { responseType: 'blob' }
+        );
+        url = window.URL.createObjectURL(new Blob([response.data]));
+      }
       
-      const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute('download', `EpiSense_Tactical_Report_${activeTab.toUpperCase()}.pdf`);
@@ -172,10 +209,14 @@ const DiagnosticsCenter: React.FC = () => {
                   <div className="mt-4 flex gap-3">
                     <button 
                       onClick={handleDownloadReport}
-                      className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg transition-colors text-sm font-medium"
+                      className={`flex items-center gap-2 px-4 py-2 text-white rounded-lg transition-colors text-sm font-medium ${
+                        precomputedReport
+                          ? 'bg-emerald-600 hover:bg-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.4)]'
+                          : 'bg-slate-800 hover:bg-slate-700'
+                      }`}
                     >
                       <Download className="h-4 w-4" />
-                      Tactical Report
+                      {precomputedReport ? 'Tactical Report (Ready)' : 'Tactical Report'}
                     </button>
                     <button className="flex items-center gap-2 px-4 py-2 border border-slate-700 hover:bg-slate-800 text-slate-300 rounded-lg transition-colors text-sm">
                       <FileText className="h-4 w-4" />
