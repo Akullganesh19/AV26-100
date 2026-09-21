@@ -3,7 +3,7 @@ import { Check } from 'lucide-react';
 import { toast } from 'sonner';
 
 // STYLES FOR THE SLIDER (MANUAL SHADCN-LIKE SLIDER)
-const Slider = ({ value, min, max, step, onChange }: any) => {
+const Slider = ({ value, min, max, step, onChange, 'aria-labelledby': ariaLabelledBy }: any) => {
   return (
     <div className="relative w-full h-6 flex items-center group">
       <input
@@ -12,8 +12,9 @@ const Slider = ({ value, min, max, step, onChange }: any) => {
         max={max}
         step={step}
         value={value}
+        aria-labelledby={ariaLabelledBy}
         onChange={(e) => onChange(parseInt(e.target.value))}
-        className="w-full h-1.5 bg-[#1E1E1E] rounded-lg appearance-none cursor-pointer accent-[#FF5656]"
+        className="w-full h-1.5 bg-[#1E1E1E] rounded-lg appearance-none cursor-pointer accent-[#FF5656] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF5656]"
       />
     </div>
   );
@@ -79,8 +80,8 @@ export const CalculatorSection = () => {
             
             {/* Service Type */}
             <div className="space-y-6">
-              <h3 className="text-lg font-medium opacity-80">What kind of service do you need?</h3>
-              <div className="flex flex-wrap gap-4">
+              <h3 id="service-type-label" className="text-lg font-medium opacity-80">What kind of service do you need?</h3>
+              <div className="flex flex-wrap gap-4" role="radiogroup" aria-labelledby="service-type-label">
                 {[
                   { id: 'design', label: 'Only Design' },
                   { id: 'development', label: 'Only Development' },
@@ -89,7 +90,9 @@ export const CalculatorSection = () => {
                   <button
                     key={opt.id}
                     onClick={() => setServiceType(opt.id as any)}
-                    className="flex items-center gap-3 group cursor-pointer"
+                    role="radio"
+                    aria-checked={serviceType === opt.id}
+                    className="flex items-center gap-3 group cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF5656] rounded-md p-1"
                   >
                     <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${serviceType === opt.id ? 'border-[#FF5656]' : 'border-[#333]'}`}>
                       {serviceType === opt.id && <div className="w-2 h-2 rounded-full bg-[#FF5656]" />}
@@ -105,11 +108,11 @@ export const CalculatorSection = () => {
             {/* Pages Slider */}
             <div className="pt-10 space-y-6">
               <div className="flex justify-between items-end">
-                <h3 className="text-lg font-medium opacity-80">Number of Pages</h3>
+                <h3 id="pages-label" className="text-lg font-medium opacity-80">Number of Pages</h3>
                 <span className="text-2xl font-bold text-[#FF5656]">{pages}</span>
               </div>
               <div className="space-y-2">
-                <Slider value={pages} min={1} max={30} step={1} onChange={setPages} />
+                <Slider value={pages} min={1} max={30} step={1} onChange={setPages} aria-labelledby="pages-label" />
                 <div className="flex justify-between text-[10px] uppercase font-mono text-[#444] tracking-widest pt-1">
                   <span>1 Page</span>
                   <span>30 Pages</span>
@@ -125,14 +128,14 @@ export const CalculatorSection = () => {
                   { id: 'content', label: 'I will need help with content', price: '+$50/page', state: needContent, set: setNeedContent },
                   { id: 'seo', label: 'I want to optimize my website for SEO', price: '+$50/page', state: needSEO, set: setNeedSEO }
                 ].map((addon) => (
-                  <label key={addon.id} className="flex items-center justify-between group cursor-pointer">
+                  <label key={addon.id} className="flex items-center justify-between group cursor-pointer focus-within:ring-2 focus-within:ring-[#FF5656] focus-within:outline-none rounded-md p-1">
                     <div className="flex items-center gap-3">
                       <div className={`w-5 h-5 border-2 rounded flex items-center justify-center transition-all ${addon.state ? 'bg-[#FF5656] border-[#FF5656]' : 'border-[#333]'}`}>
                         {addon.state && <Check size={14} strokeWidth={4} className="text-white" />}
                       </div>
                       <input 
                         type="checkbox" 
-                        className="hidden" 
+                        className="sr-only"
                         checked={addon.state} 
                         onChange={() => addon.set(!addon.state)} 
                       />
@@ -146,8 +149,8 @@ export const CalculatorSection = () => {
 
             {/* Timeline */}
             <div className="pt-10 space-y-6">
-              <h3 className="text-lg font-medium opacity-80">How fast do you need this?</h3>
-              <div className="grid gap-4">
+              <h3 id="timeline-label" className="text-lg font-medium opacity-80">How fast do you need this?</h3>
+              <div className="grid gap-4" role="radiogroup" aria-labelledby="timeline-label">
                 {[
                   { id: 'rush', label: 'Within 7 Days', price: '+$100/page' },
                   { id: 'fast', label: 'Within 14 Days', price: '+$25/page' },
@@ -156,7 +159,9 @@ export const CalculatorSection = () => {
                   <button
                     key={opt.id}
                     onClick={() => setTimeline(opt.id as any)}
-                    className="flex items-center justify-between group cursor-pointer w-full text-left"
+                    role="radio"
+                    aria-checked={timeline === opt.id}
+                    className="flex items-center justify-between group cursor-pointer w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF5656] rounded-md p-1"
                   >
                     <div className="flex items-center gap-3">
                       <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${timeline === opt.id ? 'border-[#FF5656]' : 'border-[#333]'}`}>
