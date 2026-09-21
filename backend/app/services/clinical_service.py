@@ -11,7 +11,7 @@ from app.core.config import settings
 # Paths resolved relative to the backend root (where main.py runs)
 BACKEND_ROOT = Path(__file__).parent.parent.parent
 MANIFEST_PATH = BACKEND_ROOT / settings.CLINICAL_MANIFEST_PATH
-MODELS_DIR = BACKEND_ROOT / "app" / settings.CLINICAL_MODELS_DIR
+MODELS_DIR = BACKEND_ROOT / settings.CLINICAL_MODELS_DIR
 
 DISCLAIMER = (
     "Tactical screening tool only. Not a clinical diagnosis. "
