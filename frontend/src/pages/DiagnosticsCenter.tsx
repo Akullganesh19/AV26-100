@@ -11,9 +11,10 @@ import {
   Info,
   Download
 } from 'lucide-react';
-import axios from 'axios';
 import { toast } from 'sonner';
 import { useSearchParams } from 'react-router-dom';
+import { apiClient } from '../api/client';
+import { Clock } from 'lucide-react';
 
 type DiseaseType = 'heart' | 'diabetes' | 'parkinsons';
 
@@ -25,13 +26,28 @@ const DiagnosticsCenter: React.FC = () => {
   const [selectedDistrict, setSelectedDistrict] = useState<string>(districtIdFromUrl || '');
   const [loading, setLoading] = useState(false);
   const [prediction, setPrediction] = useState<any>(null);
+  const [history, setHistory] = useState<any[]>([]);
+
+  const fetchHistory = async () => {
+    try {
+      const response = await apiClient.get('/clinical/history');
+      setHistory(response.data);
+    } catch (error) {
+      console.error('Failed to fetch history:', error);
+    }
+  };
+
+  React.useEffect(() => {
+    fetchHistory();
+  }, []);
 
   const handleDiagnose = async (formData: any) => {
     setLoading(true);
     setPrediction(null);
     try {
-      const response = await axios.post(`${import.meta.env.VITE_API_URL}/clinical/${activeTab}`, formData);
+      const response = await apiClient.post(`/clinical/${activeTab}`, formData);
       setPrediction(response.data);
+      fetchHistory();
       if (response.data.risk) {
         toast.error(`High risk detected for ${activeTab.toUpperCase()}`, {
           description: response.data.advice
@@ -54,8 +70,8 @@ const DiagnosticsCenter: React.FC = () => {
   const handleDownloadReport = async () => {
     if (!prediction) return;
     try {
-      const response = await axios.post(
-        `${import.meta.env.VITE_API_URL}/clinical/report`,
+      const response = await apiClient.post(
+        '/clinical/report',
         [prediction], // Send current prediction in a list
         { responseType: 'blob' }
       );
@@ -131,6 +147,36 @@ const DiagnosticsCenter: React.FC = () => {
             <p className="text-xs text-slate-500 leading-relaxed">
               These screenings are for tactical prioritization and awareness. This system does not replace certified medical consultation. Use for pre-deployment screening only.
             </p>
+          </div>
+
+          <div className="mt-6">
+            <h3 className="text-sm font-semibold text-slate-300 flex items-center gap-2 mb-3 px-2">
+              <Clock className="h-4 w-4 text-slate-400" />
+              Recent Screenings
+            </h3>
+            <div className="space-y-2">
+              {history.length === 0 ? (
+                <p className="text-xs text-slate-500 px-2">No recent screenings found.</p>
+              ) : (
+                history.map((item) => (
+                  <div key={item.id} className="p-3 rounded-lg bg-slate-900/40 border border-slate-800/50 flex flex-col gap-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-slate-300 uppercase">
+                        {item.endpoint.replace('clinical/', '')}
+                      </span>
+                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                        item.risk_score > 0.7 ? 'bg-red-500/20 text-red-400' : 'bg-emerald-500/20 text-emerald-400'
+                      }`}>
+                        {(item.risk_score * 100).toFixed(1)}% RISK
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-slate-500">
+                      {new Date(item.timestamp).toLocaleString()}
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         </div>
 
