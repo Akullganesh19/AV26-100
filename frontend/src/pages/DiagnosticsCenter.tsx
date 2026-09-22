@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Activity, 
   Droplet, 
@@ -25,6 +25,49 @@ const DiagnosticsCenter: React.FC = () => {
   const [selectedDistrict, setSelectedDistrict] = useState<string>(districtIdFromUrl || '');
   const [loading, setLoading] = useState(false);
   const [prediction, setPrediction] = useState<any>(null);
+  const [prefetchedReportUrl, setPrefetchedReportUrl] = useState<string | null>(null);
+
+  // Behavioral Prefetch: Predict user will download report after getting prediction
+  useEffect(() => {
+    if (!prediction) {
+      setPrefetchedReportUrl(prev => {
+        if (prev) window.URL.revokeObjectURL(prev);
+        return null;
+      });
+      return;
+    }
+
+    const abortController = new AbortController();
+    let currentUrl: string | null = null;
+
+    const prefetchReport = async () => {
+      try {
+        const response = await axios.post(
+          `${import.meta.env.VITE_API_URL}/clinical/report`,
+          [prediction],
+          {
+            responseType: 'blob',
+            signal: abortController.signal
+          }
+        );
+        currentUrl = window.URL.createObjectURL(new Blob([response.data]));
+        setPrefetchedReportUrl(currentUrl);
+      } catch (error) {
+        if (!axios.isCancel(error)) {
+          console.error('Prefetch report failed:', error);
+        }
+      }
+    };
+
+    prefetchReport();
+
+    return () => {
+      abortController.abort();
+      if (currentUrl) {
+        window.URL.revokeObjectURL(currentUrl);
+      }
+    };
+  }, [prediction]);
 
   const handleDiagnose = async (formData: any) => {
     setLoading(true);
@@ -54,13 +97,18 @@ const DiagnosticsCenter: React.FC = () => {
   const handleDownloadReport = async () => {
     if (!prediction) return;
     try {
-      const response = await axios.post(
-        `${import.meta.env.VITE_API_URL}/clinical/report`,
-        [prediction], // Send current prediction in a list
-        { responseType: 'blob' }
-      );
+      let url = prefetchedReportUrl;
+
+      if (!url) {
+        // Fallback if prefetch hasn't completed or failed
+        const response = await axios.post(
+          `${import.meta.env.VITE_API_URL}/clinical/report`,
+          [prediction],
+          { responseType: 'blob' }
+        );
+        url = window.URL.createObjectURL(new Blob([response.data]));
+      }
       
-      const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute('download', `EpiSense_Tactical_Report_${activeTab.toUpperCase()}.pdf`);
@@ -68,6 +116,11 @@ const DiagnosticsCenter: React.FC = () => {
       link.click();
       link.remove();
       toast.success('Report generated successfully');
+
+      // Cleanup fallback url if it was created just now
+      if (!prefetchedReportUrl) {
+         window.URL.revokeObjectURL(url);
+      }
     } catch (error) {
       console.error('Report generation failed:', error);
       toast.error('Failed to generate PDF report');
