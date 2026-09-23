@@ -131,6 +131,37 @@ from fastapi.responses import StreamingResponse
 import io
 from app.services.report_service import ReportService
 
+from sqlalchemy import select, desc
+from app.models.audit_log import PredictionAuditLog
+
+@router.get("/history", response_model=List[Dict[str, Any]])
+async def get_clinical_history(
+    db: AsyncSession = Depends(get_db),
+    current_user: Any = Depends(deps.get_current_user)
+) -> Any:
+    """
+    Retrieve the current user's past clinical screenings.
+    """
+    query = (
+        select(PredictionAuditLog)
+        .where(PredictionAuditLog.user_id == current_user.id)
+        .order_by(desc(PredictionAuditLog.timestamp))
+        .limit(50)
+    )
+    result = await db.execute(query)
+    logs = result.scalars().all()
+
+    return [
+        {
+            "id": str(log.id),
+            "endpoint": log.endpoint,
+            "risk_score": float(log.risk_score),
+            "status": log.status,
+            "timestamp": log.timestamp.isoformat()
+        }
+        for log in logs
+    ]
+
 @router.post("/report", response_class=StreamingResponse)
 @limiter.limit("5/minute")
 async def generate_screening_report(
