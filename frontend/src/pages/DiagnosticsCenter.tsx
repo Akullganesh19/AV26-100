@@ -14,8 +14,10 @@ import {
 import axios from 'axios';
 import { toast } from 'sonner';
 import { useSearchParams } from 'react-router-dom';
+import HistoryView from '../components/HistoryView';
+import { Clock } from 'lucide-react';
 
-type DiseaseType = 'heart' | 'diabetes' | 'parkinsons';
+type DiseaseType = 'heart' | 'diabetes' | 'parkinsons' | 'history';
 
 const DiagnosticsCenter: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -122,6 +124,17 @@ const DiagnosticsCenter: React.FC = () => {
             <Brain className={activeTab === 'parkinsons' ? 'text-emerald-500' : ''} />
             <span className="font-medium">Parkinson's</span>
           </button>
+          <button
+            onClick={() => setActiveTab('history')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all border ${
+              activeTab === 'history'
+              ? 'bg-emerald-500/10 border-emerald-500/50 text-white shadow-lg shadow-emerald-500/10'
+              : 'bg-slate-900/50 border-slate-800 text-slate-400 hover:bg-slate-800/50 hover:text-white'
+            }`}
+          >
+            <Clock className={activeTab === 'history' ? 'text-emerald-500' : ''} />
+            <span className="font-medium">Screening History</span>
+          </button>
 
           <div className="mt-8 p-4 rounded-xl bg-slate-900/50 border border-slate-800/50">
             <h3 className="text-sm font-semibold text-slate-300 flex items-center gap-2 mb-2">
@@ -143,11 +156,13 @@ const DiagnosticsCenter: React.FC = () => {
               {activeTab === 'heart' && <><Activity className="text-emerald-500" /> Heart Risk Assessment</>}
               {activeTab === 'diabetes' && <><Droplet className="text-emerald-500" /> Metabolic Screening</>}
               {activeTab === 'parkinsons' && <><Brain className="text-emerald-500" /> Neuro-vocal Analysis</>}
+              {activeTab === 'history' && <><Clock className="text-emerald-500" /> Screening History</>}
             </h2>
 
             {activeTab === 'heart' && <HeartForm onSubmit={handleDiagnose} loading={loading} />}
             {activeTab === 'diabetes' && <DiabetesForm onSubmit={handleDiagnose} loading={loading} />}
             {activeTab === 'parkinsons' && <ParkinsonsForm onSubmit={handleDiagnose} loading={loading} />}
+            {activeTab === 'history' && <HistoryView />}
           </div>
 
           {prediction && (
