@@ -1,0 +1,6 @@
+## 2024-05-28 — [Eliminate Legacy integrated_diagnostics Directory]
+**Complexity found:** An entire standalone Streamlit application (`integrated_diagnostics`) existed in the root directory alongside the FastAPI backend and React frontend. It duplicated functionality, contained redundant routing and frontend logic, and housed the raw `Saved_Models` that the backend was oddly referencing with relative parent paths (`../integrated_diagnostics/Saved_Models`).
+**Why it existed:** It appears to be a legacy proof-of-concept or a standalone app that was copy-pasted into the mono-repo. The core ML models (`.sav` files) from this app were needed by the backend, but rather than moving them into the backend's directory structure, the entire legacy app was kept and referenced externally.
+**Eliminated:** The entire `integrated_diagnostics` directory (including `app.py`, standalone `README.md`, legacy datasets, etc.).
+**Net change:** Deleted ~600 lines of redundant Streamlit code, removed 1 entire legacy app abstraction, and simplified the backend's model loading path.
+**Next target:** Evaluate redundant state management in the frontend (e.g. multiple global stores vs context) or duplicated data fetching logic.
