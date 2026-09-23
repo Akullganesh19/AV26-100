@@ -38,7 +38,6 @@ async def register(
         email=user_in.email,
         name=user_in.name,
         password_hash=security.get_password_hash(user_in.password),
-        role=user_in.role,
         alert_threshold=user_in.alert_threshold,
         email_alerts=user_in.email_alerts,
     )
