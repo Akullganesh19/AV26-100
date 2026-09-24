@@ -11,7 +11,7 @@ from app.core.config import settings
 # Paths resolved relative to the backend root (where main.py runs)
 BACKEND_ROOT = Path(__file__).parent.parent.parent
 MANIFEST_PATH = BACKEND_ROOT / settings.CLINICAL_MANIFEST_PATH
-MODELS_DIR = BACKEND_ROOT / "app" / settings.CLINICAL_MODELS_DIR
+MODELS_DIR = BACKEND_ROOT / settings.CLINICAL_MODELS_DIR
 
 DISCLAIMER = (
     "Tactical screening tool only. Not a clinical diagnosis. "
@@ -47,7 +47,8 @@ class ClinicalService:
             if actual_hash != expected_hash.upper():
                 raise SecurityError(f"Integrity violation: {name} model hash mismatch! Security compromised.")
             
-            return joblib.loads(content)
+            f.seek(0)
+            return joblib.load(f)
 
     def _load_model(self, disease: str):
         if disease not in self._models:
