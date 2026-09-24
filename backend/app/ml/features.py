@@ -100,7 +100,10 @@ class FeatureBuilder:
             df = df[df["week_start_date"] <= as_of_date]
         
         if not df.empty:
-            return pd.DataFrame([df.sort_values("week_start_date", ascending=False).iloc[0]])
+            # ⚡ Bolt: Use O(1) iloc[0] instead of O(N log N) sort_values()
+            # The SQL query already uses 'ORDER BY week_start_date DESC'
+            # and Pandas boolean filtering preserves this order.
+            return pd.DataFrame([df.iloc[0]])
         return pd.DataFrame()
 
 
