@@ -68,18 +68,31 @@ async def get_current_user(
     r = redis.from_url(settings.CELERY_BROKER_URL) # Reuse Redis host
     
     try:
-        # Extract JTI (Unique Token ID)
+        # Extract JTI (Unique Token ID) safely
         payload_unverified = jwt.get_unverified_claims(token)
         jti = payload_unverified.get("jti")
-        if jti and await r.get(f"revoked_token:{jti}"):
+    except Exception:
+        jti = None
+
+    if jti:
+        try:
+            is_revoked = await r.get(f"revoked_token:{jti}")
+        except Exception as e:
+            await r.aclose()
+            # Fail closed if revocation list is unreachable
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Security infrastructure unavailable. Cannot verify token revocation status.",
+            )
+
+        if is_revoked:
+            await r.aclose()
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Token has been revoked",
             )
-    except Exception:
-        pass # Fall through to standard verification
-    finally:
-        await r.aclose()
+
+    await r.aclose()
 
     try:
         payload = jwt.decode(
