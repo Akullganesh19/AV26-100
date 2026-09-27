@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Activity, 
   Droplet, 
@@ -25,6 +25,48 @@ const DiagnosticsCenter: React.FC = () => {
   const [selectedDistrict, setSelectedDistrict] = useState<string>(districtIdFromUrl || '');
   const [loading, setLoading] = useState(false);
   const [prediction, setPrediction] = useState<any>(null);
+  const [prefetchedReportUrl, setPrefetchedReportUrl] = useState<string | null>(null);
+  const prefetchAbortCtrl = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (prefetchAbortCtrl.current) {
+        prefetchAbortCtrl.current.abort();
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (prefetchedReportUrl) {
+        window.URL.revokeObjectURL(prefetchedReportUrl);
+      }
+    };
+  }, [prefetchedReportUrl]);
+
+  const prefetchReport = async (predData: any) => {
+    try {
+      if (prefetchAbortCtrl.current) {
+        prefetchAbortCtrl.current.abort();
+      }
+      prefetchAbortCtrl.current = new AbortController();
+
+      const response = await axios.post(
+        `${import.meta.env.VITE_API_URL}/clinical/report`,
+        [predData],
+        {
+          responseType: 'blob',
+          signal: prefetchAbortCtrl.current.signal
+        }
+      );
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      setPrefetchedReportUrl(url);
+    } catch (error) {
+      if (!axios.isCancel(error)) {
+        console.error('Prefetch failed:', error);
+      }
+    }
+  };
 
   const handleDiagnose = async (formData: any) => {
     setLoading(true);
@@ -32,10 +74,15 @@ const DiagnosticsCenter: React.FC = () => {
     try {
       const response = await axios.post(`${import.meta.env.VITE_API_URL}/clinical/${activeTab}`, formData);
       setPrediction(response.data);
+      if (prefetchedReportUrl) {
+        window.URL.revokeObjectURL(prefetchedReportUrl);
+        setPrefetchedReportUrl(null);
+      }
       if (response.data.risk) {
         toast.error(`High risk detected for ${activeTab.toUpperCase()}`, {
           description: response.data.advice
         });
+        prefetchReport(response.data);
       } else {
         toast.success(`Low risk for ${activeTab.toUpperCase()}`, {
           description: response.data.advice
@@ -53,6 +100,18 @@ const DiagnosticsCenter: React.FC = () => {
 
   const handleDownloadReport = async () => {
     if (!prediction) return;
+
+    if (prefetchedReportUrl) {
+      const link = document.createElement('a');
+      link.href = prefetchedReportUrl;
+      link.setAttribute('download', `EpiSense_Tactical_Report_${activeTab.toUpperCase()}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      toast.success('Report generated successfully (pre-fetched)');
+      return;
+    }
+
     try {
       const response = await axios.post(
         `${import.meta.env.VITE_API_URL}/clinical/report`,
