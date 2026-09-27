@@ -10,6 +10,34 @@ export const apiClient = axios.create({
   },
 });
 
+const pendingRequests = new Map<string, Promise<any>>();
+
+const originalGet = apiClient.get;
+// @ts-ignore - Override Axios get signature for coalescing
+apiClient.get = function (url: string, config?: any) {
+  // Create a unique key based on URL and query params
+  let queryStr = '';
+  if (config?.params) {
+    if (config.params instanceof URLSearchParams) {
+      queryStr = config.params.toString();
+    } else {
+      queryStr = JSON.stringify(config.params);
+    }
+  }
+  const key = url + queryStr;
+
+  if (pendingRequests.has(key)) {
+    return pendingRequests.get(key) as Promise<any>;
+  }
+
+  const requestPromise = originalGet.call(this, url, config).finally(() => {
+    pendingRequests.delete(key);
+  });
+
+  pendingRequests.set(key, requestPromise);
+  return requestPromise;
+};
+
 apiClient.interceptors.request.use((config) => {
   const token = useAuthStore.getState().token;
   if (token) {
