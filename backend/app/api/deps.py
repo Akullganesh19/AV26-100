@@ -24,9 +24,31 @@ def get_user_id(request: Request) -> str:
             return f"ip:{get_remote_address(request)}"
         
         token = auth_header.split(" ")[1]
-        payload = jwt.get_unverified_claims(token)
-        user_id = payload.get("sub")
-        return f"user:{user_id}" if user_id else f"ip:{get_remote_address(request)}"
+
+        # Security Hardening: Never trust unverified claims for rate limiting
+        # An attacker could spoof the JWT payload to rotate 'sub' and bypass limits.
+        # This requires verifying the token cryptographically first.
+
+        try:
+            # We must safely load the PEM from cache/settings
+            pem = settings.CLERK_PEM_PUBLIC_KEY
+            if not pem:
+                return f"ip:{get_remote_address(request)}"
+
+            payload = jwt.decode(
+                token,
+                pem,
+                algorithms=["RS256"],
+                issuer=settings.CLERK_ISSUER,
+                audience=settings.CLERK_AUDIENCE,
+                options={"verify_aud": True, "verify_iss": True}
+            )
+            user_id = payload.get("sub")
+            return f"user:{user_id}" if user_id else f"ip:{get_remote_address(request)}"
+        except Exception:
+            # If the token is invalid, fall back to IP rate limiting
+            return f"ip:{get_remote_address(request)}"
+
     except Exception:
         return f"ip:{get_remote_address(request)}"
 
