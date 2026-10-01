@@ -1,0 +1,6 @@
+## 2026-10-01 — Eliminated integrated_diagnostics redundant Streamlit app
+**Complexity found:** A completely separate 400+ line Streamlit web app (`integrated_diagnostics/app.py`) for clinical diagnostics prediction. It duplicated backend loading logic, had its own dependencies, its own PDF generator, UI components, and raw Jupyter notebooks/datasets checked into source control.
+**Why it existed:** It appears this was an early prototype or tactical standalone module that was merged into the main repository but never fully integrated or decommissioned, running parallel to the new FastAPI backend `clinical_service.py` which serves the same models to the main React frontend.
+**Eliminated:** The entire `integrated_diagnostics` directory (app.py, Jupyter notebooks, raw CSV datasets, separate requirements file, PDF certificates). The trained `.sav` ML models were moved to `backend/app/clinical_models/` and the backend configuration `CLINICAL_MODELS_DIR` was updated.
+**Net change:** Deleted 10 files, removed 1 Streamlit abstraction layer, and removed ~2MB of potential bloat (notebooks, PDFs, CSVs) from the repo. Replaced with direct use of the FastAPI backend.
+**Next target:** Evaluate redundant API client wrappers in frontend if they exist.
