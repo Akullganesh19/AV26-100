@@ -58,4 +58,4 @@ jobs:
         REDIS_HOST: localhost
       run: |
         export PYTHONPATH=$PYTHONPATH:$(pwd)/backend
-        pytest backend/tests/ml/test_features.py
+        python -m pytest backend/tests/ml/test_features.py
