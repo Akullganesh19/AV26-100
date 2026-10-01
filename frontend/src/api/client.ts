@@ -27,3 +27,22 @@ apiClient.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+const inFlightRequests = new Map<string, Promise<any>>();
+
+const originalGet = apiClient.get;
+
+;(apiClient as any).get = async function (url: string, config?: any) {
+  const key = `${url}?${JSON.stringify(config?.params || {})}`;
+
+  if (inFlightRequests.has(key)) {
+    return inFlightRequests.get(key);
+  }
+
+  const promise = originalGet.call(this, url, config).finally(() => {
+    inFlightRequests.delete(key);
+  });
+
+  inFlightRequests.set(key, promise);
+  return promise;
+};
