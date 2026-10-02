@@ -62,25 +62,6 @@ async def get_current_user(
     token: str = Depends(reusable_oauth2),
     public_key: str = Depends(get_clerk_public_key)
 ) -> User:
-    # 1. Check Redis Revocation List
-    import redis.asyncio as redis
-    from app.core.config import settings
-    r = redis.from_url(settings.CELERY_BROKER_URL) # Reuse Redis host
-    
-    try:
-        # Extract JTI (Unique Token ID)
-        payload_unverified = jwt.get_unverified_claims(token)
-        jti = payload_unverified.get("jti")
-        if jti and await r.get(f"revoked_token:{jti}"):
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Token has been revoked",
-            )
-    except Exception:
-        pass # Fall through to standard verification
-    finally:
-        await r.aclose()
-
     try:
         payload = jwt.decode(
             token, 
@@ -91,11 +72,30 @@ async def get_current_user(
             options={"verify_aud": True, "verify_iss": True}
         )
         clerk_id = payload.get("sub")
+        jti = payload.get("jti")
     except Exception:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Could not validate credentials",
         )
+
+    # 1. Check Redis Revocation List
+    if jti:
+        import redis.asyncio as redis
+        from app.core.config import settings
+        r = redis.from_url(settings.CELERY_BROKER_URL) # Reuse Redis host
+        try:
+            if await r.get(f"revoked_token:{jti}"):
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Token has been revoked",
+                )
+        except HTTPException:
+            raise
+        except Exception:
+            pass
+        finally:
+            await r.aclose()
     
     result = await db.execute(select(User).where(User.clerk_id == clerk_id))
     user = result.scalar_one_or_none()
