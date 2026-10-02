@@ -10,6 +10,23 @@ export const apiClient = axios.create({
   },
 });
 
+const inFlight = new Map();
+const originalGet = apiClient.get;
+
+apiClient.get = function(url, config) {
+  const key = url + (config ? JSON.stringify(config) : '');
+  if (inFlight.has(key)) {
+    return inFlight.get(key);
+  }
+
+  const promise = originalGet.call(this, url, config).finally(() => {
+    inFlight.delete(key);
+  });
+
+  inFlight.set(key, promise);
+  return promise;
+};
+
 apiClient.interceptors.request.use((config) => {
   const token = useAuthStore.getState().token;
   if (token) {
