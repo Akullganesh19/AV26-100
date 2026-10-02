@@ -78,8 +78,8 @@ export const CalculatorSection = () => {
           <div className="bg-[#0D0D0D] p-8 lg:p-12 flex flex-col gap-10 divide-y divide-[#1E1E1E]">
             
             {/* Service Type */}
-            <div className="space-y-6">
-              <h3 className="text-lg font-medium opacity-80">What kind of service do you need?</h3>
+            <div className="space-y-6" role="radiogroup" aria-labelledby="service-type-label">
+              <h3 id="service-type-label" className="text-lg font-medium opacity-80">What kind of service do you need?</h3>
               <div className="flex flex-wrap gap-4">
                 {[
                   { id: 'design', label: 'Only Design' },
@@ -88,6 +88,8 @@ export const CalculatorSection = () => {
                 ].map((opt) => (
                   <button
                     key={opt.id}
+                    role="radio"
+                    aria-checked={serviceType === opt.id}
                     onClick={() => setServiceType(opt.id as any)}
                     className="flex items-center gap-3 group cursor-pointer"
                   >
@@ -145,8 +147,8 @@ export const CalculatorSection = () => {
             </div>
 
             {/* Timeline */}
-            <div className="pt-10 space-y-6">
-              <h3 className="text-lg font-medium opacity-80">How fast do you need this?</h3>
+            <div className="pt-10 space-y-6" role="radiogroup" aria-labelledby="timeline-label">
+              <h3 id="timeline-label" className="text-lg font-medium opacity-80">How fast do you need this?</h3>
               <div className="grid gap-4">
                 {[
                   { id: 'rush', label: 'Within 7 Days', price: '+$100/page' },
@@ -155,6 +157,8 @@ export const CalculatorSection = () => {
                 ].map((opt) => (
                   <button
                     key={opt.id}
+                    role="radio"
+                    aria-checked={timeline === opt.id}
                     onClick={() => setTimeline(opt.id as any)}
                     className="flex items-center justify-between group cursor-pointer w-full text-left"
                   >
