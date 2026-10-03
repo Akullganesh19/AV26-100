@@ -2,6 +2,7 @@ import pickle
 import joblib
 import numpy as np
 import hashlib
+import io
 import json
 from pathlib import Path
 from datetime import datetime
@@ -47,7 +48,7 @@ class ClinicalService:
             if actual_hash != expected_hash.upper():
                 raise SecurityError(f"Integrity violation: {name} model hash mismatch! Security compromised.")
             
-            return joblib.loads(content)
+            return joblib.load(io.BytesIO(content))
 
     def _load_model(self, disease: str):
         if disease not in self._models:
