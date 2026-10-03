@@ -101,6 +101,8 @@ const MainLayout: React.FC = () => {
             <button 
               onClick={() => setSidebarOpen(!isSidebarOpen)}
               className="p-2 rounded-lg hover:bg-white/5 transition-colors"
+              aria-label={isSidebarOpen ? "Close sidebar" : "Open sidebar"}
+              aria-expanded={isSidebarOpen}
             >
               <Menu className="w-5 h-5 text-slate-400" />
             </button>
