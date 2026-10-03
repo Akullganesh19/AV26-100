@@ -13,9 +13,11 @@ from app.models.pipeline_run import PipelineRun
 from app.models.model_metric import ModelMetric
 from app.models.password_reset_token import PasswordResetToken
 from app.models.audit_log import PredictionAuditLog
+from app.models.user_district import user_district_association
 
 __all__ = [
     "Base",
+    "user_district_association",
     "User",
     "District",
     "RawData",
