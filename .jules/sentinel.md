@@ -1,0 +1,4 @@
+## 2024-05-15 - Unverified JWT Claims Bypass Rate Limiting and Revocation Checks
+**Vulnerability:** JWT claims (like `sub` and `jti`) were extracted using `jwt.get_unverified_claims` before cryptographically verifying the token signature, allowing attackers to spoof tokens and bypass rate limits or evade token revocation lists.
+**Learning:** Relying on unverified payload contents prior to signature verification breaks the trust model of JWTs. The application also suffered from an authentication mismatch where the local `/login` issued HS256 tokens but the `get_current_user` middleware exclusively verified and queried for Clerk's RS256 `clerk_id`, inadvertently rejecting valid local sessions.
+**Prevention:** Always cryptographically verify JWTs using `jwt.decode` with the corresponding algorithm (HS256 vs RS256) and key before inspecting their payload claims.
