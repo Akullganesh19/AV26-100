@@ -51,3 +51,12 @@ class IntegrationService:
         pass
 
 integration_service = IntegrationService()
+class WeatherClient:
+    """Mock weather client for development/testing."""
+    async def get_daily_weather(self, latitude: float, longitude: float, start_date, end_date) -> dict:
+        return {"data": []}
+
+    def parse_weather_response(self, raw_data: dict) -> list:
+        return []
+
+weather_client = WeatherClient()
