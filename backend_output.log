@@ -1,0 +1,45 @@
+/app/backend/app/models/alert.py:55: SAWarning: Can't validate argument 'postgres_where'; can't locate any SQLAlchemy dialect named 'postgres'
+  Index("ix_alert_acknowledged_by", acknowledged_by, postgres_where=(acknowledged_by != None)),
+/home/jules/.pyenv/versions/3.12.13/lib/python3.12/site-packages/pydantic/_internal/_fields.py:160: UserWarning: Field "model_version" has conflict with protected namespace "model_".
+
+You may be able to resolve this warning by setting `model_config['protected_namespaces'] = ()`.
+  warnings.warn(
+INFO:     Started server process [152020]
+INFO:     Waiting for application startup.
+2026-10-03 14:57:47,780 - app.main - INFO - Initializing ML artifacts...
+2026-10-03 14:57:47,780 - app.main - CRITICAL - Failed to load ML artifacts
+Traceback (most recent call last):
+  File "/app/backend/app/main.py", line 28, in lifespan
+    artifacts = load_artifacts()
+                ^^^^^^^^^^^^^^^^
+  File "/app/backend/app/services/prediction_service.py", line 66, in load_artifacts
+    manifest = get_latest_manifest()
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "/app/backend/app/services/prediction_service.py", line 45, in get_latest_manifest
+    raise RuntimeError(
+RuntimeError: Model manifest not found at /app/backend/models/latest.json. Run train.py before starting the server.
+ERROR:    Traceback (most recent call last):
+  File "/app/backend/app/main.py", line 28, in lifespan
+    artifacts = load_artifacts()
+                ^^^^^^^^^^^^^^^^
+  File "/app/backend/app/services/prediction_service.py", line 66, in load_artifacts
+    manifest = get_latest_manifest()
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "/app/backend/app/services/prediction_service.py", line 45, in get_latest_manifest
+    raise RuntimeError(
+RuntimeError: Model manifest not found at /app/backend/models/latest.json. Run train.py before starting the server.
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/jules/.pyenv/versions/3.12.13/lib/python3.12/site-packages/starlette/routing.py", line 732, in lifespan
+    async with self.lifespan_context(app) as maybe_state:
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.13/lib/python3.12/contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/app/backend/app/main.py", line 33, in lifespan
+    raise RuntimeError(f"System cannot start without ML models: {e}")
+RuntimeError: System cannot start without ML models: Model manifest not found at /app/backend/models/latest.json. Run train.py before starting the server.
+
+ERROR:    Application startup failed. Exiting.
