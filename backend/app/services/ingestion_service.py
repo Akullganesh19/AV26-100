@@ -4,7 +4,6 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
-from app.api.integrations import weather_client
 from app.models.district import District
 from app.models.environmental_data import EnvironmentalData
 from app.models.pipeline_run import PipelineRun
