@@ -80,7 +80,7 @@ export const CalculatorSection = () => {
             {/* Service Type */}
             <div className="space-y-6">
               <h3 className="text-lg font-medium opacity-80">What kind of service do you need?</h3>
-              <div className="flex flex-wrap gap-4">
+              <div className="flex flex-wrap gap-4" role="radiogroup" aria-label="Service Type">
                 {[
                   { id: 'design', label: 'Only Design' },
                   { id: 'development', label: 'Only Development' },
@@ -89,7 +89,16 @@ export const CalculatorSection = () => {
                   <button
                     key={opt.id}
                     onClick={() => setServiceType(opt.id as any)}
-                    className="flex items-center gap-3 group cursor-pointer"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        setServiceType(opt.id as any);
+                      }
+                    }}
+                    tabIndex={0}
+                    className="flex items-center gap-3 group cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF5656] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0D0D0D] rounded-md"
+                    role="radio"
+                    aria-checked={serviceType === opt.id}
                   >
                     <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${serviceType === opt.id ? 'border-[#FF5656]' : 'border-[#333]'}`}>
                       {serviceType === opt.id && <div className="w-2 h-2 rounded-full bg-[#FF5656]" />}
@@ -147,7 +156,7 @@ export const CalculatorSection = () => {
             {/* Timeline */}
             <div className="pt-10 space-y-6">
               <h3 className="text-lg font-medium opacity-80">How fast do you need this?</h3>
-              <div className="grid gap-4">
+              <div className="grid gap-4" role="radiogroup" aria-label="Timeline">
                 {[
                   { id: 'rush', label: 'Within 7 Days', price: '+$100/page' },
                   { id: 'fast', label: 'Within 14 Days', price: '+$25/page' },
@@ -156,7 +165,16 @@ export const CalculatorSection = () => {
                   <button
                     key={opt.id}
                     onClick={() => setTimeline(opt.id as any)}
-                    className="flex items-center justify-between group cursor-pointer w-full text-left"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        setTimeline(opt.id as any);
+                      }
+                    }}
+                    tabIndex={0}
+                    className="flex items-center justify-between group cursor-pointer w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF5656] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0D0D0D] rounded-md"
+                    role="radio"
+                    aria-checked={timeline === opt.id}
                   >
                     <div className="flex items-center gap-3">
                       <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${timeline === opt.id ? 'border-[#FF5656]' : 'border-[#333]'}`}>
