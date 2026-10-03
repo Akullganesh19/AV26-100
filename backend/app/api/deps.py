@@ -24,7 +24,29 @@ def get_user_id(request: Request) -> str:
             return f"ip:{get_remote_address(request)}"
         
         token = auth_header.split(" ")[1]
-        payload = jwt.get_unverified_claims(token)
+        header = jwt.get_unverified_header(token)
+        alg = header.get("alg")
+
+        if alg == "HS256":
+            payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
+        elif alg == "RS256":
+            # Read public key asynchronously in a synchronous context
+            # In a real app we might fetch the key on startup or pass it from app state,
+            # but using settings directly is fine here since get_clerk_public_key()
+            # currently falls back to `settings.CLERK_PEM_PUBLIC_KEY` anyway.
+            # To be absolutely safe against get_clerk_public_key() logic changes later,
+            # we should use the setting.
+            payload = jwt.decode(
+                token,
+                settings.CLERK_PEM_PUBLIC_KEY,
+                algorithms=["RS256"],
+                issuer=settings.CLERK_ISSUER,
+                audience=settings.CLERK_AUDIENCE,
+                options={"verify_aud": True, "verify_iss": True}
+            )
+        else:
+            raise ValueError("Unsupported algorithm")
+
         user_id = payload.get("sub")
         return f"user:{user_id}" if user_id else f"ip:{get_remote_address(request)}"
     except Exception:
@@ -62,42 +84,59 @@ async def get_current_user(
     token: str = Depends(reusable_oauth2),
     public_key: str = Depends(get_clerk_public_key)
 ) -> User:
-    # 1. Check Redis Revocation List
     import redis.asyncio as redis
     from app.core.config import settings
-    r = redis.from_url(settings.CELERY_BROKER_URL) # Reuse Redis host
-    
-    try:
-        # Extract JTI (Unique Token ID)
-        payload_unverified = jwt.get_unverified_claims(token)
-        jti = payload_unverified.get("jti")
-        if jti and await r.get(f"revoked_token:{jti}"):
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Token has been revoked",
-            )
-    except Exception:
-        pass # Fall through to standard verification
-    finally:
-        await r.aclose()
 
     try:
-        payload = jwt.decode(
-            token, 
-            public_key, 
-            algorithms=["RS256"],
-            issuer=settings.CLERK_ISSUER,
-            audience=settings.CLERK_AUDIENCE,
-            options={"verify_aud": True, "verify_iss": True}
-        )
-        clerk_id = payload.get("sub")
+        header = jwt.get_unverified_header(token)
+        alg = header.get("alg")
+        if alg == "HS256":
+            payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
+        elif alg == "RS256":
+            payload = jwt.decode(
+                token,
+                public_key,
+                algorithms=["RS256"],
+                issuer=settings.CLERK_ISSUER,
+                audience=settings.CLERK_AUDIENCE,
+                options={"verify_aud": True, "verify_iss": True}
+            )
+        else:
+            raise ValueError("Unsupported algorithm")
     except Exception:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Could not validate credentials",
         )
+
+    # 1. Check Redis Revocation List
+    r = redis.from_url(settings.CELERY_BROKER_URL) # Reuse Redis host
     
-    result = await db.execute(select(User).where(User.clerk_id == clerk_id))
+    try:
+        jti = payload.get("jti")
+        if jti and await r.get(f"revoked_token:{jti}"):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token has been revoked",
+            )
+    except HTTPException:
+        raise
+    except Exception:
+        pass
+    finally:
+        await r.aclose()
+
+    sub = payload.get("sub")
+    if alg == "HS256":
+        try:
+            import uuid
+            user_uuid = uuid.UUID(str(sub))
+            result = await db.execute(select(User).where(User.id == user_uuid))
+        except ValueError:
+            result = await db.execute(select(User).where(User.id == sub))
+    else:
+        result = await db.execute(select(User).where(User.clerk_id == sub))
+    
     user = result.scalar_one_or_none()
     
     if not user:
