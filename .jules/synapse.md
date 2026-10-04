@@ -1,0 +1,6 @@
+## 2026-10-04 — Alert Routing (Auth ↔ Alerts)
+**Systems connected:** Auth System (Users) ↔ Alert System (Alerts)
+**Intelligence emerged:** Proactive tactical alerts. Previously, tactical threats were logged and visualized but relied on users actively monitoring the dashboard. Now, users are dynamically correlated with active alerts based on their assigned district and personalized risk threshold, dispatching targeted notifications automatically.
+**Data flows:** When an Alert is triggered (either clinical cluster or autonomous outbreak), an alert.triggered event is emitted. The listener queries the User DB via the user_district association, filtering for users who monitor the affected district and have email_alerts=True and a suitable alert_threshold. A targeted notification payload (alert ID, district name, disease, risk score) is dispatched for each match.
+**Coupling approach:** Event Bus (app.events.event_bus). The AlertService emits events without knowing about users or notifications. The alert_routing connection layer listens to the event, orchestrates the DB correlation, and triggers background notification tasks, ensuring the systems remain loosely coupled.
+**Next connection:** Errors ↔ Users (to proactively notify users when they hit known bugs).
