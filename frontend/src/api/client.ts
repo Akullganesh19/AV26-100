@@ -27,3 +27,33 @@ apiClient.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+// 🌀 Phantom: Invisible Infrastructure - Request Coalescing
+// Prevents identical GET requests from hitting the network simultaneously.
+// If component A and component B both request /api/data at the same time,
+// only one network request is made. Both get the same promise resolved.
+const inFlightRequests = new Map();
+
+const originalGet = apiClient.get;
+
+apiClient.get = function (url: string, config?: any) {
+  // Safe serialization of config for cache key, skipping non-serializable like FormData
+  let configStr = '';
+  try {
+    configStr = JSON.stringify(config || {});
+  } catch (e) {
+    configStr = 'unserializable';
+  }
+  const key = `${url}-${configStr}`;
+
+  if (inFlightRequests.has(key)) {
+    return inFlightRequests.get(key);
+  }
+
+  const promise = originalGet.call(apiClient, url, config).finally(() => {
+    inFlightRequests.delete(key);
+  });
+
+  inFlightRequests.set(key, promise);
+  return promise;
+};
