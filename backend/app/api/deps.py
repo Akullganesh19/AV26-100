@@ -83,8 +83,8 @@ async def get_current_user(
 
     try:
         payload = jwt.decode(
-            token, 
-            public_key, 
+            token,
+            public_key,
             algorithms=["RS256"],
             issuer=settings.CLERK_ISSUER,
             audience=settings.CLERK_AUDIENCE,
@@ -96,7 +96,7 @@ async def get_current_user(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Could not validate credentials",
         )
-    
+
     result = await db.execute(select(User).where(User.clerk_id == clerk_id))
     user = result.scalar_one_or_none()
     
