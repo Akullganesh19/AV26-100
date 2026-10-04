@@ -24,7 +24,23 @@ def get_user_id(request: Request) -> str:
             return f"ip:{get_remote_address(request)}"
         
         token = auth_header.split(" ")[1]
-        payload = jwt.get_unverified_claims(token)
+        # Attempt Clerk RS256 first
+        try:
+            payload = jwt.decode(
+                token,
+                settings.CLERK_PEM_PUBLIC_KEY,
+                algorithms=["RS256"],
+                issuer=settings.CLERK_ISSUER,
+                audience=settings.CLERK_AUDIENCE,
+                options={"verify_aud": True, "verify_iss": True}
+            )
+        except Exception:
+            # Fallback to local HS256
+            payload = jwt.decode(
+                token,
+                settings.SECRET_KEY,
+                algorithms=[settings.ALGORITHM]
+            )
         user_id = payload.get("sub")
         return f"user:{user_id}" if user_id else f"ip:{get_remote_address(request)}"
     except Exception:
@@ -62,6 +78,30 @@ async def get_current_user(
     token: str = Depends(reusable_oauth2),
     public_key: str = Depends(get_clerk_public_key)
 ) -> User:
+    is_clerk = False
+    try:
+        payload = jwt.decode(
+            token,
+            public_key,
+            algorithms=["RS256"],
+            issuer=settings.CLERK_ISSUER,
+            audience=settings.CLERK_AUDIENCE,
+            options={"verify_aud": True, "verify_iss": True}
+        )
+        is_clerk = True
+    except Exception:
+        try:
+            payload = jwt.decode(
+                token,
+                settings.SECRET_KEY,
+                algorithms=[settings.ALGORITHM]
+            )
+        except Exception:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Could not validate credentials",
+            )
+
     # 1. Check Redis Revocation List
     import redis.asyncio as redis
     from app.core.config import settings
@@ -69,35 +109,30 @@ async def get_current_user(
     
     try:
         # Extract JTI (Unique Token ID)
-        payload_unverified = jwt.get_unverified_claims(token)
-        jti = payload_unverified.get("jti")
+        jti = payload.get("jti")
         if jti and await r.get(f"revoked_token:{jti}"):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Token has been revoked",
             )
+    except HTTPException:
+        raise
     except Exception:
-        pass # Fall through to standard verification
+        pass # Ignore redis errors
     finally:
         await r.aclose()
 
-    try:
-        payload = jwt.decode(
-            token, 
-            public_key, 
-            algorithms=["RS256"],
-            issuer=settings.CLERK_ISSUER,
-            audience=settings.CLERK_AUDIENCE,
-            options={"verify_aud": True, "verify_iss": True}
-        )
-        clerk_id = payload.get("sub")
-    except Exception:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Could not validate credentials",
-        )
-    
-    result = await db.execute(select(User).where(User.clerk_id == clerk_id))
+    user_id = payload.get("sub")
+    if is_clerk:
+        result = await db.execute(select(User).where(User.clerk_id == user_id))
+    else:
+        try:
+            import uuid
+            uid = uuid.UUID(user_id)
+            result = await db.execute(select(User).where(User.id == uid))
+        except ValueError:
+            raise HTTPException(status_code=403, detail="Invalid user ID")
+
     user = result.scalar_one_or_none()
     
     if not user:
