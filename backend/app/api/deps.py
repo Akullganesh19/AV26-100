@@ -24,12 +24,18 @@ def get_user_id(request: Request) -> str:
             return f"ip:{get_remote_address(request)}"
         
         token = auth_header.split(" ")[1]
+
         header = jwt.get_unverified_header(token)
         alg = header.get("alg")
 
-        if alg == "HS256":
-            payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
-        elif alg == "RS256":
+        if alg == settings.ALGORITHM:
+            payload = jwt.decode(
+                token,
+                settings.SECRET_KEY,
+                algorithms=[settings.ALGORITHM],
+                options={"verify_exp": False}
+            )
+        elif alg == "RS256" and settings.CLERK_PEM_PUBLIC_KEY:
             payload = jwt.decode(
                 token,
                 settings.CLERK_PEM_PUBLIC_KEY,
