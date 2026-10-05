@@ -39,7 +39,7 @@ class User(Base):
     districts: Mapped[List["District"]] = relationship(
         secondary="user_districts", back_populates="users"
     )
-    scenarios: Mapped[List["Scenario"]] = relationship(back_populates="user")
+    simulations: Mapped[List["SimulationState"]] = relationship(back_populates="user")
     acknowledged_alerts: Mapped[List["Alert"]] = relationship(back_populates="acknowledged_by_user")
     password_reset_tokens: Mapped[List["PasswordResetToken"]] = relationship(back_populates="user")
 
