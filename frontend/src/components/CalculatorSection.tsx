@@ -78,8 +78,8 @@ export const CalculatorSection = () => {
           <div className="bg-[#0D0D0D] p-8 lg:p-12 flex flex-col gap-10 divide-y divide-[#1E1E1E]">
             
             {/* Service Type */}
-            <div className="space-y-6">
-              <h3 className="text-lg font-medium opacity-80">What kind of service do you need?</h3>
+            <div className="space-y-6" role="radiogroup" aria-labelledby="service-type-heading">
+              <h3 id="service-type-heading" className="text-lg font-medium opacity-80">What kind of service do you need?</h3>
               <div className="flex flex-wrap gap-4">
                 {[
                   { id: 'design', label: 'Only Design' },
@@ -89,7 +89,9 @@ export const CalculatorSection = () => {
                   <button
                     key={opt.id}
                     onClick={() => setServiceType(opt.id as any)}
-                    className="flex items-center gap-3 group cursor-pointer"
+                    className="flex items-center gap-3 group cursor-pointer rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF5656] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0D0D0D]"
+                    role="radio"
+                    aria-checked={serviceType === opt.id}
                   >
                     <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${serviceType === opt.id ? 'border-[#FF5656]' : 'border-[#333]'}`}>
                       {serviceType === opt.id && <div className="w-2 h-2 rounded-full bg-[#FF5656]" />}
@@ -127,15 +129,15 @@ export const CalculatorSection = () => {
                 ].map((addon) => (
                   <label key={addon.id} className="flex items-center justify-between group cursor-pointer">
                     <div className="flex items-center gap-3">
-                      <div className={`w-5 h-5 border-2 rounded flex items-center justify-center transition-all ${addon.state ? 'bg-[#FF5656] border-[#FF5656]' : 'border-[#333]'}`}>
-                        {addon.state && <Check size={14} strokeWidth={4} className="text-white" />}
-                      </div>
                       <input 
                         type="checkbox" 
-                        className="hidden" 
+                        className="sr-only peer"
                         checked={addon.state} 
                         onChange={() => addon.set(!addon.state)} 
                       />
+                      <div className={`w-5 h-5 border-2 rounded flex items-center justify-center transition-all peer-focus-visible:ring-2 peer-focus-visible:ring-[#FF5656] peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-[#0D0D0D] ${addon.state ? 'bg-[#FF5656] border-[#FF5656]' : 'border-[#333]'}`}>
+                        {addon.state && <Check size={14} strokeWidth={4} className="text-white" />}
+                      </div>
                       <span className={`text-sm transition-colors ${addon.state ? 'text-white' : 'text-[#666]'}`}>{addon.label}</span>
                     </div>
                     <span className="text-xs font-bold text-[#FF5656]">{addon.price}</span>
@@ -145,8 +147,8 @@ export const CalculatorSection = () => {
             </div>
 
             {/* Timeline */}
-            <div className="pt-10 space-y-6">
-              <h3 className="text-lg font-medium opacity-80">How fast do you need this?</h3>
+            <div className="pt-10 space-y-6" role="radiogroup" aria-labelledby="timeline-heading">
+              <h3 id="timeline-heading" className="text-lg font-medium opacity-80">How fast do you need this?</h3>
               <div className="grid gap-4">
                 {[
                   { id: 'rush', label: 'Within 7 Days', price: '+$100/page' },
@@ -156,7 +158,9 @@ export const CalculatorSection = () => {
                   <button
                     key={opt.id}
                     onClick={() => setTimeline(opt.id as any)}
-                    className="flex items-center justify-between group cursor-pointer w-full text-left"
+                    className="flex items-center justify-between group cursor-pointer w-full text-left rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF5656] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0D0D0D]"
+                    role="radio"
+                    aria-checked={timeline === opt.id}
                   >
                     <div className="flex items-center gap-3">
                       <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${timeline === opt.id ? 'border-[#FF5656]' : 'border-[#333]'}`}>
