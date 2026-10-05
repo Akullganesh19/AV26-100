@@ -62,6 +62,13 @@ class AlertService:
                     db.add(new_alert)
                     await db.commit()
                     logger.info(f"TACTICAL ALERT: Clinical cluster detected in {district_id} ({disease})")
+
+                    from app.services.notification_dispatcher import dispatch_targeted_alerts
+                    from app.models.district import District
+                    district_result = await db.execute(select(District).where(District.id == district_id))
+                    district_obj = district_result.scalar_one_or_none()
+                    district_name = district_obj.name if district_obj else str(district_id)
+                    await dispatch_targeted_alerts(db, new_alert, district_name)
         
         except Exception as e:
             logger.error(
@@ -87,6 +94,13 @@ class AlertService:
             )
             db.add(new_alert)
             await db.commit()
+
+            from app.services.notification_dispatcher import dispatch_targeted_alerts
+            from app.models.district import District
+            district_result = await db.execute(select(District).where(District.id == prediction.district_id))
+            district_obj = district_result.scalar_one_or_none()
+            district_name = district_obj.name if district_obj else str(prediction.district_id)
+            await dispatch_targeted_alerts(db, new_alert, district_name)
 
     @staticmethod
     async def acknowledge_alert(db: AsyncSession, alert_id: str, user_id: str):
