@@ -65,6 +65,9 @@ class Settings(BaseSettings):
 
     # API Keys
     ALGOLIA_API_KEY: Optional[str] = None
+    ALGOLIA_APP_ID: Optional[str] = None
+    STREAM_API_KEY: Optional[str] = None
+    STREAM_API_SECRET: Optional[str] = None
     SENDGRID_API_KEY: Optional[str] = None
     CLOUDINARY_API_KEY: Optional[str] = None
     GROQ_API_KEY: Optional[str] = None
