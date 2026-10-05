@@ -20,6 +20,7 @@ from app.ml.features import FeatureBuilder, FEATURE_NAMES
 from app.models.prediction import Prediction, RiskTier
 from app.schemas.prediction import PredictionResponse
 from app.tasks.alerts import send_alert_notification
+from app.core.resilience import fire_and_forget
 
 logger = logging.getLogger(__name__)
 
@@ -185,7 +186,7 @@ class PredictionService:
 
         # Step 7: Trigger Asynchronous Alerts if high risk
         if risk_tier in [RiskTier.HIGH, RiskTier.CRITICAL]:
-            asyncio.create_task(send_alert_notification(
+            fire_and_forget(send_alert_notification(
                 alert_id=str(prediction_id),
                 district_name="Jurisdiction Monitor", # In production, fetch from District model
                 disease=disease,
