@@ -1,0 +1,3 @@
+## 2023-10-25 - Keyboard Accessibility for Custom Forms
+**Learning:** Using `className="hidden"` on visually hidden form inputs breaks keyboard navigation since screen readers and the tab sequence ignore the element entirely.
+**Action:** Replace `.hidden` with `.sr-only.peer` on inputs placed immediately before custom visual form controls, and apply `peer-focus-visible:ring-2` to the visual control. Add explicit ARIA `role="radiogroup"` and `aria-labelledby` attributes for custom `button`-based radio options while ensuring `role="radio"` and `aria-checked` are present on the buttons themselves.
