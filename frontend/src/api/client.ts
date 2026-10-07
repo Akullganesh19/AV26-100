@@ -27,3 +27,25 @@ apiClient.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+// 🌪️ Phantom: Request Coalescing Infrastructure
+// Prevents duplicate concurrent GET requests to the same endpoint
+const pendingRequests = new Map<string, Promise<any>>();
+const originalGet = apiClient.get;
+
+apiClient.get = function (url: string, config?: any) {
+  const paramsKey = config?.params ? JSON.stringify(config.params) : '';
+  const key = `${url}?${paramsKey}`;
+
+  if (pendingRequests.has(key)) {
+    console.debug(`[Phantom] Coalescing duplicate request: ${key}`);
+    return pendingRequests.get(key)!;
+  }
+
+  const promise = originalGet.call(this, url, config).finally(() => {
+    pendingRequests.delete(key);
+  });
+
+  pendingRequests.set(key, promise);
+  return promise;
+};
