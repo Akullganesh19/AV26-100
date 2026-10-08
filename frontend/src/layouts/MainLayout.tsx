@@ -100,7 +100,9 @@ const MainLayout: React.FC = () => {
           <div className="flex items-center gap-4">
             <button 
               onClick={() => setSidebarOpen(!isSidebarOpen)}
-              className="p-2 rounded-lg hover:bg-white/5 transition-colors"
+              className="p-2 rounded-lg hover:bg-white/5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
+              aria-label="Toggle sidebar"
+              aria-expanded={isSidebarOpen}
             >
               <Menu className="w-5 h-5 text-slate-400" />
             </button>
