@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios, { AxiosRequestConfig, AxiosResponse } from 'axios';
 import { useAuthStore } from '../store/authStore';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
@@ -27,3 +27,26 @@ apiClient.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+// Phantom: Request Coalescing
+const inFlight = new Map<string, Promise<any>>();
+
+const originalGet = apiClient.get;
+apiClient.get = function<T = any, R = AxiosResponse<T>, D = any>(
+  url: string,
+  config?: AxiosRequestConfig<D>
+): Promise<R> {
+  const key = url + (config?.params ? JSON.stringify(config.params) : '');
+
+  if (inFlight.has(key)) {
+    console.debug(`[Phantom] Coalescing duplicate GET request to ${url}`);
+    return inFlight.get(key)!;
+  }
+
+  const promise = originalGet.apply(this, [url, config]).finally(() => {
+    inFlight.delete(key);
+  });
+
+  inFlight.set(key, promise);
+  return promise;
+};
