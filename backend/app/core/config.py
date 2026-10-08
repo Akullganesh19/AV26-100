@@ -62,6 +62,7 @@ class Settings(BaseSettings):
 
     # Logging
     LOG_LEVEL: str = "INFO"
+    CLINICAL_CLUSTER_THRESHOLD: int = 5
 
     # API Keys
     ALGOLIA_API_KEY: Optional[str] = None
