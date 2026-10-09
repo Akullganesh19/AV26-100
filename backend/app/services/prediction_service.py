@@ -79,6 +79,7 @@ def load_artifacts() -> dict:
 
 # Module-level state — populated by lifespan, shared across all requests
 ml_state: dict = {}
+_background_tasks: set = set()
 
 
 class PredictionService:
@@ -185,12 +186,14 @@ class PredictionService:
 
         # Step 7: Trigger Asynchronous Alerts if high risk
         if risk_tier in [RiskTier.HIGH, RiskTier.CRITICAL]:
-            asyncio.create_task(send_alert_notification(
+            task = asyncio.create_task(send_alert_notification(
                 alert_id=str(prediction_id),
                 district_name="Jurisdiction Monitor", # In production, fetch from District model
                 disease=disease,
                 risk_score=float(raw_score)
             ))
+            _background_tasks.add(task)
+            task.add_done_callback(_background_tasks.discard)
 
         return PredictionResponse(
             prediction_id=prediction_id,
@@ -211,32 +214,22 @@ class PredictionService:
         district_ids: list[UUID],
         disease: str,
         as_of_date: date,
-        concurrency: int = 5
     ) -> list[PredictionResponse]:
         """
-        Optimized batch inference using asyncio.gather for concurrency.
-        Uses a semaphore to prevent overwhelming the database connection pool or CPU.
+        Safe sequential batch inference to prevent AsyncSession concurrent transaction corruption.
         """
-        semaphore = asyncio.Semaphore(concurrency)
-
-        async def _predict_with_sem(d_id: UUID):
-            async with semaphore:
-                try:
-                    return await self.predict_single(d_id, disease, as_of_date)
-                except ValueError as exc:
-                    logger.warning(f"Skipping district {d_id}: {exc}")
-                    return None
-                except Exception as exc:
-                    logger.error(
-                        f"Unexpected error for district {d_id}: {exc}",
-                        exc_info=True,
-                    )
-                    return None
-
-        tasks = [_predict_with_sem(d_id) for d_id in district_ids]
-        results = await asyncio.gather(*tasks)
-
-        # Filter out skipped districts (None)
+        results = []
+        for d_id in district_ids:
+            try:
+                res = await self.predict_single(d_id, disease, as_of_date)
+                results.append(res)
+            except ValueError as exc:
+                logger.warning(f"Skipping district {d_id}: {exc}")
+            except Exception as exc:
+                logger.error(
+                    f"Unexpected error for district {d_id}: {exc}",
+                    exc_info=True,
+                )
         return [r for r in results if r is not None]
 
     # ── private methods ──────────────────────────────────────────────────────
