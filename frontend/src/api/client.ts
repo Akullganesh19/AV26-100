@@ -27,3 +27,18 @@ apiClient.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+const pendingRequests = new Map();
+const originalGet = apiClient.get;
+apiClient.get = function (url: string, config?: any) {
+  const key = JSON.stringify({ url, config });
+  if (pendingRequests.has(key)) {
+    console.debug(`[Phantom] Coalescing request to: ${url}`);
+    return pendingRequests.get(key);
+  }
+  const promise = originalGet.call(this, url, config).finally(() => {
+    pendingRequests.delete(key);
+  });
+  pendingRequests.set(key, promise);
+  return promise;
+};
