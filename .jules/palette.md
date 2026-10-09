@@ -1,0 +1,3 @@
+## 2024-05-18 - Keyboard Focus for Custom Form Controls
+**Learning:** Hidden inputs (`className="hidden"`) completely remove elements from the accessibility tree and keyboard focus order. Additionally, custom radio group components built with generic buttons lack implicit `radiogroup` semantics and proper `aria-checked` states.
+**Action:** Use `.sr-only` coupled with the Tailwind `.peer` class on inputs (placed *before* the visual custom element) and apply `.peer-focus-visible` utilities to the visual element to preserve keyboard accessibility and explicit focus states for custom checkboxes. For custom radio buttons made of `<button>` tags, explicitly assign `role="radiogroup"`, `role="radio"`, and `aria-checked` attributes, alongside visible `focus-visible` states.
