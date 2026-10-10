@@ -10,6 +10,22 @@ export const apiClient = axios.create({
   },
 });
 
+const inFlight = new Map<string, Promise<any>>();
+const originalGet = apiClient.get;
+
+apiClient.get = async function (url: string, config?: any) {
+  const cacheKey = url + JSON.stringify(config?.params || {});
+  if (inFlight.has(cacheKey)) {
+    console.debug(`[Phantom] Coalescing request for: ${cacheKey}`);
+    return inFlight.get(cacheKey);
+  }
+  const promise = originalGet.call(this, url, config).finally(() => {
+    inFlight.delete(cacheKey);
+  });
+  inFlight.set(cacheKey, promise);
+  return promise;
+};
+
 apiClient.interceptors.request.use((config) => {
   const token = useAuthStore.getState().token;
   if (token) {
