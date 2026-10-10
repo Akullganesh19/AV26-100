@@ -3,6 +3,7 @@ import uuid
 import httpx
 from cachetools import TTLCache
 from fastapi import Depends, HTTPException, status, Query, Request
+import redis.asyncio as redis
 from fastapi.security import OAuth2PasswordBearer
 from jose import jwt
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -57,15 +58,17 @@ async def get_clerk_public_key() -> str:
     clerk_key_cache["pem"] = settings.CLERK_PEM_PUBLIC_KEY
     return clerk_key_cache["pem"]
 
+# Global Redis Connection Pool for performance
+# Reusing this pool prevents establishing a new TCP connection on every request
+redis_pool = redis.ConnectionPool.from_url(str(settings.CELERY_BROKER_URL))
+
 async def get_current_user(
     db: AsyncSession = Depends(get_db),
     token: str = Depends(reusable_oauth2),
     public_key: str = Depends(get_clerk_public_key)
 ) -> User:
     # 1. Check Redis Revocation List
-    import redis.asyncio as redis
-    from app.core.config import settings
-    r = redis.from_url(settings.CELERY_BROKER_URL) # Reuse Redis host
+    r = redis.Redis(connection_pool=redis_pool) # Reuse Redis host via pool
     
     try:
         # Extract JTI (Unique Token ID)
