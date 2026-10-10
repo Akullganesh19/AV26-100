@@ -13,12 +13,16 @@ import {
   Map as MapIcon
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
+import { useOracle } from '../hooks/useOracle';
 
 const MainLayout: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { logout, user } = useAuthStore();
   const [isSidebarOpen, setSidebarOpen] = React.useState(true);
+
+  // 🛸 Oracle: Initialize predictive navigation engine
+  useOracle();
 
   const navItems = [
     { path: '/', label: 'Command Center', icon: LayoutDashboard },
