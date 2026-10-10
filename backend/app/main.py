@@ -32,6 +32,10 @@ async def lifespan(app: FastAPI):
         logger.critical("Failed to load ML artifacts", exc_info=True)
         raise RuntimeError(f"System cannot start without ML models: {e}")
 
+    from app.subscribers import init_subscribers
+    init_subscribers()
+    logger.info("Event subscribers initialized")
+
     # 2. Start Background Scheduler
     start_scheduler()
     logger.info("Background scheduler started")
