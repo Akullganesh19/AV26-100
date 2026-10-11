@@ -3,7 +3,7 @@ from sqlalchemy import create_engine, text
 
 async def create_test_db():
     # Connect to the default postgres database
-    admin_url = "postgresql://episense:episense@localhost:5432/postgres"
+    admin_url = "postgresql://postgres:postgres@localhost:5432/postgres"
     engine = create_engine(admin_url, isolation_level="AUTOCOMMIT")
     
     with engine.connect() as conn:
