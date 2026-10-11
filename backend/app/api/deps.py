@@ -35,8 +35,13 @@ limiter = Limiter(key_func=get_user_id)
 # Specific limits like @limiter.limit("5/minute") still apply on top.
 GLOBAL_LIMIT = "100/minute"
 
+import redis.asyncio as redis
+
 # Cache for Clerk public keys
 clerk_key_cache = TTLCache(maxsize=1, ttl=86400)
+
+# Global Redis client to prevent connection pool recreation per request
+redis_client = redis.from_url(str(settings.CELERY_BROKER_URL))
 
 # OAuth2 scheme
 reusable_oauth2 = OAuth2PasswordBearer(
@@ -63,23 +68,19 @@ async def get_current_user(
     public_key: str = Depends(get_clerk_public_key)
 ) -> User:
     # 1. Check Redis Revocation List
-    import redis.asyncio as redis
-    from app.core.config import settings
-    r = redis.from_url(settings.CELERY_BROKER_URL) # Reuse Redis host
-    
     try:
         # Extract JTI (Unique Token ID)
         payload_unverified = jwt.get_unverified_claims(token)
         jti = payload_unverified.get("jti")
-        if jti and await r.get(f"revoked_token:{jti}"):
+        if jti and await redis_client.get(f"revoked_token:{jti}"):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Token has been revoked",
             )
+    except HTTPException:
+        raise
     except Exception:
         pass # Fall through to standard verification
-    finally:
-        await r.aclose()
 
     try:
         payload = jwt.decode(
