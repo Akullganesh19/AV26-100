@@ -99,8 +99,10 @@ const MainLayout: React.FC = () => {
         <header className="h-16 border-b border-white/5 flex items-center justify-between px-8 bg-black/20 backdrop-blur-md">
           <div className="flex items-center gap-4">
             <button 
+              aria-label={isSidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
+              aria-expanded={isSidebarOpen}
               onClick={() => setSidebarOpen(!isSidebarOpen)}
-              className="p-2 rounded-lg hover:bg-white/5 transition-colors"
+              className="p-2 rounded-lg hover:bg-white/5 transition-colors focus-visible:ring-2 focus-visible:ring-brand-primary focus:outline-none"
             >
               <Menu className="w-5 h-5 text-slate-400" />
             </button>
