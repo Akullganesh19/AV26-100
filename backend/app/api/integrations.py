@@ -51,3 +51,71 @@ class IntegrationService:
         pass
 
 integration_service = IntegrationService()
+
+import httpx
+from datetime import date
+import logging
+
+logger = logging.getLogger(__name__)
+
+async def with_retry(func, *args, max_attempts=3, base_delay=0.1, **kwargs):
+    for attempt in range(1, max_attempts + 1):
+        try:
+            return await func(*args, **kwargs)
+        except httpx.HTTPError as err:
+            logger.warning(f"Attempt {attempt} failed: {err}")
+            if attempt == max_attempts:
+                logger.error(f"All {max_attempts} attempts failed.")
+                raise err
+
+            delay = base_delay * (2 ** (attempt - 1))
+            logger.info(f"Retrying in {delay} seconds...")
+            await asyncio.sleep(delay)
+
+class WeatherClient:
+    def __init__(self):
+        self.base_url = settings.OPENMETEO_BASE_URL
+
+    async def get_daily_weather(self, latitude: float, longitude: float, start_date: date, end_date: date):
+        async def _fetch():
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    f"{self.base_url}/archive",
+                    params={
+                        "latitude": latitude,
+                        "longitude": longitude,
+                        "start_date": start_date.isoformat(),
+                        "end_date": end_date.isoformat(),
+                        "daily": "temperature_2m_max,precipitation_sum,relative_humidity_2m_mean",
+                        "timezone": "auto"
+                    },
+                    timeout=10.0
+                )
+                response.raise_for_status()
+                return response.json()
+
+        # Use exponential backoff for resilience against transient failures
+        return await with_retry(_fetch, max_attempts=3)
+
+    def parse_weather_response(self, data: dict):
+        # Parse the data
+        if not data or "daily" not in data:
+            return []
+
+        daily = data["daily"]
+        dates = daily.get("time", [])
+        temps = daily.get("temperature_2m_max", [])
+        rains = daily.get("precipitation_sum", [])
+        hums = daily.get("relative_humidity_2m_mean", [])
+
+        records = []
+        for i in range(len(dates)):
+            records.append({
+                "date": dates[i],
+                "temperature_c": temps[i] if temps[i] is not None else 0,
+                "rainfall_mm": rains[i] if rains[i] is not None else 0,
+                "humidity_pct": hums[i] if hums[i] is not None else 0,
+            })
+        return records
+
+weather_client = WeatherClient()

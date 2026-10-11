@@ -64,6 +64,10 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = "INFO"
 
     # API Keys
+    ALGOLIA_APP_ID: Optional[str] = None
+    STREAM_API_KEY: Optional[str] = None
+    STREAM_API_SECRET: Optional[str] = None
+    EMAILS_FROM_EMAIL: Optional[str] = None
     ALGOLIA_API_KEY: Optional[str] = None
     SENDGRID_API_KEY: Optional[str] = None
     CLOUDINARY_API_KEY: Optional[str] = None
