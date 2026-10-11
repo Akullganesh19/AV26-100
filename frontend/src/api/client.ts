@@ -27,3 +27,25 @@ apiClient.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+// Request coalescing for GET requests
+const inFlightGets = new Map();
+const originalGet = apiClient.get;
+
+apiClient.get = function (...args) {
+  const [url, config] = args;
+  // Simple serialization of config parameters for cache key
+  const cacheKey = url + (config?.params ? JSON.stringify(config.params) : '');
+
+  if (inFlightGets.has(cacheKey)) {
+    console.debug(`[Phantom] Coalescing duplicate request to: ${cacheKey}`);
+    return inFlightGets.get(cacheKey);
+  }
+
+  const promise = originalGet.apply(this, args).finally(() => {
+    inFlightGets.delete(cacheKey);
+  });
+
+  inFlightGets.set(cacheKey, promise);
+  return promise;
+};
