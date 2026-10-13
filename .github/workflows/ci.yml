@@ -56,6 +56,9 @@ jobs:
         DATABASE_URL: postgresql+asyncpg://episense:episense@localhost:5432/episense_test
         SECRET_KEY: test_secret_key_for_ci
         REDIS_HOST: localhost
+        PGPASSWORD: episense
       run: |
+        sudo apt-get update && sudo apt-get install -y postgresql-client
+        createdb -h localhost -U episense episense_test_test
         export PYTHONPATH=$PYTHONPATH:$(pwd)/backend
         pytest backend/tests/ml/test_features.py
