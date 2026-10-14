@@ -39,11 +39,8 @@ apiClient.get = function <T = any, R = import('axios').AxiosResponse<T>, D = any
 ): Promise<R> {
   let cacheKey = url;
   if (config && config.params) {
-    try {
-      cacheKey = `${url}?${new URLSearchParams(config.params).toString()}`;
-    } catch (e) {
-      cacheKey = `${url}?${JSON.stringify(config.params)}`;
-    }
+    // Safely serialize query params to avoid "[object Object]" collisions on nested objects
+    cacheKey = apiClient.getUri({ url, params: config.params });
   }
 
   if (inFlightGets.has(cacheKey)) {
