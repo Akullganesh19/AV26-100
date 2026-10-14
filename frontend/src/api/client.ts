@@ -10,6 +10,25 @@ export const apiClient = axios.create({
   },
 });
 
+const originalGet = apiClient.get;
+const inFlightGets = new Map<string, Promise<any>>();
+
+apiClient.get = function (url: string, config?: any) {
+  const key = `${url}?${JSON.stringify(config?.params || {})}`;
+
+  if (inFlightGets.has(key)) {
+    console.debug(`[Phantom] Coalesced duplicate GET request to: ${key}`);
+    return inFlightGets.get(key)!;
+  }
+
+  const promise = originalGet.call(this, url, config).finally(() => {
+    inFlightGets.delete(key);
+  });
+
+  inFlightGets.set(key, promise);
+  return promise;
+} as any;
+
 apiClient.interceptors.request.use((config) => {
   const token = useAuthStore.getState().token;
   if (token) {
