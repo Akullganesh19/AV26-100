@@ -54,7 +54,8 @@ jobs:
     - name: Create secondary test database
       run: |
         sudo apt-get update && sudo apt-get install -y postgresql-client
-        PGPASSWORD=episense psql -h localhost -U episense -c "CREATE DATABASE episense_test_test;"
+        PGPASSWORD=episense psql -h localhost -U episense -d postgres -c "CREATE DATABASE episense;"
+        PGPASSWORD=episense psql -h localhost -U episense -d postgres -c "CREATE DATABASE episense_test_test;"
 
     - name: Run Tests
       env:
