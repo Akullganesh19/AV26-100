@@ -27,3 +27,31 @@ apiClient.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+// 🌀 Phantom: Invisible Request Coalescing
+// Prevent duplicate simultaneous GET requests for the same resource
+const inFlightGets = new Map<string, Promise<any>>();
+const originalGet = apiClient.get;
+
+apiClient.get = function <T = any, R = import('axios').AxiosResponse<T>, D = any>(
+  url: string,
+  config?: import('axios').AxiosRequestConfig<D>
+): Promise<R> {
+  let cacheKey = url;
+  if (config && config.params) {
+    // Safely serialize query params to avoid "[object Object]" collisions on nested objects
+    cacheKey = apiClient.getUri({ url, params: config.params });
+  }
+
+  if (inFlightGets.has(cacheKey)) {
+    console.debug(`[Phantom] Coalescing duplicate GET request to: ${url}`);
+    return inFlightGets.get(cacheKey) as Promise<R>;
+  }
+
+  const promise = originalGet.call(this, url, config).finally(() => {
+    inFlightGets.delete(cacheKey);
+  });
+
+  inFlightGets.set(cacheKey, promise);
+  return promise as Promise<R>;
+};
