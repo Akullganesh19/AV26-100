@@ -62,13 +62,15 @@ const MainLayout: React.FC = () => {
               <Link
                 key={item.path}
                 to={item.path}
-                className={`flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-200 group ${
+                aria-label={item.label}
+                title={!isSidebarOpen ? item.label : undefined}
+                className={`flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-200 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary ${
                   isActive 
                     ? 'bg-brand-primary/10 text-brand-primary border border-brand-primary/20 shadow-[0_0_15px_rgba(30,144,255,0.1)]' 
                     : 'text-slate-400 hover:text-slate-100 hover:bg-white/[0.03]'
                 }`}
               >
-                <Icon className={`w-5 h-5 ${isActive ? 'text-brand-primary' : 'group-hover:text-slate-100'}`} />
+                <Icon aria-hidden="true" className={`w-5 h-5 ${isActive ? 'text-brand-primary' : 'group-hover:text-slate-100'}`} />
                 {isSidebarOpen && <span className="font-medium text-sm tracking-wide">{item.label}</span>}
               </Link>
             );
@@ -85,9 +87,11 @@ const MainLayout: React.FC = () => {
           )}
           <button
             onClick={handleLogout}
-            className="w-full flex items-center gap-4 px-4 py-3 rounded-xl text-rose-400 hover:bg-rose-500/10 transition-all group"
+            aria-label="Terminate Session"
+            title={!isSidebarOpen ? "Terminate Session" : undefined}
+            className="w-full flex items-center gap-4 px-4 py-3 rounded-xl text-rose-400 hover:bg-rose-500/10 transition-all group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400"
           >
-            <LogOut className="w-5 h-5" />
+            <LogOut aria-hidden="true" className="w-5 h-5" />
             {isSidebarOpen && <span className="font-medium text-sm">Terminate Session</span>}
           </button>
         </div>
@@ -100,9 +104,11 @@ const MainLayout: React.FC = () => {
           <div className="flex items-center gap-4">
             <button 
               onClick={() => setSidebarOpen(!isSidebarOpen)}
-              className="p-2 rounded-lg hover:bg-white/5 transition-colors"
+              aria-label={isSidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
+              aria-expanded={isSidebarOpen}
+              className="p-2 rounded-lg hover:bg-white/5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
             >
-              <Menu className="w-5 h-5 text-slate-400" />
+              <Menu aria-hidden="true" className="w-5 h-5 text-slate-400" />
             </button>
             <div className="h-4 w-[1px] bg-white/10" />
             <h1 className="text-sm font-medium text-slate-400">
