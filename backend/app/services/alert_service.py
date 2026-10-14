@@ -5,11 +5,13 @@ from typing import Optional, List
 from sqlalchemy import select, func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.alert import Alert, AlertStatus, AlertType
+from app.core.events import event_bus
 from app.models.audit_log import PredictionAuditLog
 from app.models.prediction import Prediction
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
+
 
 class AlertService:
     @staticmethod
@@ -21,7 +23,7 @@ class AlertService:
         try:
             # Lookback: 24 hours
             threshold_time = datetime.utcnow() - timedelta(hours=24)
-            
+
             query = select(func.count(PredictionAuditLog.id)).where(
                 and_(
                     PredictionAuditLog.district_id == district_id,
@@ -31,10 +33,10 @@ class AlertService:
                     PredictionAuditLog.timestamp >= threshold_time
                 )
             )
-            
+
             result = await db.execute(query)
             count = result.scalar() or 0
-            
+
             if count >= settings.CLINICAL_CLUSTER_THRESHOLD:
                 # Check for existing open alert to avoid spam
                 existing_query = select(Alert).where(
@@ -61,8 +63,11 @@ class AlertService:
                     )
                     db.add(new_alert)
                     await db.commit()
-                    logger.info(f"TACTICAL ALERT: Clinical cluster detected in {district_id} ({disease})")
-        
+                    logger.info(
+                        f"TACTICAL ALERT: Clinical cluster detected in {district_id} ({disease})")
+                    event_bus.publish("alert.triggered",
+                                      alert_id=str(new_alert.id))
+
         except Exception as e:
             logger.error(
                 f"MISSION FAILURE: Failed to evaluate clinical cluster for {district_id}",
@@ -87,6 +92,7 @@ class AlertService:
             )
             db.add(new_alert)
             await db.commit()
+            event_bus.publish("alert.triggered", alert_id=str(new_alert.id))
 
     @staticmethod
     async def acknowledge_alert(db: AsyncSession, alert_id: str, user_id: str):
