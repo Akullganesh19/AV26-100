@@ -12,11 +12,11 @@ async def verify_clinical_sense(district_name: str):
     Run this after loading Census data to ensure model interpretability.
     """
     print(f"\n--- Clinical Verification: {district_name} ---")
-    
+
     # 1. Ensure ML artifacts are loaded (simulating app startup)
     if not ml_state:
         ml_state.update(load_artifacts())
-    
+
     async with SessionLocal() as db:
         # 2. Find District
         result = await db.execute(select(District).where(District.name == district_name))
@@ -28,18 +28,18 @@ async def verify_clinical_sense(district_name: str):
         # 3. Generate Prediction
         service = PredictionService(db)
         pred = await service.predict_single(district.id, "cholera", date.today())
-        
+
         # 4. Display Top Features
         print(f"Risk Score: {pred.risk_score} ({pred.risk_tier})")
         print("Top Risk Drivers (SHAP Attribution):")
-        
+
         # Sort features by absolute SHAP value
         sorted_shap = sorted(
             [(k, v) for k, v in pred.shap_values.items() if not k.startswith("_")],
             key=lambda x: abs(x[1]),
             reverse=True
         )
-        
+
         for feat, val in sorted_shap[:5]:
             impact = "POS" if val > 0 else "NEG"
             print(f"  {feat:30} | Impact: {impact} | Value: {val:+.4f}")
