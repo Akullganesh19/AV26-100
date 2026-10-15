@@ -1,37 +1,43 @@
 import React from 'react';
-import { CalculatorSection } from './components/CalculatorSection';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'sonner';
+
+import { useAuthStore } from './store/authStore';
+import MainLayout from './layouts/MainLayout';
+import LoginPage from './pages/LoginPage';
+import Dashboard from './pages/Dashboard';
+import StrategicMap from './pages/StrategicMap';
+import TacticalAlerts from './pages/TacticalAlerts';
+import DiagnosticsCenter from './pages/DiagnosticsCenter';
+import SimulationLab from './pages/SimulationLab';
+
+const queryClient = new QueryClient();
+
+const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+  const { isAuthenticated } = useAuthStore();
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  return <>{children}</>;
+};
 
 export default function App() {
   return (
-    <main className="bg-[#050505] min-h-screen text-white font-sans selection:bg-[#FF5656] selection:text-white overflow-hidden">
-      <Toaster position="top-center" richColors />
-      
-      {/* NAVIGATION PLACEHOLDER */}
-      <nav className="max-w-7xl mx-auto px-8 py-10 flex justify-between items-center opacity-80">
-        <span className="text-xl font-bold tracking-tighter">WEBFLUIN <span className="text-[#FF5656]">STUDIO</span></span>
-        <div className="flex gap-10 text-xs uppercase tracking-widest font-medium">
-          <a href="#" className="hover:text-[#FF5656] transition-colors">Process</a>
-          <a href="#" className="hover:text-[#FF5656] transition-colors">Portfolio</a>
-          <a href="#" className="hover:text-[#FF5656] transition-colors">Contact</a>
-        </div>
-      </nav>
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
 
-      <div className="max-w-7xl mx-auto px-8 py-20 text-center">
-         <h1 className="text-6xl md:text-8xl font-black uppercase tracking-tighter leading-[0.9] mb-8">
-           We Build <br/> <span className="text-[#FF5656]">Bold</span> Brands.
-         </h1>
-         <p className="text-[#666] max-w-xl mx-auto text-sm md:text-base leading-relaxed">
-           Elite design and development for startups that aren't afraid to stand out. 
-           Transparent pricing. High-speed delivery. Zero headache.
-         </p>
-      </div>
-
-      <CalculatorSection />
-
-      <footer className="py-20 text-center border-t border-white/5 opacity-40">
-        <p className="text-[10px] uppercase tracking-widest font-mono">&copy; 2025 Webfluin Studio -- Tactical Deployment</p>
-      </footer>
-    </main>
+          <Route path="/" element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
+            <Route index element={<Navigate to="/dashboard" replace />} />
+            <Route path="dashboard" element={<Dashboard />} />
+            <Route path="map" element={<StrategicMap />} />
+            <Route path="alerts" element={<TacticalAlerts />} />
+            <Route path="diagnostics" element={<DiagnosticsCenter />} />
+            <Route path="simulation" element={<SimulationLab />} />
+          </Route>
+        </Routes>
+      </BrowserRouter>
+      <Toaster position="top-right" theme="dark" />
+    </QueryClientProvider>
   );
 }
