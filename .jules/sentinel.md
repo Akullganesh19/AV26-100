@@ -1,0 +1,4 @@
+## 2025-02-28 - [High] Rate Limit Bypass via Unverified JWT Claims
+**Vulnerability:** The rate limiter key extraction (`get_user_id`) used `jwt.get_unverified_claims(token)` to retrieve the `sub` (user ID) from incoming tokens, allowing attackers to bypass rate limits by spoofing the signature of arbitrary user IDs.
+**Learning:** Extracting claims without verifying the signature in middleware or dependency injection (like rate limit keys) means unauthenticated payloads are trusted as verified state, subverting the security boundary for rate limiting.
+**Prevention:** Always use `jwt.get_unverified_header` to safely check the token's algorithm, then strictly validate the payload signature with `jwt.decode` using the correct key (e.g., public key for RS256, secret key for HS256) before trusting any claims.
