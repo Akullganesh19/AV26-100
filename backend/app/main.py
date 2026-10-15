@@ -120,10 +120,8 @@ async def readiness_probe(db: AsyncSession = Depends(get_db)):
         checks["database"] = True
         
         # Redis Check (using asyncio client)
-        import redis.asyncio as redis
-        r = redis.from_url(settings.CELERY_BROKER_URL)
-        await r.ping()
-        await r.aclose()
+        from app.core.redis import redis_client
+        await redis_client.ping()
         checks["redis"] = True
         
         if all(checks.values()):
