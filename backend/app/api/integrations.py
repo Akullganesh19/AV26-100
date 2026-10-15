@@ -11,7 +11,7 @@ async def with_retry(func, *args, max_attempts=3, **kwargs):
             return result
         except Exception as e:
             if attempt == max_attempts:
-                raise e
+                raise
             await asyncio.sleep(0.1 * (2 ** (attempt - 1)))
 from algoliasearch.search_client import SearchClient
 from sendgrid import SendGridAPIClient
