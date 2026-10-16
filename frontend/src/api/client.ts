@@ -27,3 +27,24 @@ apiClient.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+const inFlight = new Map<string, Promise<any>>();
+const originalGet = apiClient.get;
+
+apiClient.get = function <T = any, R = import('axios').AxiosResponse<T>, D = any>(
+  url: string,
+  config?: import('axios').AxiosRequestConfig<D>
+): Promise<R> {
+  const key = apiClient.getUri({ url, params: config?.params });
+  if (inFlight.has(key)) {
+    console.debug(`[Phantom] Coalesced request: ${key}`);
+    return inFlight.get(key) as Promise<R>;
+  }
+
+  const promise = originalGet.call(apiClient, url, config).finally(() => {
+    inFlight.delete(key);
+  });
+
+  inFlight.set(key, promise);
+  return promise as Promise<R>;
+};
