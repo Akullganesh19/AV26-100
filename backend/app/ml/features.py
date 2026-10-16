@@ -43,7 +43,7 @@ class FeatureBuilder:
         """
         Builds the feature matrix using SQL Window Functions for high-performance lag/rolling calculations.
         """
-        query = text("""
+        query_str = """
             WITH lagged_cases AS (
                 SELECT
                     district_id,
@@ -83,10 +83,16 @@ class FeatureBuilder:
             LEFT JOIN latest_env e ON lc.district_id = e.district_id AND lc.week_start_date = e.date
             LEFT JOIN latest_vacc v ON lc.district_id = v.district_id AND lc.disease = v.disease
             WHERE lc.district_id = :d_id AND lc.disease = :disease
-            ORDER BY lc.week_start_date DESC
-        """)
+        """
         
         params = {"d_id": str(district_id), "disease": disease}
+        if as_of_date:
+            query_str += " AND lc.week_start_date <= :as_of_date"
+            params["as_of_date"] = as_of_date
+
+        query_str += " ORDER BY lc.week_start_date DESC LIMIT 1"
+
+        query = text(query_str)
         
         result = await self.db.execute(query, params)
         df = pd.DataFrame(result.fetchall(), columns=result.keys())
@@ -94,13 +100,8 @@ class FeatureBuilder:
         # Post-processing: Ensure types and handle the rolling std imputation
         if not df.empty:
             df["cases_rolling_std_4wk"] = df["cases_rolling_std_4wk"].fillna(0.0)
-        
-        # Take the most recent row up to as_of_date if provided
-        if as_of_date:
-            df = df[df["week_start_date"] <= as_of_date]
-        
-        if not df.empty:
-            return pd.DataFrame([df.sort_values("week_start_date", ascending=False).iloc[0]])
+            return df
+
         return pd.DataFrame()
 
 
