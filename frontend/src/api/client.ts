@@ -27,3 +27,27 @@ apiClient.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+// --- 🌀 Phantom: Request Coalescing Infrastructure ---
+const inFlightRequests = new Map<string, Promise<any>>();
+
+const originalGet = apiClient.get;
+
+apiClient.get = function <T = any, R = import('axios').AxiosResponse<T>, D = any>(
+  url: string,
+  config?: import('axios').AxiosRequestConfig<D>
+): Promise<R> {
+  const requestKey = apiClient.getUri({ url, params: config?.params });
+
+  if (inFlightRequests.has(requestKey)) {
+    console.debug(`[Phantom] Coalescing request: ${requestKey}`);
+    return inFlightRequests.get(requestKey) as Promise<R>;
+  }
+
+  const promise = originalGet.call(apiClient, url, config).finally(() => {
+    inFlightRequests.delete(requestKey);
+  });
+
+  inFlightRequests.set(requestKey, promise);
+  return promise;
+};
