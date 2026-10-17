@@ -15,6 +15,7 @@ from app.schemas.auth import TokenPayload
 
 from slowapi import Limiter
 from slowapi.util import get_remote_address
+import redis.asyncio as redis
 
 def get_user_id(request: Request) -> str:
     """Extracts user ID from JWT or falls back to IP for unauthenticated requests."""
@@ -29,8 +30,6 @@ def get_user_id(request: Request) -> str:
         return f"user:{user_id}" if user_id else f"ip:{get_remote_address(request)}"
     except Exception:
         return f"ip:{get_remote_address(request)}"
-
-import redis.asyncio as redis
 
 # Global Redis client to prevent creating a connection pool per-request
 redis_client = redis.from_url(str(settings.CELERY_BROKER_URL))
