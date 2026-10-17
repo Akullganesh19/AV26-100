@@ -14,6 +14,8 @@ import {
 import axios from 'axios';
 import { toast } from 'sonner';
 import { useSearchParams } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import { Clock } from 'lucide-react';
 
 type DiseaseType = 'heart' | 'diabetes' | 'parkinsons';
 
@@ -25,6 +27,14 @@ const DiagnosticsCenter: React.FC = () => {
   const [selectedDistrict, setSelectedDistrict] = useState<string>(districtIdFromUrl || '');
   const [loading, setLoading] = useState(false);
   const [prediction, setPrediction] = useState<any>(null);
+
+  const { data: historyData, refetch: refetchHistory } = useQuery({
+    queryKey: ['clinical-history'],
+    queryFn: async () => {
+      const response = await axios.get(`${import.meta.env.VITE_API_URL}/clinical/history`);
+      return response.data;
+    }
+  });
 
   const handleDiagnose = async (formData: any) => {
     setLoading(true);
@@ -41,6 +51,7 @@ const DiagnosticsCenter: React.FC = () => {
           description: response.data.advice
         });
       }
+      refetchHistory();
     } catch (error) {
       console.error('Diagnosis failed:', error);
       toast.error('Diagnosis failed', {
@@ -122,6 +133,33 @@ const DiagnosticsCenter: React.FC = () => {
             <Brain className={activeTab === 'parkinsons' ? 'text-emerald-500' : ''} />
             <span className="font-medium">Parkinson's</span>
           </button>
+
+          <div className="mt-8">
+            <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+              <Clock size={16} /> Recent Screenings
+            </h3>
+            <div className="space-y-3">
+              {historyData?.length === 0 ? (
+                <p className="text-xs text-slate-500 text-center py-4">No recent history</p>
+              ) : (
+                historyData?.map((log: any) => (
+                  <div key={log.id} className="p-3 rounded-lg bg-slate-900/50 border border-slate-800 text-xs">
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-slate-300 font-medium capitalize">
+                        {log.endpoint.split('/')[1] || log.endpoint}
+                      </span>
+                      <span className={log.risk_score > 0.7 ? "text-red-400" : "text-emerald-400"}>
+                        {(log.risk_score * 100).toFixed(1)}% Risk
+                      </span>
+                    </div>
+                    <div className="text-slate-500 text-[10px]">
+                      {new Date(log.timestamp).toLocaleString()}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
 
           <div className="mt-8 p-4 rounded-xl bg-slate-900/50 border border-slate-800/50">
             <h3 className="text-sm font-semibold text-slate-300 flex items-center gap-2 mb-2">
