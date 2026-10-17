@@ -1,3 +1,4 @@
+import io
 import pickle
 import joblib
 import numpy as np
@@ -47,7 +48,7 @@ class ClinicalService:
             if actual_hash != expected_hash.upper():
                 raise SecurityError(f"Integrity violation: {name} model hash mismatch! Security compromised.")
             
-            return joblib.loads(content)
+            return joblib.load(io.BytesIO(content))
 
     def _load_model(self, disease: str):
         if disease not in self._models:
@@ -59,7 +60,15 @@ class ClinicalService:
             
             scaler_path = MODELS_DIR / f"scaler_{disease}.sav"
             if scaler_path.exists():
-                self._scalers[disease] = joblib.load(scaler_path)
+                expected_scaler_hash = metadata.get("scaler_sha256")
+                if not expected_scaler_hash:
+                    raise SecurityError(f"No scaler hash defined for {disease} in manifest!")
+                with open(scaler_path, "rb") as f:
+                    content = f.read()
+                    actual_hash = hashlib.sha256(content).hexdigest().upper()
+                    if actual_hash != expected_scaler_hash.upper():
+                        raise SecurityError(f"Integrity violation: {disease} scaler hash mismatch! Security compromised.")
+                    self._scalers[disease] = joblib.load(io.BytesIO(content))
             else:
                 self._scalers[disease] = None
 
