@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useId } from 'react';
 import { 
   Activity, 
   Droplet, 
@@ -307,7 +307,7 @@ const ParkinsonsForm = ({ onSubmit, loading }: { onSubmit: (data: any) => void, 
 
 // UI Helpers
 const Input = ({ label, type, value, onChange, step }: any) => {
-  const id = React.useId();
+  const id = useId();
   return (
     <div className="flex flex-col gap-1.5">
       <label htmlFor={id} className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{label}</label>
@@ -324,7 +324,7 @@ const Input = ({ label, type, value, onChange, step }: any) => {
 };
 
 const Select = ({ label, value, options, onChange }: any) => {
-  const id = React.useId();
+  const id = useId();
   return (
     <div className="flex flex-col gap-1.5">
       <label htmlFor={id} className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{label}</label>
