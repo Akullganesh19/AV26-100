@@ -7,9 +7,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.alert import Alert, AlertStatus, AlertType
 from app.models.audit_log import PredictionAuditLog
 from app.models.prediction import Prediction
+import asyncio
 from app.core.config import settings
+from app.core.events import event_bus
 
 logger = logging.getLogger(__name__)
+
+_publish_tasks = set()
 
 class AlertService:
     @staticmethod
@@ -62,6 +66,15 @@ class AlertService:
                     db.add(new_alert)
                     await db.commit()
                     logger.info(f"TACTICAL ALERT: Clinical cluster detected in {district_id} ({disease})")
+
+                    task = asyncio.create_task(event_bus.publish("alert.triggered", {
+                        "alert_id": str(new_alert.id),
+                        "district_id": district_id,
+                        "disease": disease,
+                        "risk_score": 0.88
+                    }))
+                    _publish_tasks.add(task)
+                    task.add_done_callback(_publish_tasks.discard)
         
         except Exception as e:
             logger.error(
@@ -87,6 +100,15 @@ class AlertService:
             )
             db.add(new_alert)
             await db.commit()
+
+            task = asyncio.create_task(event_bus.publish("alert.triggered", {
+                "alert_id": str(new_alert.id),
+                "district_id": str(prediction.district_id),
+                "disease": prediction.disease,
+                "risk_score": float(prediction.risk_score)
+            }))
+            _publish_tasks.add(task)
+            task.add_done_callback(_publish_tasks.discard)
 
     @staticmethod
     async def acknowledge_alert(db: AsyncSession, alert_id: str, user_id: str):
