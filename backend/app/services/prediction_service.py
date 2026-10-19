@@ -81,6 +81,8 @@ def load_artifacts() -> dict:
 ml_state: dict = {}
 
 
+background_tasks = set()
+
 class PredictionService:
     """
     Single entry point for all inference — both on-demand (/api/v1/predict)
@@ -185,12 +187,14 @@ class PredictionService:
 
         # Step 7: Trigger Asynchronous Alerts if high risk
         if risk_tier in [RiskTier.HIGH, RiskTier.CRITICAL]:
-            asyncio.create_task(send_alert_notification(
+            task = asyncio.create_task(send_alert_notification(
                 alert_id=str(prediction_id),
                 district_name="Jurisdiction Monitor", # In production, fetch from District model
                 disease=disease,
                 risk_score=float(raw_score)
             ))
+            background_tasks.add(task)
+            task.add_done_callback(background_tasks.discard)
 
         return PredictionResponse(
             prediction_id=prediction_id,
