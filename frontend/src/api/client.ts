@@ -27,3 +27,28 @@ apiClient.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+// --- 🌀 Phantom: Request Coalescing ---
+const originalGet = apiClient.get;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const inFlightGets = new Map<string, Promise<any>>();
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+apiClient.get = function <T = any, R = import('axios').AxiosResponse<T>, D = any>(
+  url: string,
+  config?: import('axios').AxiosRequestConfig<D>
+): Promise<R> {
+  const key = apiClient.getUri({ url, params: config?.params });
+
+  if (inFlightGets.has(key)) {
+    console.debug(`🌀 Phantom coalesced request to: ${key}`);
+    return inFlightGets.get(key) as Promise<R>;
+  }
+
+  const promise = originalGet.call(apiClient, url, config).finally(() => {
+    inFlightGets.delete(key);
+  });
+
+  inFlightGets.set(key, promise);
+  return promise as Promise<R>;
+};
