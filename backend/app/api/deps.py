@@ -43,6 +43,9 @@ reusable_oauth2 = OAuth2PasswordBearer(
     tokenUrl=f"{settings.API_V1_STR}/auth/login"
 )
 
+import redis.asyncio as redis
+redis_client = redis.from_url(str(settings.CELERY_BROKER_URL))
+
 async def get_db() -> Generator:
     async with SessionLocal() as session:
         yield session
@@ -63,23 +66,19 @@ async def get_current_user(
     public_key: str = Depends(get_clerk_public_key)
 ) -> User:
     # 1. Check Redis Revocation List
-    import redis.asyncio as redis
-    from app.core.config import settings
-    r = redis.from_url(settings.CELERY_BROKER_URL) # Reuse Redis host
-    
     try:
         # Extract JTI (Unique Token ID)
         payload_unverified = jwt.get_unverified_claims(token)
         jti = payload_unverified.get("jti")
-        if jti and await r.get(f"revoked_token:{jti}"):
+        if jti and await redis_client.get(f"revoked_token:{jti}"):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Token has been revoked",
             )
+    except HTTPException:
+        raise
     except Exception:
         pass # Fall through to standard verification
-    finally:
-        await r.aclose()
 
     try:
         payload = jwt.decode(
