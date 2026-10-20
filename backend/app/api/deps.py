@@ -7,8 +7,10 @@ from fastapi.security import OAuth2PasswordBearer
 from jose import jwt
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+import redis.asyncio as redis
 
 from app.core.config import settings
+redis_client = redis.from_url(str(settings.CELERY_BROKER_URL))
 from app.core.database import SessionLocal
 from app.models.user import User, UserRole
 from app.schemas.auth import TokenPayload
@@ -24,7 +26,14 @@ def get_user_id(request: Request) -> str:
             return f"ip:{get_remote_address(request)}"
         
         token = auth_header.split(" ")[1]
-        payload = jwt.get_unverified_claims(token)
+        header = jwt.get_unverified_header(token)
+        alg = header.get("alg")
+        if alg == "HS256":
+            payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
+        elif alg == "RS256":
+            payload = jwt.decode(token, settings.CLERK_PEM_PUBLIC_KEY, algorithms=["RS256"], issuer=settings.CLERK_ISSUER, audience=settings.CLERK_AUDIENCE, options={"verify_aud": True, "verify_iss": True})
+        else:
+            return f"ip:{get_remote_address(request)}"
         user_id = payload.get("sub")
         return f"user:{user_id}" if user_id else f"ip:{get_remote_address(request)}"
     except Exception:
@@ -63,23 +72,19 @@ async def get_current_user(
     public_key: str = Depends(get_clerk_public_key)
 ) -> User:
     # 1. Check Redis Revocation List
-    import redis.asyncio as redis
-    from app.core.config import settings
-    r = redis.from_url(settings.CELERY_BROKER_URL) # Reuse Redis host
-    
     try:
         # Extract JTI (Unique Token ID)
         payload_unverified = jwt.get_unverified_claims(token)
         jti = payload_unverified.get("jti")
-        if jti and await r.get(f"revoked_token:{jti}"):
+        if jti and await redis_client.get(f"revoked_token:{jti}"):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Token has been revoked",
             )
+    except HTTPException:
+        raise
     except Exception:
         pass # Fall through to standard verification
-    finally:
-        await r.aclose()
 
     try:
         payload = jwt.decode(
