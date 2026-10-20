@@ -11,7 +11,7 @@ from app.core.config import settings
 from app.core.limiter import limiter
 from app.models.user import User
 from app.schemas.auth import Token
-from app.schemas.user import UserCreate, UserResponse
+from app.schemas.user import UserCreate, UserResponse, UserRegister
 
 router = APIRouter()
 
@@ -20,7 +20,7 @@ router = APIRouter()
 @limiter.limit("5/minute")
 async def register(
     request: Request,
-    user_in: UserCreate,
+    user_in: UserRegister,
     db: AsyncSession = Depends(deps.get_db)
 ) -> Any:
     """Register a new user."""
@@ -38,9 +38,6 @@ async def register(
         email=user_in.email,
         name=user_in.name,
         password_hash=security.get_password_hash(user_in.password),
-        role=user_in.role,
-        alert_threshold=user_in.alert_threshold,
-        email_alerts=user_in.email_alerts,
     )
     db.add(new_user)
     await db.commit()
