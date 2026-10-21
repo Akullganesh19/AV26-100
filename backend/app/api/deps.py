@@ -5,6 +5,7 @@ from cachetools import TTLCache
 from fastapi import Depends, HTTPException, status, Query, Request
 from fastapi.security import OAuth2PasswordBearer
 from jose import jwt
+import redis.asyncio as redis
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -57,29 +58,26 @@ async def get_clerk_public_key() -> str:
     clerk_key_cache["pem"] = settings.CLERK_PEM_PUBLIC_KEY
     return clerk_key_cache["pem"]
 
+# Global Redis client for revocation checks to reuse connection pool
+redis_client = redis.from_url(str(settings.CELERY_BROKER_URL))
+
 async def get_current_user(
     db: AsyncSession = Depends(get_db),
     token: str = Depends(reusable_oauth2),
     public_key: str = Depends(get_clerk_public_key)
 ) -> User:
     # 1. Check Redis Revocation List
-    import redis.asyncio as redis
-    from app.core.config import settings
-    r = redis.from_url(settings.CELERY_BROKER_URL) # Reuse Redis host
-    
     try:
         # Extract JTI (Unique Token ID)
         payload_unverified = jwt.get_unverified_claims(token)
         jti = payload_unverified.get("jti")
-        if jti and await r.get(f"revoked_token:{jti}"):
+        if jti and await redis_client.get(f"revoked_token:{jti}"):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Token has been revoked",
             )
     except Exception:
         pass # Fall through to standard verification
-    finally:
-        await r.aclose()
 
     try:
         payload = jwt.decode(
