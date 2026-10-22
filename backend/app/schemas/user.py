@@ -13,8 +13,12 @@ class UserBase(BaseModel):
     email_alerts: bool = True
 
 
-class UserCreate(UserBase):
+class UserCreate(BaseModel):
+    email: EmailStr
+    name: str
     password: str
+    alert_threshold: int = 70
+    email_alerts: bool = True
 
 
 class UserUpdate(BaseModel):

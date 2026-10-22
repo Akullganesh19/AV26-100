@@ -66,6 +66,8 @@ async def list_districts(
                 })
             
         return output
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to retrieve jurisdiction matrix: {str(e)}")
 
