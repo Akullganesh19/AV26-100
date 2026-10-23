@@ -3,6 +3,7 @@ import uuid
 import httpx
 from cachetools import TTLCache
 from fastapi import Depends, HTTPException, status, Query, Request
+import redis.asyncio as redis
 from fastapi.security import OAuth2PasswordBearer
 from jose import jwt
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -57,7 +58,6 @@ async def get_clerk_public_key() -> str:
     clerk_key_cache["pem"] = settings.CLERK_PEM_PUBLIC_KEY
     return clerk_key_cache["pem"]
 
-import redis.asyncio as redis
 redis_client = redis.from_url(str(settings.CELERY_BROKER_URL))
 
 async def get_current_user(
