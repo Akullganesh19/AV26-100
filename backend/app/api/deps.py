@@ -5,6 +5,8 @@ from cachetools import TTLCache
 from fastapi import Depends, HTTPException, status, Query, Request
 from fastapi.security import OAuth2PasswordBearer
 import jwt
+from jwt.algorithms import RSAAlgorithm
+import json
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -24,7 +26,7 @@ def get_user_id(request: Request) -> str:
             return f"ip:{get_remote_address(request)}"
         
         token = auth_header.split(" ")[1]
-        payload = jwt.decode(token, options={"verify_signature": False})
+        payload = jwt.decode(token, options={"verify_signature": False, "verify_exp": False, "verify_aud": False, "verify_nbf": False, "verify_iss": False, "verify_iat": False})
         user_id = payload.get("sub")
         return f"user:{user_id}" if user_id else f"ip:{get_remote_address(request)}"
     except Exception:
@@ -69,7 +71,7 @@ async def get_current_user(
     
     try:
         # Extract JTI (Unique Token ID)
-        payload_unverified = jwt.decode(token, options={"verify_signature": False})
+        payload_unverified = jwt.decode(token, options={"verify_signature": False, "verify_exp": False, "verify_aud": False, "verify_nbf": False, "verify_iss": False, "verify_iat": False})
         jti = payload_unverified.get("jti")
         if jti and await r.get(f"revoked_token:{jti}"):
             raise HTTPException(
@@ -82,6 +84,17 @@ async def get_current_user(
         await r.aclose()
 
     try:
+        # Check if public_key is actually a JSON string/JWK dict and needs parsing
+        try:
+            # If it's a dict stored as string or JSON
+            if isinstance(public_key, str) and public_key.strip().startswith('{'):
+                jwk_dict = json.loads(public_key)
+                public_key = RSAAlgorithm.from_jwk(jwk_dict)
+            elif isinstance(public_key, dict):
+                public_key = RSAAlgorithm.from_jwk(public_key)
+        except Exception:
+            pass # Fallback to using it directly as PEM
+
         payload = jwt.decode(
             token, 
             public_key, 
