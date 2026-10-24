@@ -24,7 +24,19 @@ def get_user_id(request: Request) -> str:
             return f"ip:{get_remote_address(request)}"
         
         token = auth_header.split(" ")[1]
-        payload = jwt.get_unverified_claims(token)
+        header = jwt.get_unverified_header(token)
+        alg = header.get("alg")
+        if alg == "HS256":
+            payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
+        else:
+            payload = jwt.decode(
+                token,
+                settings.CLERK_PEM_PUBLIC_KEY,
+                algorithms=["RS256"],
+                issuer=settings.CLERK_ISSUER,
+                audience=settings.CLERK_AUDIENCE,
+                options={"verify_aud": True, "verify_iss": True}
+            )
         user_id = payload.get("sub")
         return f"user:{user_id}" if user_id else f"ip:{get_remote_address(request)}"
     except Exception:
@@ -65,7 +77,7 @@ async def get_current_user(
     # 1. Check Redis Revocation List
     import redis.asyncio as redis
     from app.core.config import settings
-    r = redis.from_url(settings.CELERY_BROKER_URL) # Reuse Redis host
+    r = redis.from_url(str(settings.CELERY_BROKER_URL)) # Reuse Redis host
     
     try:
         # Extract JTI (Unique Token ID)
@@ -76,6 +88,8 @@ async def get_current_user(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Token has been revoked",
             )
+    except HTTPException:
+        raise
     except Exception:
         pass # Fall through to standard verification
     finally:
