@@ -10,6 +10,31 @@ export const apiClient = axios.create({
   },
 });
 
+// 🌀 Phantom: Request Coalescing
+// Identical concurrent GET requests are deduped into a single network call.
+// The promise is shared with all callers, then removed from the map when settled.
+const inFlightRequests = new Map<string, Promise<any>>();
+const originalGet = apiClient.get;
+
+apiClient.get = function <T = any, R = import('axios').AxiosResponse<T>, D = any>(
+  url: string,
+  config?: import('axios').AxiosRequestConfig<D>
+): Promise<R> {
+  const cacheKey = apiClient.getUri({ url, params: config?.params });
+
+  if (inFlightRequests.has(cacheKey)) {
+    console.debug(`🌀 Phantom: Coalescing duplicate GET request for ${cacheKey}`);
+    return inFlightRequests.get(cacheKey) as Promise<R>;
+  }
+
+  const promise = originalGet.call(apiClient, url, config).finally(() => {
+    inFlightRequests.delete(cacheKey);
+  });
+
+  inFlightRequests.set(cacheKey, promise);
+  return promise as Promise<R>;
+};
+
 apiClient.interceptors.request.use((config) => {
   const token = useAuthStore.getState().token;
   if (token) {
