@@ -1,0 +1,3 @@
+## 2024-05-25 - Custom Checkbox Accessibility
+**Learning:** Using className="hidden" on a native input inside a custom visual element removes it from the accessibility tree, making it invisible to screen readers and keyboard users.
+**Action:** Always use "sr-only peer" on the input, place the input BEFORE the custom visual element in the DOM (to leverage Tailwind's CSS general sibling combinator), and apply peer-focus-visible classes to the visual element for keyboard focus indicators.
