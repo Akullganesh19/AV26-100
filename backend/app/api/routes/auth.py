@@ -8,7 +8,7 @@ from sqlalchemy import select
 from app.api import deps
 from app.core import security
 from app.core.config import settings
-from app.core.limiter import limiter
+from app.api.deps import limiter
 from app.models.user import User
 from app.schemas.auth import Token
 from app.schemas.user import UserCreate, UserResponse
