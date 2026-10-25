@@ -17,14 +17,31 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 
 def get_user_id(request: Request) -> str:
-    """Extracts user ID from JWT or falls back to IP for unauthenticated requests."""
+    """Extracts user ID from JWT securely or falls back to IP for unauthenticated requests."""
     try:
         auth_header = request.headers.get("Authorization")
         if not auth_header:
             return f"ip:{get_remote_address(request)}"
         
         token = auth_header.split(" ")[1]
-        payload = jwt.get_unverified_claims(token)
+        unverified_header = jwt.get_unverified_header(token)
+
+        if unverified_header.get("alg") == "RS256":
+            payload = jwt.decode(
+                token,
+                settings.CLERK_PEM_PUBLIC_KEY,
+                algorithms=["RS256"],
+                issuer=settings.CLERK_ISSUER,
+                audience=settings.CLERK_AUDIENCE,
+                options={"verify_aud": True, "verify_iss": True}
+            )
+        else:
+            payload = jwt.decode(
+                token,
+                settings.SECRET_KEY,
+                algorithms=[settings.ALGORITHM]
+            )
+
         user_id = payload.get("sub")
         return f"user:{user_id}" if user_id else f"ip:{get_remote_address(request)}"
     except Exception:
