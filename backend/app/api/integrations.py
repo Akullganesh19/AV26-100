@@ -5,6 +5,7 @@ from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
 from stream_chat import StreamChat
 from app.core.config import settings
+from app.core.resilience import with_retry
 
 class IntegrationService:
     def __init__(self):
@@ -18,6 +19,7 @@ class IntegrationService:
         # GetStream Setup
         self.stream = StreamChat(api_key=settings.STREAM_API_KEY, api_secret=settings.STREAM_API_SECRET)
 
+    @with_retry(max_attempts=3, base_delay=0.5)
     async def sync_district_to_algolia(self, district_data: dict):
         """Indexes district for world-class search performance."""
         district_data["objectID"] = str(district_data["id"])
