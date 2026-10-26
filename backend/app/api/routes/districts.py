@@ -119,13 +119,17 @@ async def get_district_stats(
     from app.models.district import District
     from app.models.alert import Alert
     
-    # Total Districts
-    q_total = await db.execute(select(func.count(District.id)))
-    total = q_total.scalar() or 0
-    
-    # Population
-    q_pop = await db.execute(select(func.sum(District.population)))
-    pop = q_pop.scalar() or 0
+    # Batch queries for District stats to reduce database roundtrips
+    # ⚡ Bolt Optimization: Batched func.count and func.sum into a single query
+    q_stats = await db.execute(
+        select(
+            func.count(District.id).label("total"),
+            func.sum(District.population).label("pop")
+        )
+    )
+    stats = q_stats.fetchone()
+    total = stats.total if stats and stats.total is not None else 0
+    pop = stats.pop if stats and stats.pop is not None else 0
     
     # Active Alerts
     q_alerts = await db.execute(select(func.count(Alert.id)).where(Alert.is_resolved == False))
