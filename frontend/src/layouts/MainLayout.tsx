@@ -1,5 +1,7 @@
 import React from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
+import axios from 'axios';
 import { 
   LayoutDashboard, 
   AlertTriangle, 
@@ -13,12 +15,15 @@ import {
   Map as MapIcon
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
+import { useSimulation } from '../context/SimulationContext';
 
 const MainLayout: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { logout, user } = useAuthStore();
   const [isSidebarOpen, setSidebarOpen] = React.useState(true);
+  const queryClient = useQueryClient();
+  const { isSimulating, activeSimId } = useSimulation();
 
   const navItems = [
     { path: '/', label: 'Command Center', icon: LayoutDashboard },
@@ -33,6 +38,56 @@ const MainLayout: React.FC = () => {
   const handleLogout = () => {
     logout();
     navigate('/login');
+  };
+
+  // 🛸 Oracle: Intent-based prefetching
+  // Signal: Cursor intent (hovering over navigation link)
+  // Action: Prefetch data for likely next route for zero-latency perceived load
+  const handleNavHover = (path: string) => {
+    switch (path) {
+      case '/':
+        queryClient.prefetchQuery({
+          queryKey: ['dashboard-stats'],
+          queryFn: async () => {
+            const response = await axios.get(`${import.meta.env.VITE_API_URL}/districts/stats`);
+            return response.data;
+          }
+        });
+        break;
+      case '/map':
+        queryClient.prefetchQuery({
+          queryKey: ['choropleth-data', isSimulating, activeSimId],
+          queryFn: async () => {
+            const url = isSimulating
+              ? `${import.meta.env.VITE_API_URL}/districts`
+              : `${import.meta.env.VITE_API_URL}/districts`;
+            const response = await axios.get(url);
+            return response.data;
+          }
+        });
+        break;
+      case '/alerts':
+        queryClient.prefetchQuery({
+          queryKey: ['tactical-alerts', isSimulating, activeSimId],
+          queryFn: async () => {
+            const url = isSimulating
+              ? `${import.meta.env.VITE_API_URL}/alerts?simulation_id=${activeSimId}`
+              : `${import.meta.env.VITE_API_URL}/alerts`;
+            const response = await axios.get(url);
+            return response.data;
+          }
+        });
+        break;
+      case '/simulations':
+        queryClient.prefetchQuery({
+          queryKey: ['sim-scenarios'],
+          queryFn: async () => {
+            const response = await axios.get(`${import.meta.env.VITE_API_URL}/scenarios/`);
+            return response.data;
+          }
+        });
+        break;
+    }
   };
 
   return (
@@ -62,6 +117,7 @@ const MainLayout: React.FC = () => {
               <Link
                 key={item.path}
                 to={item.path}
+                onMouseEnter={() => handleNavHover(item.path)}
                 className={`flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-200 group ${
                   isActive 
                     ? 'bg-brand-primary/10 text-brand-primary border border-brand-primary/20 shadow-[0_0_15px_rgba(30,144,255,0.1)]' 
