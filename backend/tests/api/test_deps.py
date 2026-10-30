@@ -1,7 +1,7 @@
 import pytest
 from fastapi import HTTPException
 from app.api.deps import get_current_user
-from unittest.mock import patch, AsyncMock
+from unittest.mock import AsyncMock
 
 @pytest.mark.asyncio
 async def test_get_current_user_revoked_token(mocker):
