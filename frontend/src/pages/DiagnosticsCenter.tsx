@@ -14,6 +14,8 @@ import {
 import axios from 'axios';
 import { toast } from 'sonner';
 import { useSearchParams } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
+import { useSimulation } from '../context/SimulationContext';
 
 type DiseaseType = 'heart' | 'diabetes' | 'parkinsons';
 
@@ -21,6 +23,9 @@ const DiagnosticsCenter: React.FC = () => {
   const [searchParams] = useSearchParams();
   const districtIdFromUrl = searchParams.get('district_id');
   
+  const queryClient = useQueryClient();
+  const { isSimulating, activeSimId } = useSimulation();
+
   const [activeTab, setActiveTab] = useState<DiseaseType>('heart');
   const [selectedDistrict, setSelectedDistrict] = useState<string>(districtIdFromUrl || '');
   const [loading, setLoading] = useState(false);
@@ -35,6 +40,20 @@ const DiagnosticsCenter: React.FC = () => {
       if (response.data.risk) {
         toast.error(`High risk detected for ${activeTab.toUpperCase()}`, {
           description: response.data.advice
+        });
+
+        // 🛸 Oracle: Behavioral prefetching
+        // Signal: High-risk screening result
+        // Action: Prefetch tactical alerts because a high-risk result likely triggered a cluster alert
+        queryClient.prefetchQuery({
+          queryKey: ['tactical-alerts', isSimulating, activeSimId],
+          queryFn: async () => {
+            const url = isSimulating
+              ? `${import.meta.env.VITE_API_URL}/alerts?simulation_id=${activeSimId}`
+              : `${import.meta.env.VITE_API_URL}/alerts`;
+            const resp = await axios.get(url);
+            return resp.data;
+          }
         });
       } else {
         toast.success(`Low risk for ${activeTab.toUpperCase()}`, {
