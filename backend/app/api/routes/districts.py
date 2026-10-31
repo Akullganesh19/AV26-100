@@ -119,17 +119,19 @@ async def get_district_stats(
     from app.models.district import District
     from app.models.alert import Alert
     
-    # Total Districts
-    q_total = await db.execute(select(func.count(District.id)))
-    total = q_total.scalar() or 0
+    # ⚡ Bolt: Batch aggregate queries into a single roundtrip to reduce DB latency
+    q_stats = await db.execute(
+        select(
+            select(func.count(District.id)).scalar_subquery().label("total"),
+            select(func.sum(District.population)).scalar_subquery().label("pop"),
+            select(func.count(Alert.id)).where(Alert.is_resolved == False).scalar_subquery().label("alerts")
+        )
+    )
+    stats_row = q_stats.fetchone()
     
-    # Population
-    q_pop = await db.execute(select(func.sum(District.population)))
-    pop = q_pop.scalar() or 0
-    
-    # Active Alerts
-    q_alerts = await db.execute(select(func.count(Alert.id)).where(Alert.is_resolved == False))
-    alerts = q_alerts.scalar() or 0
+    total = stats_row[0] if stats_row else 0
+    pop = stats_row[1] or 0 if stats_row else 0
+    alerts = stats_row[2] if stats_row else 0
     
     return {
         "total_districts": total,
