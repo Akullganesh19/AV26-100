@@ -5,7 +5,7 @@ async def create_test_db():
     # Connect to the default postgres database
     admin_url = "postgresql://episense:episense@localhost:5432/postgres"
     engine = create_engine(admin_url, isolation_level="AUTOCOMMIT")
-    
+
     with engine.connect() as conn:
         try:
             conn.execute(text("CREATE DATABASE episense_test"))
