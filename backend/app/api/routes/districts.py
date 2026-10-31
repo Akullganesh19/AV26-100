@@ -122,12 +122,12 @@ async def get_district_stats(
     # Bolt: Batch scalar queries to reduce DB roundtrips by 50%
     # Measurement: Network tab, DB latency metrics
     q_stats = await db.execute(select(
-        func.count(District.id).label('total'),
-        func.sum(District.population).label('pop')
+        func.count(District.id),
+        func.sum(District.population)
     ))
     stats_row = q_stats.fetchone()
-    total = stats_row.total if stats_row else 0
-    pop = stats_row.pop or 0
+    total = stats_row[0] if stats_row and stats_row[0] else 0
+    pop = stats_row[1] if stats_row and stats_row[1] else 0
     
     # Active Alerts
     q_alerts = await db.execute(select(func.count(Alert.id)).where(Alert.is_resolved == False))
