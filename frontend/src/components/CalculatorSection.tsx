@@ -80,27 +80,31 @@ export const CalculatorSection = () => {
             {/* Service Type */}
             <div className="space-y-6">
               <h3 className="text-lg font-medium opacity-80">What kind of service do you need?</h3>
-              {/* Palette: Added ARIA radiogroup for simulated radio buttons */}
+              {/* Palette: Replaced simulated buttons with native radio inputs for keyboard accessibility */}
               <div className="flex flex-wrap gap-4" role="radiogroup" aria-label="Service Type">
                 {[
                   { id: 'design', label: 'Only Design' },
                   { id: 'development', label: 'Only Development' },
                   { id: 'both', label: 'Design + Development' }
                 ].map((opt) => (
-                  <button
+                  <label
                     key={opt.id}
-                    onClick={() => setServiceType(opt.id as any)}
                     className="flex items-center gap-3 group cursor-pointer"
-                    role="radio"
-                    aria-checked={serviceType === opt.id}
                   >
-                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${serviceType === opt.id ? 'border-[#FF5656]' : 'border-[#333]'}`}>
+                    <input
+                      type="radio"
+                      name="serviceType"
+                      className="sr-only peer"
+                      checked={serviceType === opt.id}
+                      onChange={() => setServiceType(opt.id as any)}
+                    />
+                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-[#FF5656] ${serviceType === opt.id ? 'border-[#FF5656]' : 'border-[#333]'}`}>
                       {serviceType === opt.id && <div className="w-2 h-2 rounded-full bg-[#FF5656]" />}
                     </div>
                     <span className={`text-sm transition-colors ${serviceType === opt.id ? 'text-white' : 'text-[#666]'}`}>
                       {opt.label}
                     </span>
-                  </button>
+                  </label>
                 ))}
               </div>
             </div>
@@ -151,22 +155,26 @@ export const CalculatorSection = () => {
             {/* Timeline */}
             <div className="pt-10 space-y-6">
               <h3 className="text-lg font-medium opacity-80">How fast do you need this?</h3>
-              {/* Palette: Added ARIA radiogroup for simulated radio buttons */}
+              {/* Palette: Replaced simulated buttons with native radio inputs for keyboard accessibility */}
               <div className="grid gap-4" role="radiogroup" aria-label="Timeline">
                 {[
                   { id: 'rush', label: 'Within 7 Days', price: '+$100/page' },
                   { id: 'fast', label: 'Within 14 Days', price: '+$25/page' },
                   { id: 'regular', label: 'Regular Speed', price: 'No extra cost' }
                 ].map((opt) => (
-                  <button
+                  <label
                     key={opt.id}
-                    onClick={() => setTimeline(opt.id as any)}
                     className="flex items-center justify-between group cursor-pointer w-full text-left"
-                    role="radio"
-                    aria-checked={timeline === opt.id}
                   >
                     <div className="flex items-center gap-3">
-                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${timeline === opt.id ? 'border-[#FF5656]' : 'border-[#333]'}`}>
+                      <input
+                        type="radio"
+                        name="timeline"
+                        className="sr-only peer"
+                        checked={timeline === opt.id}
+                        onChange={() => setTimeline(opt.id as any)}
+                      />
+                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-[#FF5656] ${timeline === opt.id ? 'border-[#FF5656]' : 'border-[#333]'}`}>
                         {timeline === opt.id && <div className="w-2 h-2 rounded-full bg-[#FF5656]" />}
                       </div>
                       <span className={`text-sm transition-colors ${timeline === opt.id ? 'text-white' : 'text-[#666]'}`}>
@@ -174,7 +182,7 @@ export const CalculatorSection = () => {
                       </span>
                     </div>
                     <span className={`text-xs font-bold ${opt.id === 'regular' ? 'text-[#444]' : 'text-[#FF5656]'}`}>{opt.price}</span>
-                  </button>
+                  </label>
                 ))}
               </div>
             </div>
