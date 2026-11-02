@@ -9,13 +9,14 @@ import {
   CheckCircle2,
   Stethoscope,
   Info,
-  Download
+  Download,
+  History
 } from 'lucide-react';
-import axios from 'axios';
+import { apiClient } from '../api/client';
 import { toast } from 'sonner';
 import { useSearchParams } from 'react-router-dom';
 
-type DiseaseType = 'heart' | 'diabetes' | 'parkinsons';
+type DiseaseType = 'heart' | 'diabetes' | 'parkinsons' | 'history';
 
 const DiagnosticsCenter: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -25,12 +26,29 @@ const DiagnosticsCenter: React.FC = () => {
   const [selectedDistrict, setSelectedDistrict] = useState<string>(districtIdFromUrl || '');
   const [loading, setLoading] = useState(false);
   const [prediction, setPrediction] = useState<any>(null);
+  const [history, setHistory] = useState<any[]>([]);
+
+  React.useEffect(() => {
+    if (activeTab === 'history') {
+      fetchHistory();
+    }
+  }, [activeTab]);
+
+  const fetchHistory = async () => {
+    try {
+      const response = await apiClient.get('/clinical/history');
+      setHistory(response.data);
+    } catch (error) {
+      console.error('Failed to fetch history:', error);
+      toast.error('Failed to load screening history');
+    }
+  };
 
   const handleDiagnose = async (formData: any) => {
     setLoading(true);
     setPrediction(null);
     try {
-      const response = await axios.post(`${import.meta.env.VITE_API_URL}/clinical/${activeTab}`, formData);
+      const response = await apiClient.post(`/clinical/${activeTab}`, formData);
       setPrediction(response.data);
       if (response.data.risk) {
         toast.error(`High risk detected for ${activeTab.toUpperCase()}`, {
@@ -54,8 +72,8 @@ const DiagnosticsCenter: React.FC = () => {
   const handleDownloadReport = async () => {
     if (!prediction) return;
     try {
-      const response = await axios.post(
-        `${import.meta.env.VITE_API_URL}/clinical/report`,
+      const response = await apiClient.post(
+        `/clinical/report`,
         [prediction], // Send current prediction in a list
         { responseType: 'blob' }
       );
@@ -123,6 +141,20 @@ const DiagnosticsCenter: React.FC = () => {
             <span className="font-medium">Parkinson's</span>
           </button>
 
+          <div className="border-t border-slate-800 my-4"></div>
+
+          <button
+            onClick={() => setActiveTab('history')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all border ${
+              activeTab === 'history'
+              ? 'bg-slate-800/80 border-slate-700 text-white shadow-lg'
+              : 'bg-slate-900/50 border-slate-800 text-slate-400 hover:bg-slate-800/50 hover:text-white'
+            }`}
+          >
+            <History className={activeTab === 'history' ? 'text-white' : ''} />
+            <span className="font-medium">History & Audit Log</span>
+          </button>
+
           <div className="mt-8 p-4 rounded-xl bg-slate-900/50 border border-slate-800/50">
             <h3 className="text-sm font-semibold text-slate-300 flex items-center gap-2 mb-2">
               <Info className="h-4 w-4 text-emerald-500" />
@@ -143,14 +175,62 @@ const DiagnosticsCenter: React.FC = () => {
               {activeTab === 'heart' && <><Activity className="text-emerald-500" /> Heart Risk Assessment</>}
               {activeTab === 'diabetes' && <><Droplet className="text-emerald-500" /> Metabolic Screening</>}
               {activeTab === 'parkinsons' && <><Brain className="text-emerald-500" /> Neuro-vocal Analysis</>}
+              {activeTab === 'history' && <><History className="text-slate-300" /> Screening Audit Log</>}
             </h2>
 
             {activeTab === 'heart' && <HeartForm onSubmit={handleDiagnose} loading={loading} />}
             {activeTab === 'diabetes' && <DiabetesForm onSubmit={handleDiagnose} loading={loading} />}
             {activeTab === 'parkinsons' && <ParkinsonsForm onSubmit={handleDiagnose} loading={loading} />}
+            {activeTab === 'history' && (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-800 text-slate-400 text-xs uppercase tracking-wider">
+                      <th className="pb-3 pr-4 font-semibold">Date</th>
+                      <th className="pb-3 pr-4 font-semibold">Endpoint</th>
+                      <th className="pb-3 pr-4 font-semibold">Risk Score</th>
+                      <th className="pb-3 pr-4 font-semibold">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="text-sm">
+                    {history.map((log) => (
+                      <tr key={log.id} className="border-b border-slate-800/50 hover:bg-slate-800/30 transition-colors">
+                        <td className="py-4 pr-4 text-slate-300 whitespace-nowrap">
+                          {new Date(log.timestamp).toLocaleString()}
+                        </td>
+                        <td className="py-4 pr-4 font-mono text-xs text-brand-primary">
+                          {log.endpoint}
+                        </td>
+                        <td className="py-4 pr-4">
+                          <span className={`px-2 py-1 rounded-md text-xs font-bold ${
+                            log.risk_score > 0.7 ? 'bg-red-500/20 text-red-400' : 'bg-emerald-500/20 text-emerald-400'
+                          }`}>
+                            {(log.risk_score * 100).toFixed(1)}%
+                          </span>
+                        </td>
+                        <td className="py-4 pr-4">
+                          <span className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${
+                            log.status === 'SUCCESS' ? 'text-emerald-500 border border-emerald-500/30' : 'text-red-500 border border-red-500/30'
+                          }`}>
+                            {log.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                    {history.length === 0 && (
+                      <tr>
+                        <td colSpan={4} className="py-8 text-center text-slate-500">
+                          No screening history found.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
 
-          {prediction && (
+          {prediction && activeTab !== 'history' && (
             <div className={`p-6 rounded-2xl border animate-in zoom-in-95 duration-300 ${
               prediction.risk 
               ? 'bg-red-500/10 border-red-500/30' 

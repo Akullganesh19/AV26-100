@@ -130,6 +130,39 @@ async def diagnose_parkinsons(
 from fastapi.responses import StreamingResponse
 import io
 from app.services.report_service import ReportService
+from sqlalchemy import select, desc
+
+@router.get("/history", response_model=List[Dict[str, Any]])
+async def get_clinical_history(
+    db: AsyncSession = Depends(get_db),
+    current_user: Any = Depends(deps.get_current_user)
+) -> Any:
+    """
+    Retrieve clinical screening history for the current officer.
+    """
+    try:
+        query = select(PredictionAuditLog).where(
+            PredictionAuditLog.user_id == current_user.id
+        ).order_by(desc(PredictionAuditLog.timestamp)).limit(100)
+
+        result = await db.execute(query)
+        logs = result.scalars().all()
+
+        history = []
+        for log in logs:
+            history.append({
+                "id": str(log.id),
+                "district_id": str(log.district_id) if log.district_id else None,
+                "endpoint": log.endpoint,
+                "risk_score": float(log.risk_score),
+                "status": log.status,
+                "timestamp": log.timestamp.isoformat(),
+                "model_version": log.model_version
+            })
+
+        return history
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/report", response_class=StreamingResponse)
 @limiter.limit("5/minute")
