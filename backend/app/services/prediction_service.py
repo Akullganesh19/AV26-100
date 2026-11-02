@@ -185,11 +185,16 @@ class PredictionService:
 
         # Step 7: Trigger Asynchronous Alerts if high risk
         if risk_tier in [RiskTier.HIGH, RiskTier.CRITICAL]:
+            from app.services.synapse_bridge import enrich_alert_with_officers
+            async with self._db_lock:
+                officers = await enrich_alert_with_officers(self.db, str(district_id), float(raw_score))
+
             asyncio.create_task(send_alert_notification(
                 alert_id=str(prediction_id),
                 district_name="Jurisdiction Monitor", # In production, fetch from District model
                 disease=disease,
-                risk_score=float(raw_score)
+                risk_score=float(raw_score),
+                officers=officers
             ))
 
         return PredictionResponse(

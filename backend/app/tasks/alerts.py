@@ -4,16 +4,18 @@ from uuid import UUID
 
 logger = logging.getLogger(__name__)
 
-async def send_alert_notification(alert_id: str, district_name: str, disease: str, risk_score: float):
+async def send_alert_notification(alert_id: str, district_name: str, disease: str, risk_score: float, officers: list = None):
     """
     Asynchronous task to deliver critical alerts to health officials.
     """
+    officers = officers or []
     logger.info(
         f"Initiating alert dispatch for {alert_id}",
         extra={
             "district": district_name,
             "disease": disease,
-            "risk_score": risk_score
+            "risk_score": risk_score,
+            "targeted_officers": len(officers)
         }
     )
     
@@ -21,6 +23,8 @@ async def send_alert_notification(alert_id: str, district_name: str, disease: st
         # Simulate third-party integration (e.g., SendGrid/Twilio)
         # Using settings.SENDGRID_API_KEY
         logger.info(f"CRITICAL ALERT: Outbreak risk detected in {district_name} ({disease}). Score: {risk_score}")
+        for officer in officers:
+            logger.info(f"Targeting {officer['name']} ({officer['email']}) - Threshold: {officer['threshold']} <= {risk_score}")
         
         # Here you would implement real SendGrid logic
         # if settings.SENDGRID_API_KEY:
