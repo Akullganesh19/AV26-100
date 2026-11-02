@@ -130,7 +130,7 @@ async def diagnose_parkinsons(
 from fastapi.responses import StreamingResponse
 import io
 from app.services.report_service import ReportService
-from sqlalchemy import desc
+from sqlalchemy import select, desc
 
 @router.get("/history", response_model=List[Dict[str, Any]])
 async def get_clinical_history(
