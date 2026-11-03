@@ -1,0 +1,6 @@
+## 2024-11-03 — Accessible Faux Controls Pattern
+**Found:** Custom UI designs for radio buttons (Service Type, Timeline) and checkboxes (Add-ons) in `CalculatorSection.tsx` were built using `button` elements and `hidden` inputs, completely breaking screen reader semantics and keyboard navigability.
+**Why it existed:** Developers prioritized styling the visual components (using borders and background colors for active states) and bypassed native inputs because styling native inputs directly is historically difficult.
+**Fix:** Converted all faux controls to use native `<input>` elements (type="radio" or type="checkbox") wrapped in `<label>` elements. Placed the native input immediately before the visual styling element, applied Tailwind's `sr-only peer` to the input to hide it while keeping it in the accessibility tree, and used `peer-focus-visible` on the styling element to restore focus rings.
+**Learning:** The `sr-only peer` pattern is the correct, standard way to implement custom checkboxes and radio buttons in this codebase while preserving both the exact visual design and full native accessibility (keyboard + screen reader).
+**Watch for:** Other forms or interactive elements using generic `div`s, `button`s for selections, or `className="hidden"` on inputs instead of `sr-only peer`.
