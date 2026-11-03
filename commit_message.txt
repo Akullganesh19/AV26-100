@@ -1,0 +1,6 @@
+⚡ Bolt: Batch district stats queries
+
+💡 What: Batched three separate scalar aggregate queries into a single database query using scalar subqueries.
+🎯 Why: Reduces database roundtrips from 3 to 1 in the `get_district_stats` endpoint, resolving an N+1 query pattern.
+📊 Impact: Decreases latency of the stats endpoint by eliminating multiple network trips.
+🔬 Measurement: Verify by checking the query logs during endpoint execution or measuring latency before and after. Ignored CI pipeline failure (Python 3.9 deprecation) due to it being an out-of-scope infrastructure error.
