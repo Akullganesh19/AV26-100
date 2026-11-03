@@ -27,3 +27,28 @@ apiClient.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+// Phantom: Request Coalescing Infrastructure
+const inFlight = new Map();
+const originalGet = apiClient.get;
+
+// Wrap the original get method for coalescing duplicate requests
+apiClient.get = function(url: string, config?: any) {
+  // Use config params if any exist to make the key unique to the request
+  const key = `${url}-${JSON.stringify(config?.params || {})}`;
+
+  // If already in flight, return the same promise
+  if (inFlight.has(key)) {
+    console.debug(`[Phantom] Coalesced duplicate request: ${url}`);
+    return inFlight.get(key);
+  }
+
+  // Otherwise make request and store promise
+  const promise = originalGet.call(this, url, config).finally(() => {
+    // Ensure we delete it from the map when it completes (success or failure)
+    inFlight.delete(key);
+  });
+
+  inFlight.set(key, promise);
+  return promise;
+};
