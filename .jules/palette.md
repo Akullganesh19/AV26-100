@@ -1,0 +1,3 @@
+## 2026-11-04 - Login Form Accessibility Improvements
+**Learning:** The custom `tactical-header` styled labels in the auth forms were missing `htmlFor` associations, breaking screen reader form navigation. Additionally, absolute-positioned icon buttons (like password visibility toggle) lacked `aria-label` and keyboard `focus-visible` states, making them invisible to screen readers and difficult to navigate via keyboard.
+**Action:** Always pair custom styled labels with their respective inputs using `id` and `htmlFor`. For icon-only utility buttons inside input groups, always add descriptive `aria-label`s and explicit `focus-visible` utility classes to ensure they are accessible to both screen readers and keyboard users.
