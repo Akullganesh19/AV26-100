@@ -9,13 +9,16 @@ import {
   CheckCircle2,
   Stethoscope,
   Info,
-  Download
+  Download,
+  History
 } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
 import { useSearchParams } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import { apiClient } from '../api/client';
 
-type DiseaseType = 'heart' | 'diabetes' | 'parkinsons';
+type DiseaseType = 'heart' | 'diabetes' | 'parkinsons' | 'history';
 
 const DiagnosticsCenter: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -123,6 +126,18 @@ const DiagnosticsCenter: React.FC = () => {
             <span className="font-medium">Parkinson's</span>
           </button>
 
+          <button
+            onClick={() => setActiveTab('history')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all border ${
+              activeTab === 'history'
+              ? 'bg-brand-primary/10 border-brand-primary/50 text-white shadow-lg shadow-brand-primary/10'
+              : 'bg-slate-900/50 border-slate-800 text-slate-400 hover:bg-slate-800/50 hover:text-white'
+            }`}
+          >
+            <History className={activeTab === 'history' ? 'text-brand-primary' : ''} />
+            <span className="font-medium">Triage History</span>
+          </button>
+
           <div className="mt-8 p-4 rounded-xl bg-slate-900/50 border border-slate-800/50">
             <h3 className="text-sm font-semibold text-slate-300 flex items-center gap-2 mb-2">
               <Info className="h-4 w-4 text-emerald-500" />
@@ -143,14 +158,16 @@ const DiagnosticsCenter: React.FC = () => {
               {activeTab === 'heart' && <><Activity className="text-emerald-500" /> Heart Risk Assessment</>}
               {activeTab === 'diabetes' && <><Droplet className="text-emerald-500" /> Metabolic Screening</>}
               {activeTab === 'parkinsons' && <><Brain className="text-emerald-500" /> Neuro-vocal Analysis</>}
+              {activeTab === 'history' && <><History className="text-brand-primary" /> Triage History Log</>}
             </h2>
 
             {activeTab === 'heart' && <HeartForm onSubmit={handleDiagnose} loading={loading} />}
             {activeTab === 'diabetes' && <DiabetesForm onSubmit={handleDiagnose} loading={loading} />}
             {activeTab === 'parkinsons' && <ParkinsonsForm onSubmit={handleDiagnose} loading={loading} />}
+            {activeTab === 'history' && <TriageHistory />}
           </div>
 
-          {prediction && (
+          {prediction && activeTab !== 'history' && (
             <div className={`p-6 rounded-2xl border animate-in zoom-in-95 duration-300 ${
               prediction.risk 
               ? 'bg-red-500/10 border-red-500/30' 
@@ -301,6 +318,55 @@ const ParkinsonsForm = ({ onSubmit, loading }: { onSubmit: (data: any) => void, 
       >
         {loading ? 'Analyzing...' : <><Brain size={20}/> ANALYZE NEURO-SIGNALS</>}
       </button>
+    </div>
+  );
+};
+
+const TriageHistory = () => {
+  const { data: logs, isLoading } = useQuery({
+    queryKey: ['clinical-history'],
+    queryFn: async () => {
+      const response = await apiClient.get('/clinical/history');
+      return response.data;
+    }
+  });
+
+  if (isLoading) {
+    return <div className="text-slate-400 font-mono text-sm py-8 text-center">Loading tactical logs...</div>;
+  }
+
+  if (!logs || logs.length === 0) {
+    return (
+      <div className="py-12 flex flex-col items-center justify-center gap-4 border border-dashed border-slate-700/50 rounded-xl bg-slate-900/30">
+        <History className="h-10 w-10 text-slate-600" />
+        <p className="text-slate-500 text-sm">No screening history found in this jurisdiction.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {logs.map((log: any) => (
+        <div key={log.id} className="p-4 rounded-xl border border-slate-700/50 bg-slate-900/40 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className={`p-2 rounded-lg ${log.risk_score > 0.7 ? 'bg-red-500/20 text-red-400' : 'bg-emerald-500/20 text-emerald-400'}`}>
+              {log.endpoint.includes('heart') ? <Activity size={18} /> :
+               log.endpoint.includes('diabetes') ? <Droplet size={18} /> :
+               <Brain size={18} />}
+            </div>
+            <div>
+              <p className="text-white font-medium text-sm capitalize">{log.endpoint.replace('clinical/', '')} Screening</p>
+              <p className="text-xs text-slate-500 font-mono">{new Date(log.timestamp).toLocaleString()}</p>
+            </div>
+          </div>
+          <div className="text-right">
+            <p className={`text-sm font-black ${log.risk_score > 0.7 ? 'text-red-400' : 'text-emerald-400'}`}>
+              {(log.risk_score * 100).toFixed(1)}% Risk
+            </p>
+            <p className="text-[10px] text-slate-500 uppercase tracking-widest">{log.status}</p>
+          </div>
+        </div>
+      ))}
     </div>
   );
 };

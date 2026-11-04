@@ -1,0 +1,6 @@
+## 2023-11-04 — Clinical Triage History
+**Product understood as:** EpiSense is a predictive epidemiological platform providing clinical triage and autonomous outbreak alerts for regional health officers.
+**Derivation reasoning:** This product has a Clinical Triage Engine that meticulously logs every patient screening to a `prediction_audit_logs` table (including inputs, risk score, and timestamps) for alert triggers. Users perform these diagnostic actions repeatedly. Therefore users obviously need a Clinical Triage History (Audit Log) feature — because officers need visibility into their past screenings to audit high-risk outcomes or track daily triage volume. It doesn't exist because the audit log was initially implemented purely as background telemetry for the alert engine. I'm building it because giving health officers visibility into their own screening history transforms this from a stateless calculator into an accountable clinical intelligence system.
+**Feature built:** Added a "Triage History" endpoint and frontend tab in the Diagnostics Center to view past clinical screenings.
+**User impact:** Health officers can now review their past triage logs, see previously calculated risk scores, and track their daily screening volume directly in the app.
+**Next logical feature:** Add shift hand-off or jurisdiction summary digest.
