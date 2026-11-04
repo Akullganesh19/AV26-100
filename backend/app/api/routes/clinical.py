@@ -16,6 +16,45 @@ clinical_service = ClinicalService()
 from fastapi import BackgroundTasks
 from app.services.alert_service import AlertService
 
+from sqlalchemy import select, desc
+from app.models.alert import Alert, AlertStatus
+
+@router.get("/oracle/next-focus", response_model=Dict[str, Any])
+@limiter.limit("20/minute")
+async def predict_next_focus(
+    request: Request,
+    district_id: Optional[str] = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: Any = Depends(deps.get_current_user)
+) -> Any:
+    """
+    Oracle: Predict the user's next clinical focus.
+    If a district has an active clinical cluster alert, default to that disease.
+    Otherwise, default to 'heart'.
+    """
+    default_focus = "heart"
+    if not district_id:
+        return {"focus": default_focus}
+
+    try:
+        # Find the most recent active alert for this district
+        query = select(Alert).where(
+            (Alert.district_id == district_id) &
+            (Alert.status == AlertStatus.TRIGGERED)
+        ).order_by(desc(Alert.triggered_at)).limit(1)
+
+        result = await db.execute(query)
+        alert = result.scalar_one_or_none()
+
+        if alert and alert.disease in ["heart", "diabetes", "parkinsons"]:
+            return {"focus": alert.disease}
+
+        return {"focus": default_focus}
+    except Exception as e:
+        # Graceful degradation
+        return {"focus": default_focus}
+
+
 async def log_prediction(
     db: AsyncSession, 
     user_id: Any, 

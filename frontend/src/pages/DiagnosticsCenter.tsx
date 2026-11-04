@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Activity, 
   Droplet, 
@@ -11,7 +11,7 @@ import {
   Info,
   Download
 } from 'lucide-react';
-import axios from 'axios';
+import { apiClient } from '../api/client';
 import { toast } from 'sonner';
 import { useSearchParams } from 'react-router-dom';
 
@@ -25,13 +25,51 @@ const DiagnosticsCenter: React.FC = () => {
   const [selectedDistrict, setSelectedDistrict] = useState<string>(districtIdFromUrl || '');
   const [loading, setLoading] = useState(false);
   const [prediction, setPrediction] = useState<any>(null);
+  const [prefetchedReportUrl, setPrefetchedReportUrl] = useState<string | null>(null);
+  const [oraclePredicted, setOraclePredicted] = useState(false);
+
+  useEffect(() => {
+    const fetchNextFocus = async () => {
+      try {
+        const response = await apiClient.get(
+          `/clinical/oracle/next-focus${districtIdFromUrl ? `?district_id=${districtIdFromUrl}` : ''}`
+        );
+        if (response.data && response.data.focus) {
+          setActiveTab(response.data.focus as DiseaseType);
+          setOraclePredicted(true);
+        }
+      } catch (err) {
+        console.error("Failed to fetch Oracle next focus", err);
+      }
+    };
+    fetchNextFocus();
+  }, [districtIdFromUrl]);
+
+  const prefetchReport = async (predData: any) => {
+    try {
+      const response = await apiClient.post(
+        `/clinical/report`,
+        [predData],
+        { responseType: 'blob' }
+      );
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      setPrefetchedReportUrl(url);
+    } catch (err) {
+      console.error("Failed to prefetch report", err);
+    }
+  };
 
   const handleDiagnose = async (formData: any) => {
     setLoading(true);
     setPrediction(null);
+    setPrefetchedReportUrl(null);
     try {
-      const response = await axios.post(`${import.meta.env.VITE_API_URL}/clinical/${activeTab}`, formData);
+      const response = await apiClient.post(`/clinical/${activeTab}`, formData);
       setPrediction(response.data);
+
+      // Behavior Prefetch: generate the report instantly in the background
+      prefetchReport(response.data);
+
       if (response.data.risk) {
         toast.error(`High risk detected for ${activeTab.toUpperCase()}`, {
           description: response.data.advice
@@ -54,20 +92,24 @@ const DiagnosticsCenter: React.FC = () => {
   const handleDownloadReport = async () => {
     if (!prediction) return;
     try {
-      const response = await axios.post(
-        `${import.meta.env.VITE_API_URL}/clinical/report`,
-        [prediction], // Send current prediction in a list
-        { responseType: 'blob' }
-      );
-      
-      const url = window.URL.createObjectURL(new Blob([response.data]));
+      // If we already prefetched the report URL, use it immediately (zero latency)
+      let url = prefetchedReportUrl;
+      if (!url) {
+        const response = await apiClient.post(
+          `/clinical/report`,
+          [prediction], // Send current prediction in a list
+          { responseType: 'blob' }
+        );
+        url = window.URL.createObjectURL(new Blob([response.data]));
+      }
+
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute('download', `EpiSense_Tactical_Report_${activeTab.toUpperCase()}.pdf`);
       document.body.appendChild(link);
       link.click();
       link.remove();
-      toast.success('Report generated successfully');
+      toast.success('Report downloaded successfully');
     } catch (error) {
       console.error('Report generation failed:', error);
       toast.error('Failed to generate PDF report');
@@ -139,11 +181,18 @@ const DiagnosticsCenter: React.FC = () => {
           <div className="bg-slate-900/40 backdrop-blur-md border border-slate-800 p-6 rounded-2xl shadow-2xl relative overflow-hidden group">
             <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 blur-3xl -z-10 group-hover:bg-emerald-500/10 transition-all"></div>
             
-            <h2 className="text-xl font-semibold text-white mb-6 flex items-center gap-2">
-              {activeTab === 'heart' && <><Activity className="text-emerald-500" /> Heart Risk Assessment</>}
-              {activeTab === 'diabetes' && <><Droplet className="text-emerald-500" /> Metabolic Screening</>}
-              {activeTab === 'parkinsons' && <><Brain className="text-emerald-500" /> Neuro-vocal Analysis</>}
-            </h2>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-semibold text-white flex items-center gap-2">
+                {activeTab === 'heart' && <><Activity className="text-emerald-500" /> Heart Risk Assessment</>}
+                {activeTab === 'diabetes' && <><Droplet className="text-emerald-500" /> Metabolic Screening</>}
+                {activeTab === 'parkinsons' && <><Brain className="text-emerald-500" /> Neuro-vocal Analysis</>}
+              </h2>
+              {oraclePredicted && (
+                <span className="px-3 py-1 bg-brand-primary/10 border border-brand-primary/20 text-brand-primary text-[10px] font-bold uppercase tracking-widest rounded-full flex items-center gap-1">
+                  🛸 Oracle Recommended
+                </span>
+              )}
+            </div>
 
             {activeTab === 'heart' && <HeartForm onSubmit={handleDiagnose} loading={loading} />}
             {activeTab === 'diabetes' && <DiabetesForm onSubmit={handleDiagnose} loading={loading} />}
