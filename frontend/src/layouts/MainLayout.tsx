@@ -67,6 +67,8 @@ const MainLayout: React.FC = () => {
                     ? 'bg-brand-primary/10 text-brand-primary border border-brand-primary/20 shadow-[0_0_15px_rgba(30,144,255,0.1)]' 
                     : 'text-slate-400 hover:text-slate-100 hover:bg-white/[0.03]'
                 }`}
+                aria-label={item.label}
+                title={!isSidebarOpen ? item.label : undefined}
               >
                 <Icon className={`w-5 h-5 ${isActive ? 'text-brand-primary' : 'group-hover:text-slate-100'}`} />
                 {isSidebarOpen && <span className="font-medium text-sm tracking-wide">{item.label}</span>}
@@ -86,6 +88,8 @@ const MainLayout: React.FC = () => {
           <button
             onClick={handleLogout}
             className="w-full flex items-center gap-4 px-4 py-3 rounded-xl text-rose-400 hover:bg-rose-500/10 transition-all group"
+            aria-label="Terminate Session"
+            title={!isSidebarOpen ? "Terminate Session" : undefined}
           >
             <LogOut className="w-5 h-5" />
             {isSidebarOpen && <span className="font-medium text-sm">Terminate Session</span>}
@@ -101,6 +105,8 @@ const MainLayout: React.FC = () => {
             <button 
               onClick={() => setSidebarOpen(!isSidebarOpen)}
               className="p-2 rounded-lg hover:bg-white/5 transition-colors"
+              aria-label={isSidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
+              title={isSidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
             >
               <Menu className="w-5 h-5 text-slate-400" />
             </button>
