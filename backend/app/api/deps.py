@@ -76,6 +76,9 @@ async def get_current_user(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Token has been revoked",
             )
+    except HTTPException:
+        # Security: explicitly re-raise HTTPException to not swallow 401s
+        raise
     except Exception:
         pass # Fall through to standard verification
     finally:
