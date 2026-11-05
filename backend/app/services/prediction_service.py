@@ -28,6 +28,8 @@ MANIFEST_PATH = MODELS_DIR / "latest.json"
 
 TIER_LABELS = {0: RiskTier.LOW, 1: RiskTier.MEDIUM, 2: RiskTier.HIGH, 3: RiskTier.CRITICAL}
 
+background_tasks = set()
+
 
 def to_python(val: Any) -> Any:
     """Cast numpy scalars to native Python types. Pydantic v2 rejects numpy types."""
@@ -185,12 +187,14 @@ class PredictionService:
 
         # Step 7: Trigger Asynchronous Alerts if high risk
         if risk_tier in [RiskTier.HIGH, RiskTier.CRITICAL]:
-            asyncio.create_task(send_alert_notification(
+            task = asyncio.create_task(send_alert_notification(
                 alert_id=str(prediction_id),
-                district_name="Jurisdiction Monitor", # In production, fetch from District model
+                district_id=district_id,
                 disease=disease,
                 risk_score=float(raw_score)
             ))
+            background_tasks.add(task)
+            task.add_done_callback(background_tasks.discard)
 
         return PredictionResponse(
             prediction_id=prediction_id,
