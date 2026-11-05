@@ -1,5 +1,7 @@
 import React from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
+import { apiClient } from '../api/client';
 import { 
   LayoutDashboard, 
   AlertTriangle, 
@@ -19,6 +21,33 @@ const MainLayout: React.FC = () => {
   const navigate = useNavigate();
   const { logout, user } = useAuthStore();
   const [isSidebarOpen, setSidebarOpen] = React.useState(true);
+  const queryClient = useQueryClient();
+
+  const handlePredictivePrefetch = (path: string) => {
+    // Predictive Data Prefetching: Anticipate user click based on hover intent
+    if (path === '/') {
+      queryClient.prefetchQuery({
+        queryKey: ['dashboard-stats'],
+        queryFn: async () => (await apiClient.get('/districts/stats')).data
+      });
+    } else if (path === '/map') {
+      // Assuming not simulating by default for prefetch
+      queryClient.prefetchQuery({
+        queryKey: ['choropleth-data', false, null],
+        queryFn: async () => (await apiClient.get('/districts')).data
+      });
+    } else if (path === '/alerts') {
+      queryClient.prefetchQuery({
+        queryKey: ['tactical-alerts', false, null],
+        queryFn: async () => (await apiClient.get('/alerts')).data
+      });
+    } else if (path === '/simulations') {
+      queryClient.prefetchQuery({
+        queryKey: ['sim-scenarios'],
+        queryFn: async () => (await apiClient.get('/scenarios/')).data
+      });
+    }
+  };
 
   const navItems = [
     { path: '/', label: 'Command Center', icon: LayoutDashboard },
@@ -62,6 +91,7 @@ const MainLayout: React.FC = () => {
               <Link
                 key={item.path}
                 to={item.path}
+                onMouseEnter={() => handlePredictivePrefetch(item.path)}
                 className={`flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-200 group ${
                   isActive 
                     ? 'bg-brand-primary/10 text-brand-primary border border-brand-primary/20 shadow-[0_0_15px_rgba(30,144,255,0.1)]' 
