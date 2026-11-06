@@ -9,11 +9,14 @@ import {
   CheckCircle2,
   Stethoscope,
   Info,
-  Download
+  Download,
+  Sparkles
 } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
 import { useSearchParams } from 'react-router-dom';
+import { apiClient } from '../api/client';
+import { useQuery } from '@tanstack/react-query';
 
 type DiseaseType = 'heart' | 'diabetes' | 'parkinsons';
 
@@ -25,12 +28,37 @@ const DiagnosticsCenter: React.FC = () => {
   const [selectedDistrict, setSelectedDistrict] = useState<string>(districtIdFromUrl || '');
   const [loading, setLoading] = useState(false);
   const [prediction, setPrediction] = useState<any>(null);
+  const [oracleApplied, setOracleApplied] = useState(false);
+
+  // Oracle: Fetch intelligent defaults based on user behavior
+  useQuery({
+    queryKey: ['oracle-predict-screening'],
+    queryFn: async () => {
+      const response = await apiClient.get('/clinical/oracle/predict-next-screening');
+      const data = response.data;
+      if (data && data.confidence > 0) {
+        if (!districtIdFromUrl && data.predicted_district_id) {
+            setSelectedDistrict(data.predicted_district_id);
+        }
+        if (data.predicted_disease && ['heart', 'diabetes', 'parkinsons'].includes(data.predicted_disease)) {
+            setActiveTab(data.predicted_disease as DiseaseType);
+        }
+        setOracleApplied(true);
+      }
+      return data;
+    },
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
+    enabled: !districtIdFromUrl // Don't override if explicitly launched from map
+  });
 
   const handleDiagnose = async (formData: any) => {
     setLoading(true);
     setPrediction(null);
     try {
-      const response = await axios.post(`${import.meta.env.VITE_API_URL}/clinical/${activeTab}`, formData);
+      // Fix: Actually send the selected district so the backend receives the signal
+      const payload = { ...formData, district_id: selectedDistrict || null };
+      const response = await apiClient.post(`/clinical/${activeTab}`, payload);
       setPrediction(response.data);
       if (response.data.risk) {
         toast.error(`High risk detected for ${activeTab.toUpperCase()}`, {
@@ -77,13 +105,23 @@ const DiagnosticsCenter: React.FC = () => {
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       <header>
-        <h1 className="text-3xl font-bold text-white tracking-tight flex items-center gap-3">
-          <Stethoscope className="text-emerald-500 h-8 w-8" />
-          Tactical Diagnostics Center
-        </h1>
-        <p className="text-slate-400 mt-1">
-          Individual-level clinical screening powered by mission-trained ML models.
-        </p>
+        <div className="flex justify-between items-start">
+          <div>
+            <h1 className="text-3xl font-bold text-white tracking-tight flex items-center gap-3">
+              <Stethoscope className="text-emerald-500 h-8 w-8" />
+              Tactical Diagnostics Center
+            </h1>
+            <p className="text-slate-400 mt-1">
+              Perform clinical triage using mission-approved deep screening models.
+            </p>
+          </div>
+          {oracleApplied && (
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 animate-in fade-in slide-in-from-top-2">
+              <Sparkles size={14} />
+              <span className="text-[10px] font-bold uppercase tracking-widest">Oracle Auto-Prepared</span>
+            </div>
+          )}
+        </div>
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
