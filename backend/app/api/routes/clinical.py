@@ -14,6 +14,57 @@ router = APIRouter()
 clinical_service = ClinicalService()
 
 from fastapi import BackgroundTasks
+from sqlalchemy import select, func, desc
+
+@router.get("/oracle/predict-next-screening", response_model=Dict[str, Any])
+async def predict_next_screening(
+    db: AsyncSession = Depends(get_db),
+    current_user: Any = Depends(deps.get_current_user)
+) -> Any:
+    """
+    Oracle: Anticipate what the user is about to do next based on their historical patterns.
+    Returns intelligent defaults for the diagnostics center.
+    """
+    try:
+        # Predict most likely disease based on recent frequency
+        disease_query = select(
+            PredictionAuditLog.endpoint,
+            func.count(PredictionAuditLog.id).label("count")
+        ).where(
+            PredictionAuditLog.user_id == current_user.id
+        ).group_by(
+            PredictionAuditLog.endpoint
+        ).order_by(
+            desc("count")
+        ).limit(1)
+
+        disease_res = await db.execute(disease_query)
+        top_endpoint = disease_res.first()
+
+        # Predict most likely district
+        district_query = select(
+            PredictionAuditLog.district_id,
+            func.count(PredictionAuditLog.id).label("count")
+        ).where(
+            PredictionAuditLog.user_id == current_user.id,
+            PredictionAuditLog.district_id.isnot(None)
+        ).group_by(
+            PredictionAuditLog.district_id
+        ).order_by(
+            desc("count")
+        ).limit(1)
+
+        district_res = await db.execute(district_query)
+        top_district = district_res.first()
+
+        return {
+            "predicted_disease": top_endpoint[0].split("/")[-1] if top_endpoint else "heart",
+            "predicted_district_id": str(top_district[0]) if top_district else None,
+            "confidence": 0.85 if (top_endpoint and top_district) else 0.4
+        }
+    except Exception as e:
+        return {"predicted_disease": "heart", "predicted_district_id": None, "confidence": 0.0, "error": str(e)}
+
 from app.services.alert_service import AlertService
 
 async def log_prediction(
