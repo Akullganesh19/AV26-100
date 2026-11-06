@@ -62,8 +62,8 @@ const MainLayout: React.FC = () => {
               <Link
                 key={item.path}
                 to={item.path}
-              aria-label={!isSidebarOpen ? item.label : undefined}
-              title={!isSidebarOpen ? item.label : undefined}
+                aria-label={!isSidebarOpen ? item.label : undefined}
+                title={!isSidebarOpen ? item.label : undefined}
                 className={`flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-200 group ${
                   isActive 
                     ? 'bg-brand-primary/10 text-brand-primary border border-brand-primary/20 shadow-[0_0_15px_rgba(30,144,255,0.1)]' 
