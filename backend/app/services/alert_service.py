@@ -1,6 +1,5 @@
 import json
 import logging
-import asyncio
 from datetime import datetime, timedelta
 from typing import Optional, List
 from sqlalchemy import select, func, and_
@@ -8,54 +7,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.alert import Alert, AlertStatus, AlertType
 from app.models.audit_log import PredictionAuditLog
 from app.models.prediction import Prediction
-from app.models.user import User
-from app.models.district import District
 from app.core.config import settings
-from app.api.integrations import integration_service
+from app.core.events import event_bus
 
 logger = logging.getLogger(__name__)
 
-background_tasks = set()
-
 class AlertService:
-    @staticmethod
-    async def _notify_affected_users(db: AsyncSession, alert: Alert):
-        """
-        Cross-system intelligence: Alerts ↔ Users.
-        Finds users registered to this district who want emails and meet the threshold.
-        """
-        try:
-            # Query for the district name and eligible users in one go
-            query = (
-                select(User, District.name)
-                .join(User.districts)
-                .where(
-                    and_(
-                        District.id == alert.district_id,
-                        User.email_alerts == True,
-                        User.is_active == True,
-                        User.alert_threshold <= alert.risk_score * 100
-                    )
-                )
-            )
-            result = await db.execute(query)
-
-            for user, district_name in result.all():
-                task = asyncio.create_task(
-                    integration_service.send_health_alert_email(
-                        to_email=user.email,
-                        district_name=district_name,
-                        disease=alert.disease,
-                        risk_score=float(alert.risk_score)
-                    )
-                )
-                background_tasks.add(task)
-                task.add_done_callback(background_tasks.discard)
-                logger.info(f"SYNAPSE: Notification dispatched to {user.email} for {alert.disease} in {district_name}")
-
-        except Exception as e:
-            logger.error("Failed to cross-correlate alert with users", exc_info=True)
-
     @staticmethod
     async def evaluate_clinical_cluster(db: AsyncSession, district_id: str, disease: str):
         """
@@ -107,8 +64,13 @@ class AlertService:
                     await db.commit()
                     logger.info(f"TACTICAL ALERT: Clinical cluster detected in {district_id} ({disease})")
 
-                    # SYNAPSE: Connect the new alert to user notifications
-                    await AlertService._notify_affected_users(db, new_alert)
+                    # SYNAPSE: Emit event for cross-system intelligence
+                    event_bus.emit(
+                        'alert.triggered',
+                        district_id=str(new_alert.district_id),
+                        disease=new_alert.disease,
+                        risk_score=float(new_alert.risk_score)
+                    )
         
         except Exception as e:
             logger.error(
@@ -135,8 +97,13 @@ class AlertService:
             db.add(new_alert)
             await db.commit()
 
-            # SYNAPSE: Connect the new alert to user notifications
-            await AlertService._notify_affected_users(db, new_alert)
+            # SYNAPSE: Emit event for cross-system intelligence
+            event_bus.emit(
+                'alert.triggered',
+                district_id=str(new_alert.district_id),
+                disease=new_alert.disease,
+                risk_score=float(new_alert.risk_score)
+            )
 
     @staticmethod
     async def acknowledge_alert(db: AsyncSession, alert_id: str, user_id: str):
