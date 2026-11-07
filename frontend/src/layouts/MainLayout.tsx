@@ -13,12 +13,73 @@ import {
   Map as MapIcon
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
+import { useQueryClient } from '@tanstack/react-query';
+import { useSimulation } from '../context/SimulationContext';
+import { apiClient } from '../api/client';
 
 const MainLayout: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { logout, user } = useAuthStore();
   const [isSidebarOpen, setSidebarOpen] = React.useState(true);
+  const queryClient = useQueryClient();
+  const { isSimulating, activeSimId } = useSimulation();
+
+  // Predictive Route Prefetching Logic:
+  // Detects when user hovers or focuses on a navigation link and proactively
+  // fetches the required data in the background. By the time the user clicks,
+  // the data is already in the cache, enabling near-instantaneous page loads.
+  const handlePrefetch = (path: string) => {
+    switch (path) {
+      case '/':
+        queryClient.prefetchQuery({
+          queryKey: ['dashboard-stats'],
+          queryFn: async () => {
+            const response = await apiClient.get('/districts/stats');
+            return response.data;
+          },
+          staleTime: 60000,
+        });
+        break;
+      case '/map':
+        queryClient.prefetchQuery({
+          queryKey: ['choropleth-data', isSimulating, activeSimId],
+          queryFn: async () => {
+            // Replicate StrategicMap logic to prevent cache poisoning during simulations
+            const url = isSimulating
+              ? '/districts' // Simulation could have its own mapping
+              : '/districts';
+            const response = await apiClient.get(url);
+            return response.data;
+          },
+          staleTime: 60000,
+        });
+        break;
+      case '/alerts':
+        queryClient.prefetchQuery({
+          queryKey: ['tactical-alerts', isSimulating, activeSimId],
+          queryFn: async () => {
+            const url = isSimulating
+              ? `/alerts?simulation_id=${activeSimId}`
+              : '/alerts';
+            const response = await apiClient.get(url);
+            return response.data;
+          },
+          staleTime: 60000,
+        });
+        break;
+      case '/simulations':
+        queryClient.prefetchQuery({
+          queryKey: ['sim-scenarios'],
+          queryFn: async () => {
+            const response = await apiClient.get('/scenarios/');
+            return response.data;
+          },
+          staleTime: 60000,
+        });
+        break;
+    }
+  };
 
   const navItems = [
     { path: '/', label: 'Command Center', icon: LayoutDashboard },
@@ -62,6 +123,8 @@ const MainLayout: React.FC = () => {
               <Link
                 key={item.path}
                 to={item.path}
+                onMouseEnter={() => handlePrefetch(item.path)}
+                onFocus={() => handlePrefetch(item.path)}
                 className={`flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-200 group ${
                   isActive 
                     ? 'bg-brand-primary/10 text-brand-primary border border-brand-primary/20 shadow-[0_0_15px_rgba(30,144,255,0.1)]' 
