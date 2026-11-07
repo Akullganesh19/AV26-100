@@ -16,6 +16,7 @@ async def list_districts(
     disease: str = Query("dengue", description="Disease type to filter by"),
     state: Optional[str] = Query(None, description="State code to filter by (e.g., 'KA')"),
     time_window: int = Query(14, description="Days to look back/forward"),
+    jurisdiction_only: bool = Query(False, description="Filter to only districts watched by the current user"),
     db: AsyncSession = Depends(deps.get_db),
     current_user: Any = Depends(deps.get_current_user)
 ) -> Any:
@@ -28,9 +29,17 @@ async def list_districts(
         if state:
             query = query.where(District.state_code == state)
             
+        if jurisdiction_only:
+            query = query.join(District.users).where(District.users.any(id=current_user.id))
+
         result = await db.execute(query)
         districts = result.scalars().all()
         
+        # Determine watched districts for the user
+        watched_query = select(District.id).where(District.users.any(id=current_user.id))
+        watched_result = await db.execute(watched_query)
+        watched_ids = set(watched_result.scalars().all())
+
         # Batch predict all districts concurrently for significant performance boost
         # Reduced from N sequential calls to concurrent execution with controlled semaphore
         district_ids = [d.id for d in districts]
@@ -51,7 +60,8 @@ async def list_districts(
                     "risk_score": pred.risk_score,
                     "risk_tier": pred.risk_tier,
                     "last_updated": pred.prediction_date.isoformat(),
-                    "extrapolation_warning": pred.extrapolation_warning
+                    "extrapolation_warning": pred.extrapolation_warning,
+                    "is_watched": d.id in watched_ids
                 })
             else:
                 output.append({
@@ -62,12 +72,57 @@ async def list_districts(
                     "risk_score": 0,
                     "risk_tier": "unknown",
                     "last_updated": "No Data",
-                    "extrapolation_warning": False
+                    "extrapolation_warning": False,
+                    "is_watched": d.id in watched_ids
                 })
             
         return output
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to retrieve jurisdiction matrix: {str(e)}")
+
+@router.post("/{district_id}/watch")
+async def watch_district(
+    district_id: UUID,
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: Any = Depends(deps.get_current_user)
+) -> Any:
+    """Add a district to the user's jurisdiction watchlist."""
+    from sqlalchemy.orm import selectinload
+
+    result = await db.execute(select(District).options(selectinload(District.users)).where(District.id == district_id))
+    district = result.scalar_one_or_none()
+    if not district:
+        raise HTTPException(status_code=404, detail="District not found")
+
+    # Check if user is already watching by checking IDs
+    is_watching = any(u.id == current_user.id for u in district.users)
+    if not is_watching:
+        district.users.append(current_user)
+        await db.commit()
+
+    return {"status": "success", "message": f"Added {district.name} to jurisdiction."}
+
+@router.delete("/{district_id}/watch")
+async def unwatch_district(
+    district_id: UUID,
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: Any = Depends(deps.get_current_user)
+) -> Any:
+    """Remove a district from the user's jurisdiction watchlist."""
+    from sqlalchemy.orm import selectinload
+
+    result = await db.execute(select(District).options(selectinload(District.users)).where(District.id == district_id))
+    district = result.scalar_one_or_none()
+    if not district:
+        raise HTTPException(status_code=404, detail="District not found")
+
+    # Find user by ID in district.users list
+    user_to_remove = next((u for u in district.users if u.id == current_user.id), None)
+    if user_to_remove:
+        district.users.remove(user_to_remove)
+        await db.commit()
+
+    return {"status": "success", "message": f"Removed {district.name} from jurisdiction."}
 
 @router.get("/{district_id}", response_model=Dict[str, Any])
 async def get_district_detail(
