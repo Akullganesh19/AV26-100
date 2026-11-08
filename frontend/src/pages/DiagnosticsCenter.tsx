@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Activity, 
   Droplet, 
@@ -9,13 +9,16 @@ import {
   CheckCircle2,
   Stethoscope,
   Info,
-  Download
+  Download,
+  History,
+  Clock
 } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
 import { useSearchParams } from 'react-router-dom';
+import { apiClient } from '../api/client';
 
-type DiseaseType = 'heart' | 'diabetes' | 'parkinsons';
+type DiseaseType = 'heart' | 'diabetes' | 'parkinsons' | 'history';
 
 const DiagnosticsCenter: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -123,6 +126,18 @@ const DiagnosticsCenter: React.FC = () => {
             <span className="font-medium">Parkinson's</span>
           </button>
 
+          <button
+            onClick={() => setActiveTab('history')}
+            className={`w-full mt-4 flex items-center gap-3 px-4 py-3 rounded-xl transition-all border ${
+              activeTab === 'history'
+              ? 'bg-blue-500/10 border-blue-500/50 text-white shadow-lg shadow-blue-500/10'
+              : 'bg-slate-900/50 border-slate-800 text-slate-400 hover:bg-slate-800/50 hover:text-white'
+            }`}
+          >
+            <History className={activeTab === 'history' ? 'text-blue-500' : ''} />
+            <span className="font-medium">Screening History</span>
+          </button>
+
           <div className="mt-8 p-4 rounded-xl bg-slate-900/50 border border-slate-800/50">
             <h3 className="text-sm font-semibold text-slate-300 flex items-center gap-2 mb-2">
               <Info className="h-4 w-4 text-emerald-500" />
@@ -143,14 +158,16 @@ const DiagnosticsCenter: React.FC = () => {
               {activeTab === 'heart' && <><Activity className="text-emerald-500" /> Heart Risk Assessment</>}
               {activeTab === 'diabetes' && <><Droplet className="text-emerald-500" /> Metabolic Screening</>}
               {activeTab === 'parkinsons' && <><Brain className="text-emerald-500" /> Neuro-vocal Analysis</>}
+              {activeTab === 'history' && <><History className="text-blue-500" /> Tactical Screening History</>}
             </h2>
 
             {activeTab === 'heart' && <HeartForm onSubmit={handleDiagnose} loading={loading} />}
             {activeTab === 'diabetes' && <DiabetesForm onSubmit={handleDiagnose} loading={loading} />}
             {activeTab === 'parkinsons' && <ParkinsonsForm onSubmit={handleDiagnose} loading={loading} />}
+            {activeTab === 'history' && <HistoryPanel />}
           </div>
 
-          {prediction && (
+          {activeTab !== 'history' && prediction && (
             <div className={`p-6 rounded-2xl border animate-in zoom-in-95 duration-300 ${
               prediction.risk 
               ? 'bg-red-500/10 border-red-500/30' 
@@ -335,5 +352,67 @@ const Select = ({ label, value, options, onChange }: any) => (
     </select>
   </div>
 );
+
+const HistoryPanel = () => {
+  const [history, setHistory] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchHistory = async () => {
+      try {
+        const { data } = await apiClient.get('/clinical/history');
+        setHistory(data);
+      } catch (err) {
+        console.error('Failed to fetch history', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchHistory();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex justify-center p-12">
+        <Activity className="animate-spin text-emerald-500 h-8 w-8" />
+      </div>
+    );
+  }
+
+  if (history.length === 0) {
+    return (
+      <div className="p-12 text-center text-slate-400">
+        <p>No screening history found.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {history.map((item) => (
+        <div key={item.id} className="bg-slate-900/40 p-4 rounded-xl border border-slate-800 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className={`p-2 rounded-lg ${item.risk_score > 0.7 ? 'bg-red-500/20' : 'bg-emerald-500/20'}`}>
+              <Activity className={`h-6 w-6 ${item.risk_score > 0.7 ? 'text-red-500' : 'text-emerald-500'}`} />
+            </div>
+            <div>
+              <h4 className="font-bold text-white capitalize">{item.endpoint.replace('clinical/', '')} Screening</h4>
+              <p className="text-sm text-slate-400 flex items-center gap-2">
+                <Clock className="h-3 w-3" />
+                {new Date(item.timestamp).toLocaleString()}
+              </p>
+            </div>
+          </div>
+          <div className="text-right">
+            <div className={`text-lg font-black ${item.risk_score > 0.7 ? 'text-red-400' : 'text-emerald-400'}`}>
+              {(item.risk_score * 100).toFixed(1)}% Risk
+            </div>
+            <div className="text-xs text-slate-500 uppercase tracking-wider">{item.status}</div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
 
 export default DiagnosticsCenter;

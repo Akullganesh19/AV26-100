@@ -9,9 +9,39 @@ from app.services.clinical_service import ClinicalService
 from app.schemas.clinical import HeartScreeningInput, DiabetesScreeningInput, ParkinsonsScreeningInput
 from app.api.deps import limiter, get_db
 from app.models.audit_log import PredictionAuditLog
+from sqlalchemy import select, desc
 
 router = APIRouter()
 clinical_service = ClinicalService()
+
+@router.get("/history", response_model=List[Dict[str, Any]])
+async def get_clinical_history(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: Any = Depends(deps.get_current_user)
+) -> Any:
+    """
+    Retrieve the tactical screening history for the authenticated officer.
+    """
+    query = (
+        select(PredictionAuditLog)
+        .where(PredictionAuditLog.user_id == current_user.id)
+        .order_by(desc(PredictionAuditLog.timestamp))
+        .limit(20)
+    )
+    result = await db.execute(query)
+    logs = result.scalars().all()
+
+    return [
+        {
+            "id": str(log.id),
+            "endpoint": log.endpoint,
+            "risk_score": log.risk_score,
+            "status": log.status,
+            "timestamp": log.timestamp.isoformat(),
+        }
+        for log in logs
+    ]
 
 from fastapi import BackgroundTasks
 from app.services.alert_service import AlertService
