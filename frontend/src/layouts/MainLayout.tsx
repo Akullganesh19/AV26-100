@@ -13,12 +13,54 @@ import {
   Map as MapIcon
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
+import { useQueryClient } from '@tanstack/react-query';
+import axios from 'axios';
 
 const MainLayout: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { logout, user } = useAuthStore();
+  const { logout, user, token } = useAuthStore();
   const [isSidebarOpen, setSidebarOpen] = React.useState(true);
+  const queryClient = useQueryClient();
+
+  // 🛸 ORACLE: Predictive Route Prefetching Engine
+  // Detects user intent (hover/focus) and prefetches critical data
+  // before the user clicks, resulting in zero-latency perceived load times.
+  const prefetchRouteData = (path: string) => {
+    const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
+
+    // Helper to include auth token in prefetch requests, matching client config
+    const getConfig = () => {
+      const currentToken = useAuthStore.getState().token;
+      return currentToken ? { headers: { Authorization: `Bearer ${currentToken}` } } : {};
+    };
+
+    if (path === '/') {
+      queryClient.prefetchQuery({
+        queryKey: ['dashboard-stats'],
+        queryFn: async () => (await axios.get(`${baseUrl}/districts/stats`, getConfig())).data,
+        staleTime: 60000
+      });
+    } else if (path === '/map') {
+      queryClient.prefetchQuery({
+        queryKey: ['choropleth-data', false, null],
+        queryFn: async () => (await axios.get(`${baseUrl}/districts`, getConfig())).data,
+        staleTime: 60000
+      });
+    } else if (path === '/alerts') {
+      queryClient.prefetchQuery({
+        queryKey: ['tactical-alerts', false, null],
+        queryFn: async () => (await axios.get(`${baseUrl}/alerts`, getConfig())).data,
+        staleTime: 60000
+      });
+    } else if (path === '/simulations') {
+      queryClient.prefetchQuery({
+        queryKey: ['sim-scenarios'],
+        queryFn: async () => (await axios.get(`${baseUrl}/scenarios/`, getConfig())).data,
+        staleTime: 60000
+      });
+    }
+  };
 
   const navItems = [
     { path: '/', label: 'Command Center', icon: LayoutDashboard },
@@ -62,6 +104,8 @@ const MainLayout: React.FC = () => {
               <Link
                 key={item.path}
                 to={item.path}
+                onMouseEnter={() => prefetchRouteData(item.path)}
+                onFocus={() => prefetchRouteData(item.path)}
                 className={`flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-200 group ${
                   isActive 
                     ? 'bg-brand-primary/10 text-brand-primary border border-brand-primary/20 shadow-[0_0_15px_rgba(30,144,255,0.1)]' 
