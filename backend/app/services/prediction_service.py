@@ -79,6 +79,7 @@ def load_artifacts() -> dict:
 
 # Module-level state — populated by lifespan, shared across all requests
 ml_state: dict = {}
+background_tasks = set()
 
 
 class PredictionService:
@@ -185,12 +186,14 @@ class PredictionService:
 
         # Step 7: Trigger Asynchronous Alerts if high risk
         if risk_tier in [RiskTier.HIGH, RiskTier.CRITICAL]:
-            asyncio.create_task(send_alert_notification(
+            task = asyncio.create_task(send_alert_notification(
                 alert_id=str(prediction_id),
                 district_name="Jurisdiction Monitor", # In production, fetch from District model
                 disease=disease,
                 risk_score=float(raw_score)
             ))
+            background_tasks.add(task)
+            task.add_done_callback(background_tasks.discard)
 
         return PredictionResponse(
             prediction_id=prediction_id,
@@ -306,8 +309,8 @@ class PredictionService:
             .returning(Prediction.id)
         )
         result = await self.db.execute(stmt)
-        await self.db.commit()
         row = result.fetchone()
+        await self.db.commit()
         if row is None:
             # Row already existed — fetch the existing id
             existing = await self.db.execute(
