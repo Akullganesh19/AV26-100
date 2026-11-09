@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api import deps
 from app.services.clinical_service import ClinicalService
 from app.schemas.clinical import HeartScreeningInput, DiabetesScreeningInput, ParkinsonsScreeningInput
-from app.api.deps import limiter, get_db
+from app.api.deps import limiter, get_db, get_current_user
 from app.models.audit_log import PredictionAuditLog
 from sqlalchemy import select, desc
 
@@ -18,7 +18,7 @@ clinical_service = ClinicalService()
 async def get_clinical_history(
     request: Request,
     db: AsyncSession = Depends(get_db),
-    current_user: Any = Depends(deps.get_current_user)
+    current_user: Any = Depends(get_current_user)
 ) -> Any:
     """
     Retrieve the tactical screening history for the authenticated officer.
@@ -80,7 +80,7 @@ async def diagnose_heart(
     data: HeartScreeningInput,
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
-    current_user: Any = Depends(deps.get_current_user)
+    current_user: Any = Depends(get_current_user)
 ) -> Any:
     """
     Tactical diagnosis for Heart Disease using clinical metrics.
@@ -111,7 +111,7 @@ async def diagnose_diabetes(
     data: DiabetesScreeningInput,
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
-    current_user: Any = Depends(deps.get_current_user)
+    current_user: Any = Depends(get_current_user)
 ) -> Any:
     """
     Tactical diagnosis for Diabetes.
@@ -140,7 +140,7 @@ async def diagnose_parkinsons(
     data: ParkinsonsScreeningInput,
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
-    current_user: Any = Depends(deps.get_current_user)
+    current_user: Any = Depends(get_current_user)
 ) -> Any:
     """
     Tactical diagnosis for Parkinson's Disease.
@@ -167,7 +167,7 @@ async def generate_screening_report(
     request: Request,
     results: List[Dict[str, Any]],
     district: str = "Central Command",
-    current_user: Any = Depends(deps.get_current_user)
+    current_user: Any = Depends(get_current_user)
 ) -> Any:
     """
     Generate a professional tactical PDF report for a set of screening results.
