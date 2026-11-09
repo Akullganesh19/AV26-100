@@ -1,3 +1,3 @@
-## 2025-05-15 - Concurrent Batch Inference for Jurisdiction Matrix
-**Learning:** Sequential async calls in a loop (O(N)) for compute-intensive inference create significant bottlenecks, especially when each call involves I/O and CPU work. Batching these with `asyncio.gather` and a concurrency-limiting semaphore dramatically improves performance.
-**Action:** Always prefer `asyncio.gather` with a semaphore for processing multiple independent entities in API routes.
+## 2024-05-23 - Batching SQLAlchemy Aggregate Queries
+**Learning:** Independent scalar aggregate queries across different tables (e.g., `func.count()`, `func.sum()`) can be batched into a single database roundtrip using `select(total_sub, pop_sub, alerts_sub)` where each subquery is built with `select(...).scalar_subquery().label("name")`. This prevents unnecessary sequential network overhead in async FastAPI endpoints.
+**Action:** Always look for sequential independent scalar queries in route handlers (like dashboard stats) and batch them using `.scalar_subquery()` to reduce database roundtrips. Ensure index-based access (`row[0]`) is used to extract the results safely.
