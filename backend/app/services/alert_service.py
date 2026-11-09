@@ -4,10 +4,12 @@ from datetime import datetime, timedelta
 from typing import Optional, List
 from sqlalchemy import select, func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
+import asyncio
 from app.models.alert import Alert, AlertStatus, AlertType
 from app.models.audit_log import PredictionAuditLog
 from app.models.prediction import Prediction
 from app.core.config import settings
+from app.services.synapse_bridge import dispatch_targeted_alerts, background_tasks
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +64,10 @@ class AlertService:
                     db.add(new_alert)
                     await db.commit()
                     logger.info(f"TACTICAL ALERT: Clinical cluster detected in {district_id} ({disease})")
+
+                    task = asyncio.create_task(dispatch_targeted_alerts(district_id, str(new_alert.id), disease, 0.88))
+                    background_tasks.add(task)
+                    task.add_done_callback(background_tasks.discard)
         
         except Exception as e:
             logger.error(
@@ -87,6 +93,10 @@ class AlertService:
             )
             db.add(new_alert)
             await db.commit()
+
+            task = asyncio.create_task(dispatch_targeted_alerts(str(prediction.district_id), str(new_alert.id), prediction.disease, float(prediction.risk_score)))
+            background_tasks.add(task)
+            task.add_done_callback(background_tasks.discard)
 
     @staticmethod
     async def acknowledge_alert(db: AsyncSession, alert_id: str, user_id: str):
