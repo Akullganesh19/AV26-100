@@ -306,8 +306,8 @@ class PredictionService:
             .returning(Prediction.id)
         )
         result = await self.db.execute(stmt)
-        await self.db.commit()
         row = result.fetchone()
+        await self.db.commit()
         if row is None:
             # Row already existed — fetch the existing id
             existing = await self.db.execute(
