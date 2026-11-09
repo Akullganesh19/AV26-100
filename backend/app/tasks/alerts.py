@@ -17,17 +17,14 @@ async def send_alert_notification(alert_id: str, district_name: str, disease: st
         }
     )
     
-    try:
-        # Simulate third-party integration (e.g., SendGrid/Twilio)
-        # Using settings.SENDGRID_API_KEY
-        logger.info(f"CRITICAL ALERT: Outbreak risk detected in {district_name} ({disease}). Score: {risk_score}")
-        
-        # Here you would implement real SendGrid logic
-        # if settings.SENDGRID_API_KEY:
-        #     ... 
-        
-        return {"status": "dispatched", "alert_id": alert_id}
-        
-    except Exception as exc:
-        logger.error(f"Dispatch failed for {alert_id}: {str(exc)}")
-        return {"status": "failed", "error": str(exc)}
+    # Simulate third-party integration (e.g., SendGrid/Twilio)
+    # Using settings.SENDGRID_API_KEY
+    logger.info(f"CRITICAL ALERT: Outbreak risk detected in {district_name} ({disease}). Score: {risk_score}")
+
+    # Here you would implement real SendGrid logic
+    # if settings.SENDGRID_API_KEY:
+    #     ...
+
+    # We do not catch Exception here so that failures can bubble up to the caller
+    # for proper retry logic.
+    return {"status": "dispatched", "alert_id": alert_id}

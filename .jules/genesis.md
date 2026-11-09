@@ -1,0 +1,6 @@
+## 2024-05-24 — Resilient Alert Dispatch and Background Task References
+**Failure point found:** Background tasks for critical alerts (e.g. `send_alert_notification`) were missing retry logic on transient failure, caught errors silently rather than self-healing, and were fire-and-forget `asyncio.create_task` calls without strong references which are susceptible to premature garbage collection.
+**Why it existed:** Simplistic fire-and-forget async operations prioritized speed without accounting for Python's GC behavior with unawaited tasks or network unreliability.
+**Recovery built:** Added a `safe_alert_dispatch` wrapper implementing auto-retry with exponential backoff. Swapped fire-and-forget for a global `background_tasks = set()` referencing to protect tasks from GC, attaching a cleanup callback.
+**Blast radius before:** Any transient API error in the critical alert dispatch would fail silently, permanently losing the alert for high-risk outbreaks without developer visibility (except a log). High load could result in Python garbage collecting tasks before completion.
+**Watch for:** Other fire-and-forget `asyncio.create_task` uses missing strong references or transient retry wrapping, specifically in background event emitters or integrations.
