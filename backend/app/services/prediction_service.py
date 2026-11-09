@@ -80,6 +80,25 @@ def load_artifacts() -> dict:
 # Module-level state — populated by lifespan, shared across all requests
 ml_state: dict = {}
 
+# Maintain strong references to background tasks to prevent premature garbage collection
+background_tasks = set()
+
+async def safe_alert_dispatch(alert_id: str, district_name: str, disease: str, risk_score: float, max_attempts: int = 3):
+    """
+    Auto-Retry with Exponential Backoff for sending alerts.
+    """
+    for attempt in range(1, max_attempts + 1):
+        try:
+            return await send_alert_notification(alert_id, district_name, disease, risk_score)
+        except Exception as err:
+            if attempt == max_attempts:
+                logging.error(f"Failed to send alert {alert_id} after {max_attempts} attempts: {err}")
+                raise err
+            # 100ms -> 200ms
+            backoff = 0.1 * (2 ** (attempt - 1))
+            logging.warning(f"Alert {alert_id} dispatch failed (attempt {attempt}), retrying in {backoff}s...")
+            await asyncio.sleep(backoff)
+
 
 class PredictionService:
     """
@@ -185,12 +204,14 @@ class PredictionService:
 
         # Step 7: Trigger Asynchronous Alerts if high risk
         if risk_tier in [RiskTier.HIGH, RiskTier.CRITICAL]:
-            asyncio.create_task(send_alert_notification(
+            task = asyncio.create_task(safe_alert_dispatch(
                 alert_id=str(prediction_id),
                 district_name="Jurisdiction Monitor", # In production, fetch from District model
                 disease=disease,
                 risk_score=float(raw_score)
             ))
+            background_tasks.add(task)
+            task.add_done_callback(background_tasks.discard)
 
         return PredictionResponse(
             prediction_id=prediction_id,
