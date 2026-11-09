@@ -1,0 +1,4 @@
+## 2024-11-09 - Authorization bypass due to swallowed HTTPException in token revocation check
+**Vulnerability:** The Redis token revocation check in `get_current_user` raised an `HTTPException` (401) when a token was revoked, but the surrounding `try...except Exception` block caught and swallowed this exception, allowing the revoked token to proceed to standard validation.
+**Learning:** In FastAPI authentication dependencies, using broad `except Exception:` blocks around security-critical logic can inadvertently catch and swallow expected security exceptions (like `HTTPException`), resulting in authorization bypass.
+**Prevention:** Always catch and explicitly re-raise `HTTPException` before falling back to a broad `except Exception:` block, or use more specific exceptions for the expected failure cases.
