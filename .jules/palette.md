@@ -1,0 +1,3 @@
+## 2024-03-24 - Conditional ARIA Labels on Collapsible Menus
+**Learning:** When text labels for buttons or links are visually hidden in collapsible sidebars, they must include an `aria-label` conditionally (`{!isOpen ? 'Label' : undefined}`) rather than statically. This prevents WCAG 2.5.3 (Label in Name) violations and redundant screen reader announcements when the visible text is present. Adding a conditional `title` attribute also provides a native tooltip for sighted users.
+**Action:** Always apply `aria-label` and `title` conditionally to interactive elements that hide their text content when collapsed.
