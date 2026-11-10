@@ -86,18 +86,25 @@ export const CalculatorSection = () => {
                   { id: 'development', label: 'Only Development' },
                   { id: 'both', label: 'Design + Development' }
                 ].map((opt) => (
-                  <button
+                  <label
                     key={opt.id}
-                    onClick={() => setServiceType(opt.id as any)}
                     className="flex items-center gap-3 group cursor-pointer"
                   >
-                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${serviceType === opt.id ? 'border-[#FF5656]' : 'border-[#333]'}`}>
+                    <input
+                      type="radio"
+                      name="serviceType"
+                      value={opt.id}
+                      checked={serviceType === opt.id}
+                      onChange={() => setServiceType(opt.id as any)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors border-[#333] peer-checked:border-[#FF5656] peer-focus-visible:ring-2 peer-focus-visible:ring-[#FF5656] peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-[#0D0D0D]">
                       {serviceType === opt.id && <div className="w-2 h-2 rounded-full bg-[#FF5656]" />}
                     </div>
                     <span className={`text-sm transition-colors ${serviceType === opt.id ? 'text-white' : 'text-[#666]'}`}>
                       {opt.label}
                     </span>
-                  </button>
+                  </label>
                 ))}
               </div>
             </div>
@@ -127,15 +134,15 @@ export const CalculatorSection = () => {
                 ].map((addon) => (
                   <label key={addon.id} className="flex items-center justify-between group cursor-pointer">
                     <div className="flex items-center gap-3">
-                      <div className={`w-5 h-5 border-2 rounded flex items-center justify-center transition-all ${addon.state ? 'bg-[#FF5656] border-[#FF5656]' : 'border-[#333]'}`}>
-                        {addon.state && <Check size={14} strokeWidth={4} className="text-white" />}
-                      </div>
                       <input 
                         type="checkbox" 
-                        className="hidden" 
+                        className="sr-only peer"
                         checked={addon.state} 
                         onChange={() => addon.set(!addon.state)} 
                       />
+                      <div className="w-5 h-5 border-2 rounded flex items-center justify-center transition-all border-[#333] peer-checked:bg-[#FF5656] peer-checked:border-[#FF5656] peer-focus-visible:ring-2 peer-focus-visible:ring-[#FF5656] peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-[#0D0D0D]">
+                        {addon.state && <Check size={14} strokeWidth={4} className="text-white" />}
+                      </div>
                       <span className={`text-sm transition-colors ${addon.state ? 'text-white' : 'text-[#666]'}`}>{addon.label}</span>
                     </div>
                     <span className="text-xs font-bold text-[#FF5656]">{addon.price}</span>
@@ -153,13 +160,20 @@ export const CalculatorSection = () => {
                   { id: 'fast', label: 'Within 14 Days', price: '+$25/page' },
                   { id: 'regular', label: 'Regular Speed', price: 'No extra cost' }
                 ].map((opt) => (
-                  <button
+                  <label
                     key={opt.id}
-                    onClick={() => setTimeline(opt.id as any)}
                     className="flex items-center justify-between group cursor-pointer w-full text-left"
                   >
                     <div className="flex items-center gap-3">
-                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${timeline === opt.id ? 'border-[#FF5656]' : 'border-[#333]'}`}>
+                      <input
+                        type="radio"
+                        name="timeline"
+                        value={opt.id}
+                        checked={timeline === opt.id}
+                        onChange={() => setTimeline(opt.id as any)}
+                        className="sr-only peer"
+                      />
+                      <div className="w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors border-[#333] peer-checked:border-[#FF5656] peer-focus-visible:ring-2 peer-focus-visible:ring-[#FF5656] peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-[#0D0D0D]">
                         {timeline === opt.id && <div className="w-2 h-2 rounded-full bg-[#FF5656]" />}
                       </div>
                       <span className={`text-sm transition-colors ${timeline === opt.id ? 'text-white' : 'text-[#666]'}`}>
@@ -167,7 +181,7 @@ export const CalculatorSection = () => {
                       </span>
                     </div>
                     <span className={`text-xs font-bold ${opt.id === 'regular' ? 'text-[#444]' : 'text-[#FF5656]'}`}>{opt.price}</span>
-                  </button>
+                  </label>
                 ))}
               </div>
             </div>
