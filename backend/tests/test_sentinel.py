@@ -1,7 +1,6 @@
 import pytest
 from fastapi import HTTPException, status
 from unittest.mock import patch
-
 import asyncio
 from app.api.deps import get_current_user
 
@@ -24,19 +23,14 @@ async def test_get_current_user_revoked_token_raises_exception():
     Proves that a revoked token explicitly raises an HTTPException
     and is not swallowed by the subsequent broad exception handler.
     """
-
     with patch("redis.asyncio.from_url") as mock_from_url:
         with patch("app.api.deps.jwt.get_unverified_claims") as mock_claims:
-
             mock_from_url.return_value = MockRedis(revoked=True)
             mock_claims.return_value = {"jti": "123"}
-
             with pytest.raises(HTTPException) as exc_info:
                 await get_current_user(db=None, token="dummy_token", public_key="dummy_key")
-
             assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
             assert exc_info.value.detail == "Token has been revoked"
-
 
 from app.services.prediction_service import PredictionService
 from unittest.mock import AsyncMock
