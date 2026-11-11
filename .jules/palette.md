@@ -1,0 +1,6 @@
+## 2024-03-24 — Form Accessibility Improvements
+**Found:** Unassociated form labels missing `htmlFor` across login and diagnostic forms. Simulated radio buttons and checkboxes relying on `<button>` or `hidden` inputs, causing them to be removed from the accessibility tree.
+**Why it existed:** Quick implementation of forms without proper usage of `React.useId()` for dynamic IDs. Custom styling for inputs was implemented without ensuring the native input remained accessible.
+**Fix:** Added `React.useId()` to dynamically link `label htmlFor` with `input id` for diagnostic forms and static IDs for the login page. Converted simulated buttons and hidden inputs into native `<input type="radio">` and `<input type="checkbox">` utilizing Tailwind's `sr-only peer` pattern, explicitly placing the `<input>` directly before the custom-styled `<div>` for valid DOM order and applying `peer-focus-visible` to handle keyboard focus.
+**Learning:** Always use `sr-only peer` for custom-styled checkboxes/radios to preserve keyboard/screen reader access, placing the native `<input>` immediately before the styled element. Use `React.useId()` for components mapped in arrays or dynamically generated.
+**Watch for:** Other forms or new components implementing custom controls without native inputs or omitting label associations.
