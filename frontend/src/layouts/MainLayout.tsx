@@ -62,6 +62,8 @@ const MainLayout: React.FC = () => {
               <Link
                 key={item.path}
                 to={item.path}
+                aria-label={!isSidebarOpen ? item.label : undefined}
+                title={!isSidebarOpen ? item.label : undefined}
                 className={`flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-200 group ${
                   isActive 
                     ? 'bg-brand-primary/10 text-brand-primary border border-brand-primary/20 shadow-[0_0_15px_rgba(30,144,255,0.1)]' 
@@ -85,6 +87,8 @@ const MainLayout: React.FC = () => {
           )}
           <button
             onClick={handleLogout}
+            aria-label={!isSidebarOpen ? 'Terminate Session' : undefined}
+            title={!isSidebarOpen ? 'Terminate Session' : undefined}
             className="w-full flex items-center gap-4 px-4 py-3 rounded-xl text-rose-400 hover:bg-rose-500/10 transition-all group"
           >
             <LogOut className="w-5 h-5" />
@@ -100,6 +104,8 @@ const MainLayout: React.FC = () => {
           <div className="flex items-center gap-4">
             <button 
               onClick={() => setSidebarOpen(!isSidebarOpen)}
+              aria-label={isSidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
+              title={isSidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
               className="p-2 rounded-lg hover:bg-white/5 transition-colors"
             >
               <Menu className="w-5 h-5 text-slate-400" />
